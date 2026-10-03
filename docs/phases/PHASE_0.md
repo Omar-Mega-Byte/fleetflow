@@ -1,6 +1,6 @@
 # Phase 0 — foundation and project engineering
 
-**Status: IN_PROGRESS.** Foundation implementation and local verification began on 2026-10-03. [PROJECT_CONTEXT.md](../../PROJECT_CONTEXT.md) remains the living context; decisions and later phases are in [ROADMAP.md](../ROADMAP.md) and [ARCHITECTURE_PLAN.md](../architecture/ARCHITECTURE_PLAN.md).
+**Status: COMPLETE.** Foundation implementation and its acceptance gate passed on 2026-10-03. [PROJECT_CONTEXT.md](../../PROJECT_CONTEXT.md) remains the living context; decisions and later phases are in [ROADMAP.md](../ROADMAP.md) and [ARCHITECTURE_PLAN.md](../architecture/ARCHITECTURE_PLAN.md).
 
 ## Objective and business scope
 
@@ -51,8 +51,8 @@ Record: exact commit/PR if used; Java/Maven/Boot/PostgreSQL versions and pinned 
 ## Execution evidence, 2026-10-03
 
 - Toolchain: Temurin Java 21.0.12; Maven Wrapper 3.9.16 with a checked SHA-512 distribution; Spring Boot 4.1.1; Docker Engine 29.6.2 and Compose v5.3.1. Local `postgres:17.11-alpine3.24` was already cached and Compose started it with `--pull never` from pinned digest `sha256:b0f9560a2de083e2cc7382e75f808c7381a32852a7ec49117deedb300e552b24`. Testcontainers used the same cached PostgreSQL image. It downloaded `testcontainers/ryuk:0.14.0` because that helper tag was absent.
-- `./mvnw.cmd verify --no-transfer-progress` passed with 3 tests, 0 failures, 0 errors, 0 skipped. The tests checked PostgreSQL JDBC and Flyway wiring plus correlation ID safety. The GitHub Actions `verify` job is added; its remote result is pending.
+- `./mvnw.cmd verify --no-transfer-progress` passed with 3 tests, 0 failures, 0 errors, 0 skipped. The tests checked PostgreSQL JDBC and Flyway wiring plus correlation ID safety. The clean-checkout [GitHub Actions verify run](https://github.com/Omar-Mega-Byte/fleetflow/actions/runs/37122294501) passed for commit `947080ac93c637db5816a07e0d1d6c8e90923279`.
 - `docker compose --env-file .env -p fleetflow up -d --no-build --pull never` exited 0 and PostgreSQL became healthy on `127.0.0.1:5433`. `./scripts/Run-Local.ps1` started the local profile. Liveness and readiness both returned HTTP 200; `X-Correlation-ID` was present.
 - Stopping PostgreSQL produced liveness HTTP 200 and readiness HTTP 503. Restarting the same container returned readiness to HTTP 200. `flyway_schema_history` existed with 0 applied migration rows, and no business tables were introduced.
 - A separate startup with bad credentials exited 1 with PostgreSQL authentication failure. A startup pointing to an unavailable port exited 1 with a Flyway connection-refused error. Missing DB configuration also exited 1. There is no real migration to fail in Phase 0; migration validation of a substantive schema is deferred to Phase 1.
-- Local `.env` is ignored and contains a generated password; no secret or local database file is intended for Git. The exact commit, GitHub repository, CI result, clean checkout, and final Git status are recorded when publication and verification finish.
+- The [GitHub repository](https://github.com/Omar-Mega-Byte/fleetflow) was verified `PRIVATE`. Local `.env` is ignored and contains a generated password; `git ls-files .env target` returned no paths. `git diff --cached --check` passed before the initial commit, and `git rev-list --left-right --count origin/main...main` returned `0 0` after its push. The working tree was clean apart from ignored build and local config output.

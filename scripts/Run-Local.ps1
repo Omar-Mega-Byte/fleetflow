@@ -18,6 +18,8 @@ foreach ($key in @('DB_USER', 'DB_PASSWORD', 'DB_URL')) {
     if ([string]::IsNullOrWhiteSpace($values[$key]) -or $values[$key] -like 'replace-*') {
         throw "Set $key in .env before starting FleetFlow."
     }
+}
+foreach ($key in @('DB_USER', 'DB_PASSWORD', 'DB_URL')) {
     $previous[$key] = [Environment]::GetEnvironmentVariable($key, 'Process')
     [Environment]::SetEnvironmentVariable($key, $values[$key], 'Process')
 }
