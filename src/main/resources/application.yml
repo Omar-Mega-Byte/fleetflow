@@ -1,0 +1,47 @@
+spring:
+  application:
+    name: fleetflow
+  datasource:
+    url: ${DB_URL}
+    username: ${DB_USER}
+    password: ${DB_PASSWORD}
+    hikari:
+      connection-timeout: 5000
+      maximum-pool-size: 10
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate.jdbc.time_zone: UTC
+  flyway:
+    enabled: true
+    baseline-on-migrate: false
+    validate-on-migrate: true
+    validate-migration-naming: true
+  sql:
+    init:
+      mode: never
+server:
+  port: ${SERVER_PORT:8080}
+  max-http-request-header-size: 16KB
+  tomcat:
+    max-http-form-post-size: 1MB
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      show-details: never
+      probes:
+        enabled: true
+      group:
+        readiness:
+          include: readinessState,db
+        liveness:
+          include: livenessState
+logging:
+  pattern:
+    level: "%5p [cid:%X{correlationId:-}]"
