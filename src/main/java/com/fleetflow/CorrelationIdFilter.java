@@ -24,6 +24,7 @@ public class CorrelationIdFilter extends OncePerRequestFilter {
         String correlationId = supplied != null && VALID_ID.matcher(supplied).matches()
                 ? supplied : UUID.randomUUID().toString();
         response.setHeader(HEADER, correlationId);
+        request.setAttribute("phase1CorrelationId", correlationId);
         try (MDC.MDCCloseable ignored = MDC.putCloseable("correlationId", correlationId)) {
             filterChain.doFilter(request, response);
         }

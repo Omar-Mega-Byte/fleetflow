@@ -1,6 +1,19 @@
 # FleetFlow domain model plan
 
-Conceptual model only; no table or Java class is specified here. Ownership and lifecycle take precedence over column lists. [State machines](STATE_MACHINES.md) define transitions. The initial ERD should be revised when Phase 1 validates actual query patterns.
+The tables and JPA mappings for actors, customers, merchants, branches, staff memberships, drivers, vehicles, orders and items are being implemented in Phase 1; the remaining concepts below are planned. Ownership and lifecycle take precedence over column lists. [State machines](STATE_MACHINES.md) define later transitions. [V1__core_model.sql](../../src/main/resources/db/migration/V1__core_model.sql) and [ADR 0002](ADR-0002-phase-1-conventions.md) are the precise Phase 1 schema/convention sources.
+
+## Phase 1 physical relationships
+
+```text
+actors 1─0..1 customers 1─* orders 1─* order_items
+   │                          │
+   ├─0..1 drivers 1─0..1 vehicles
+   └─* merchant_staff_memberships *─1 merchant_branches
+                                      │                 │
+merchants 1──────────────────────────*                  └─* orders
+```
+
+The Phase 1 JPA mappings use UUID references across owner packages. `OrderEntity.items` is the only collection mapping; `OrderItemEntity.order` owns its foreign key, and `CascadeType.PERSIST` is limited to order-owned items. The list query returns summaries without item collections, while the detail query fetches items. Order rows contain the historical customer name, merchant/branch names, pickup address/point, delivery address/point, currency and total; item rows contain line description, quantity and amounts. Profile edits do not alter these snapshots. No location, delivery, dispatch or event tables exist yet.
 
 ## Identity and commercial side
 

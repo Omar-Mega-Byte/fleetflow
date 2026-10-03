@@ -1,0 +1,12 @@
+# ADR 0002: Phase 1 persistence and intake conventions
+
+Status: accepted for Phase 1 implementation, 2026-10-03. See [Phase 1](../phases/PHASE_1.md) for its acceptance gate.
+
+- Application services generate UUID primary keys with `UUID.randomUUID()` before persistence. IDs are identifiers, never proof of access.
+- The application writes UTC `Instant` values to PostgreSQL `timestamptz`; an injected `Clock` supplies creation and update times. `created_at` is immutable. `updated_at` changes only on a real profile update. JSON instants use an explicit UTC offset. Tests use a non-UTC JVM zone to check round-tripping.
+- Flyway owns lower-snake-case tables and columns. Constraint/index prefixes are `pk_`, `fk_`, `uk_`, `ck_`, `idx_`. Hibernate remains on `ddl-auto=validate`; no baseline or schema creation. `V1` is forward-only once applied outside disposable local tests.
+- Status codes are strings. Phase 1 creates orders only as `CREATED`; later state changes require a forward migration and guarded commands.
+- An order has one uppercase ISO 4217 currency code. Monetary columns use `numeric(18,2)` and Java `BigDecimal` with scale exactly 2. Quantities are positive integers. Unit amount may be zero; line amount is `unit_amount * quantity` with exact arithmetic, and order total is the exact sum. No rounding is applied to submitted amounts: excess scale and overflow are rejected. This slice accepts submitted prices as untrusted local learning data. Public intake requires a trusted merchant price policy before exposure.
+- Coordinates use WGS84 latitude then longitude, stored as `numeric(9,6)`. JSON numbers must be finite and within latitude `[-90,90]` and longitude `[-180,180]`; values with more than six decimal places are rejected. Address line and city are required. Branch pickup facts and order items are copied into immutable order snapshots.
+- A local/test-only `X-Dev-Actor-Id` selects a fixture actor for order commands and reads. It is spoofable and confers no security. Business controllers do not exist in default/prod profiles; local/test server binding must be loopback. Phase 2 replaces this selector with verified OIDC identity and object authorization.
+- Onboarding is narrow local/test create/read fixture setup. There is no public registration, full catalog or payment handling. A driver may have one vehicle in v1; operational driver states and history begin in Phase 3.

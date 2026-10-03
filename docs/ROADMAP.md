@@ -1,11 +1,11 @@
 # FleetFlow execution roadmap
 
-[PROJECT_CONTEXT.md](../PROJECT_CONTEXT.md) is the primary living context. This roadmap tracks implementation status; the later phases remain plans. Status vocabulary: `NOT_STARTED` means planned only, `IN_PROGRESS` means implementation under way, `BLOCKED` means an identified prerequisite prevents completion, and `COMPLETE` means the phase acceptance gate passed with recorded evidence. As of 2026-10-03 Phase 0 is complete; later phases are `NOT_STARTED`.
+[PROJECT_CONTEXT.md](../PROJECT_CONTEXT.md) is the primary living context. This roadmap tracks implementation status; the later phases remain plans. Status vocabulary: `NOT_STARTED` means planned only, `IN_PROGRESS` means implementation under way, `BLOCKED` means an identified prerequisite prevents completion, and `COMPLETE` means the phase acceptance gate passed with recorded evidence. As of 2026-10-03 Phase 0 is complete and Phase 1 is `IN_PROGRESS`; later phases are `NOT_STARTED`.
 
 | Phase | Status | Purpose |
 | --- | --- | --- |
 | [0](phases/PHASE_0.md) Foundation | COMPLETE | Reproducible Spring, PostgreSQL, Flyway and CI baseline |
-| 1 Core model | NOT_STARTED | Durable actors, branches, drivers and order intake with REST/JPA fundamentals |
+| [1](phases/PHASE_1.md) Core model | IN_PROGRESS | Durable actors, branches, drivers and order intake with REST/JPA fundamentals |
 | 2 Security | NOT_STARTED | OIDC authentication and object-level authorization before exposed business actions |
 | 3 Lifecycles | NOT_STARTED | Explicit order/driver/delivery transitions and durable history |
 | 4 Live location | NOT_STARTED | Redis heartbeat, latest GPS, GEO and stale-driver exclusion |
