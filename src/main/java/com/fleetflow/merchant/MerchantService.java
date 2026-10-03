@@ -217,7 +217,6 @@ class MembershipController {
     @PostMapping
     ResponseEntity<MerchantService.MembershipView> create(@Valid @RequestBody Request request) {
         var created = service.addMembership(request.actorId(), request.branchId());
-        return ResponseEntity.created(java.net.URI.create("/api/v1/merchant-staff-memberships/" + created.id()))
-                .body(created);
+        return ResponseEntity.status(HttpStatus.CREATED).body(created);
     }
 }

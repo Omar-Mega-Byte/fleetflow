@@ -1,6 +1,6 @@
 # FleetFlow
 
-FleetFlow is a Java/Spring learning project for delivery orchestration. **Phase 1 is in progress.** Phase 0 provides the Spring Boot/PostgreSQL/Flyway foundation and health probes. The current Phase 1 branch adds local/test-only fixture onboarding and order create/detail/list endpoints with durable snapshots. There is no production business API, authentication, dispatch, assignment, Redis, Kafka or payment handling. The [roadmap](docs/ROADMAP.md) and [Phase 1 specification](docs/phases/PHASE_1.md) track planned and verified work.
+FleetFlow is a Java/Spring learning project for delivery orchestration. **Phases 0 and 1 are complete.** Phase 0 provides the Spring Boot/PostgreSQL/Flyway foundation and health probes. Phase 1 adds local/test-only fixture onboarding and order create/detail/list endpoints with durable snapshots. There is no production business API, authentication, dispatch, assignment, Redis, Kafka or payment handling. The [roadmap](docs/ROADMAP.md) and [Phase 1 evidence](docs/phases/PHASE_1.md) track verified work and later plans.
 
 ## Prerequisites
 
@@ -59,9 +59,9 @@ The following `/api/v1` controllers exist only with exactly one active profile, 
 | `POST/GET /api/v1/drivers[/{id}]` and `POST/GET /api/v1/vehicles[/{id}]` | Create/read driver and vehicle fixtures; no availability action. |
 | `POST /api/v1/orders` | Create a `CREATED` order for the fixture actor's customer; returns `201` and `Location`. |
 | `GET /api/v1/orders/{id}` | Read one order with immutable snapshots; another fixture actor receives `404`. |
-| `GET /api/v1/orders` | Scoped page; optional `branchId`, `status=CREATED`, inclusive `from`, exclusive `to`, zero-based `page`, `size` 1–100 and `sort=createdAt,desc` or `id,asc/desc`. |
+| `GET /api/v1/orders` | Scoped page; optional `branchId`, `status=CREATED`, inclusive `from`, exclusive `to`, zero-based `page`, `size` 1–100 and `sort=createdAt,asc/desc` or `id,asc/desc`. |
 
-Example sequence after local startup: create an actor, then a customer with its `actorId`; create a merchant and branch with pickup address/coordinates; create an order with the actor ID in the header. Every create returns its new UUID in the response and `Location` header. The following body illustrates order intake; replace the UUIDs with locally created fixture IDs:
+Example sequence after local startup: create an actor, then a customer with its `actorId`; create a merchant and branch with pickup address/coordinates; create an order with the actor ID in the header. These create endpoints return the new UUID and a `Location` header. Staff membership creation returns its UUID in the body without a `Location` header because it has no detail endpoint. The following body illustrates order intake; replace the UUIDs with locally created fixture IDs:
 
 ```json
 {
@@ -78,4 +78,4 @@ All prices use decimal scale 2. The server calculates line and order totals exac
 
 `./mvnw.cmd verify --no-transfer-progress` is the local gate; `.github/workflows/verify.yml` runs the Maven `verify` lifecycle on pushes and pull requests. Test classes use `*Tests`. Phase 1 tests start PostgreSQL through Testcontainers for migration/constraint, service rollback, snapshot, API, query and profile-boundary checks. If they fail with `Could not find a valid Docker environment`, start Docker Desktop and rerun. If the local database port is occupied, change `DB_PORT` and `DB_URL` together.
 
-Use short feature branches and pull requests. Branch protection is not claimed until configured and verified on the GitHub repository. The [Phase 0 evidence](docs/phases/PHASE_0.md) records its completed foundation gate; [Phase 1](docs/phases/PHASE_1.md) remains in progress until its own gate is recorded.
+Use short feature branches and pull requests. Branch protection is not claimed until configured and verified on the GitHub repository. The [Phase 0 evidence](docs/phases/PHASE_0.md) and [Phase 1 evidence](docs/phases/PHASE_1.md) record their completed gates.
