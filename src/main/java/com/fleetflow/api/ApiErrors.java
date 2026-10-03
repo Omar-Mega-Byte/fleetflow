@@ -5,6 +5,7 @@ import java.time.DateTimeException;
 import java.util.List;
 
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.persistence.PersistenceException;
 import org.springframework.context.annotation.Profile;
 import org.springframework.dao.DataAccessException;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -42,13 +43,13 @@ class ApiErrors {
         return reply(HttpStatus.BAD_REQUEST, "INVALID_REQUEST", "Request is malformed or out of range", request, List.of());
     }
 
-    @ExceptionHandler(DataIntegrityViolationException.class)
-    ResponseEntity<Problem> constraint(DataIntegrityViolationException failure, HttpServletRequest request) {
+    @ExceptionHandler({DataIntegrityViolationException.class, org.hibernate.exception.ConstraintViolationException.class})
+    ResponseEntity<Problem> constraint(RuntimeException failure, HttpServletRequest request) {
         return reply(HttpStatus.CONFLICT, "DATA_CONFLICT", "Resource conflicts with stored data", request, List.of());
     }
 
-    @ExceptionHandler(DataAccessException.class)
-    ResponseEntity<Problem> unavailable(DataAccessException failure, HttpServletRequest request) {
+    @ExceptionHandler({DataAccessException.class, PersistenceException.class})
+    ResponseEntity<Problem> unavailable(RuntimeException failure, HttpServletRequest request) {
         return reply(HttpStatus.SERVICE_UNAVAILABLE, "DATABASE_UNAVAILABLE", "Database is unavailable", request, List.of());
     }
 

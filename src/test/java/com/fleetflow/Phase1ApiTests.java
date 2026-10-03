@@ -158,6 +158,10 @@ class Phase1ApiTests {
                         .contentType(MediaType.APPLICATION_JSON).content(body))
                 .andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("INVALID_REQUEST"));
         mvc.perform(post("/api/v1/orders").header("X-Dev-Actor-Id", fixture.actor())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(orderBody(fixture.branch(), "Bread", -1, "12.50")))
+                .andExpect(status().isBadRequest());
+        mvc.perform(post("/api/v1/orders").header("X-Dev-Actor-Id", fixture.actor())
                         .contentType(MediaType.APPLICATION_JSON).content(orderBody(fixture.branch(), "Bread", 1, "12.345")))
                 .andExpect(status().isBadRequest());
         mvc.perform(post("/api/v1/orders").header("X-Dev-Actor-Id", fixture.actor())
@@ -173,6 +177,11 @@ class Phase1ApiTests {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(orderBody(fixture.branch(), "Bread", 1, "1.00")
                                 .replace("30.050000", "91.000000")))
+                .andExpect(status().isBadRequest());
+        mvc.perform(post("/api/v1/orders").header("X-Dev-Actor-Id", fixture.actor())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(orderBody(fixture.branch(), "Bread", 1, "1.00")
+                                .replace("31.240000", "181.000000")))
                 .andExpect(status().isBadRequest());
         mvc.perform(post("/api/v1/orders").header("X-Dev-Actor-Id", fixture.actor())
                         .contentType(MediaType.APPLICATION_JSON)
@@ -258,6 +267,23 @@ class Phase1ApiTests {
                 .hasMessageContaining("ck_orders_total");
         assertThatThrownBy(() -> jdbc.update("update order_items set unit_amount = -1, line_amount = -1 where order_id = ?", orderId))
                 .hasMessageContaining("ck_order_items_unit");
+    }
+
+    @Test
+    void databaseItemFailureReturnsConflictAndRollsBackHttpCommand() throws Exception {
+        Fixture fixture = fixture();
+        int before = jdbc.queryForObject("select count(*) from orders", Integer.class);
+        jdbc.execute("alter table order_items add constraint ck_order_items_test_reject check (description_snapshot <> 'FAIL_DB')");
+        try {
+            mvc.perform(post("/api/v1/orders").header("X-Dev-Actor-Id", fixture.actor())
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(orderBody(fixture.branch(), "FAIL_DB", 1, "1.00")))
+                    .andExpect(status().isConflict())
+                    .andExpect(jsonPath("$.code").value("DATA_CONFLICT"));
+            assertThat(jdbc.queryForObject("select count(*) from orders", Integer.class)).isEqualTo(before);
+        } finally {
+            jdbc.execute("alter table order_items drop constraint ck_order_items_test_reject");
+        }
     }
 
     @Test
