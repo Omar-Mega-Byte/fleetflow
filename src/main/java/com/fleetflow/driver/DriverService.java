@@ -6,6 +6,8 @@ import java.util.UUID;
 
 import com.fleetflow.api.ApiFailure;
 import com.fleetflow.identity.IdentityService;
+import com.fleetflow.identity.Role;
+import com.fleetflow.security.ActorAccess;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
@@ -34,12 +36,15 @@ public class DriverService {
     private final VehicleRepository vehicles;
     private final IdentityService identity;
     private final Clock clock;
+    private final ActorAccess access;
 
-    DriverService(DriverRepository drivers, VehicleRepository vehicles, IdentityService identity, Clock clock) {
+    DriverService(DriverRepository drivers, VehicleRepository vehicles, IdentityService identity, Clock clock,
+                  ActorAccess access) {
         this.drivers = drivers;
         this.vehicles = vehicles;
         this.identity = identity;
         this.clock = clock;
+        this.access = access;
     }
 
     @Transactional
@@ -54,6 +59,14 @@ public class DriverService {
     public DriverView getDriver(UUID id) {
         return view(drivers.findById(id).orElseThrow(() ->
                 new ApiFailure(HttpStatus.NOT_FOUND, "DRIVER_NOT_FOUND", "Driver not found")));
+    }
+
+    @Transactional(readOnly = true)
+    public DriverSelfView me() {
+        UUID actorId = access.require(Role.DRIVER).id();
+        DriverEntity driver = drivers.findByActorId(actorId).orElseThrow(() ->
+                new ApiFailure(HttpStatus.NOT_FOUND, "RESOURCE_NOT_FOUND", "Resource not found"));
+        return new DriverSelfView(driver.id, driver.active, driver.suspended);
     }
 
     @Transactional
@@ -83,6 +96,7 @@ public class DriverService {
     }
 
     public record DriverView(UUID id, UUID actorId, boolean active, boolean suspended) { }
+    public record DriverSelfView(UUID id, boolean active, boolean suspended) { }
     public record VehicleView(UUID id, UUID driverId, String type, int capacity, boolean active) { }
 }
 
@@ -119,7 +133,9 @@ class VehicleEntity {
     }
 }
 
-interface DriverRepository extends JpaRepository<DriverEntity, UUID> { }
+interface DriverRepository extends JpaRepository<DriverEntity, UUID> {
+    java.util.Optional<DriverEntity> findByActorId(UUID actorId);
+}
 interface VehicleRepository extends JpaRepository<VehicleEntity, UUID> { }
 
 @RestController
@@ -153,4 +169,14 @@ class VehicleController {
     }
     @GetMapping("/{id}")
     DriverService.VehicleView get(@PathVariable UUID id) { return service.getVehicle(id); }
+}
+
+@RestController
+@Profile({"local", "test", "default", "prod"})
+@RequestMapping("/api/v1/drivers/me")
+class DriverSelfController {
+    private final DriverService service;
+    DriverSelfController(DriverService service) { this.service = service; }
+    @GetMapping
+    DriverService.DriverSelfView me() { return service.me(); }
 }

@@ -36,6 +36,9 @@ class FleetFlowApplicationTests {
         registry.add("DB_URL", postgres::getJdbcUrl);
         registry.add("DB_USER", postgres::getUsername);
         registry.add("DB_PASSWORD", postgres::getPassword);
+        registry.add("OIDC_ISSUER", () -> TestOidc.ISSUER);
+        registry.add("OIDC_JWKS_URI", TestOidc::jwksUri);
+        registry.add("OIDC_AUDIENCE", () -> TestOidc.AUDIENCE);
     }
 
     @Autowired
@@ -50,8 +53,9 @@ class FleetFlowApplicationTests {
     @Test
     void contextConnectsToPostgresAndValidatesFirstMigration() {
         assertThat(new JdbcTemplate(dataSource).queryForObject("select 1", Integer.class)).isEqualTo(1);
-        assertThat(flyway.info().applied()).hasSize(1);
+        assertThat(flyway.info().applied()).hasSize(2);
         assertThat(flyway.info().applied()[0].getVersion().getVersion()).isEqualTo("1");
+        assertThat(flyway.info().applied()[1].getVersion().getVersion()).isEqualTo("2");
         assertThat(flyway.migrate().migrationsExecuted).isZero();
     }
 

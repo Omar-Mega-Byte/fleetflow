@@ -14,5 +14,8 @@ abstract class ProfileTestDatabase {
         registry.add("DB_URL", postgres::getJdbcUrl);
         registry.add("DB_USER", postgres::getUsername);
         registry.add("DB_PASSWORD", postgres::getPassword);
+        registry.add("OIDC_ISSUER", () -> TestOidc.ISSUER);
+        registry.add("OIDC_JWKS_URI", TestOidc::jwksUri);
+        registry.add("OIDC_AUDIENCE", () -> TestOidc.AUDIENCE);
     }
 }

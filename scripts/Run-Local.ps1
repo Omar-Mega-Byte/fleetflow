@@ -9,17 +9,17 @@ $values = @{}
 $previous = @{}
 foreach ($line in Get-Content -LiteralPath $envPath) {
     if ($line -match '^\s*(#|$)') { continue }
-    if ($line -notmatch '^(DB_NAME|DB_USER|DB_PASSWORD|DB_PORT|DB_URL)=(.*)$') {
+    if ($line -notmatch '^(DB_NAME|DB_USER|DB_PASSWORD|DB_PORT|DB_URL|OIDC_PORT|OIDC_ISSUER|OIDC_JWKS_URI|OIDC_AUDIENCE|KC_ADMIN_USER|KC_ADMIN_PASSWORD)=(.*)$') {
         throw 'Unsupported .env line. Use the keys shown in .env.example.'
     }
     $values[$Matches[1]] = $Matches[2]
 }
-foreach ($key in @('DB_USER', 'DB_PASSWORD', 'DB_URL')) {
+foreach ($key in @('DB_USER', 'DB_PASSWORD', 'DB_URL', 'OIDC_ISSUER', 'OIDC_JWKS_URI', 'OIDC_AUDIENCE')) {
     if ([string]::IsNullOrWhiteSpace($values[$key]) -or $values[$key] -like 'replace-*') {
         throw "Set $key in .env before starting FleetFlow."
     }
 }
-foreach ($key in @('DB_USER', 'DB_PASSWORD', 'DB_URL')) {
+foreach ($key in @('DB_USER', 'DB_PASSWORD', 'DB_URL', 'OIDC_ISSUER', 'OIDC_JWKS_URI', 'OIDC_AUDIENCE')) {
     $previous[$key] = [Environment]::GetEnvironmentVariable($key, 'Process')
     [Environment]::SetEnvironmentVariable($key, $values[$key], 'Process')
 }

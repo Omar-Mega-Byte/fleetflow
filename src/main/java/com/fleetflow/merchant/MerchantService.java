@@ -7,6 +7,9 @@ import java.util.UUID;
 
 import com.fleetflow.api.ApiFailure;
 import com.fleetflow.identity.IdentityService;
+import com.fleetflow.identity.Role;
+import com.fleetflow.security.ActorAccess;
+import com.fleetflow.order.MerchantOrderReader;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
@@ -20,6 +23,8 @@ import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 import org.springframework.context.annotation.Profile;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
@@ -38,14 +43,19 @@ public class MerchantService {
     private final MembershipRepository memberships;
     private final IdentityService identity;
     private final Clock clock;
+    private final ActorAccess access;
+    private final MerchantOrderReader orderReader;
 
     MerchantService(MerchantRepository merchants, BranchRepository branches,
-                    MembershipRepository memberships, IdentityService identity, Clock clock) {
+                    MembershipRepository memberships, IdentityService identity, Clock clock,
+                    ActorAccess access, MerchantOrderReader orderReader) {
         this.merchants = merchants;
         this.branches = branches;
         this.memberships = memberships;
         this.identity = identity;
         this.clock = clock;
+        this.access = access;
+        this.orderReader = orderReader;
     }
 
     @Transactional
@@ -99,6 +109,18 @@ public class MerchantService {
         MembershipEntity entity = new MembershipEntity(UUID.randomUUID(), actorId, branchId, clock.instant());
         memberships.saveAndFlush(entity);
         return new MembershipView(entity.id, entity.actorId, entity.branchId, entity.active);
+    }
+
+    @Transactional(readOnly = true)
+    public MerchantOrderReader.PageView branchOrders(UUID branchId, int page, int size) {
+        UUID actorId = access.require(Role.MERCHANT).id();
+        if (page < 0 || size < 1 || size > 100) {
+            throw new ApiFailure(HttpStatus.BAD_REQUEST, "INVALID_REQUEST", "Invalid page or size");
+        }
+        if (!memberships.hasActiveScope(actorId, branchId)) {
+            throw new ApiFailure(HttpStatus.NOT_FOUND, "RESOURCE_NOT_FOUND", "Resource not found");
+        }
+        return orderReader.listForBranch(branchId, page, size);
     }
 
     private BranchView view(BranchEntity branch, MerchantEntity merchant) {
@@ -174,7 +196,12 @@ class MembershipEntity {
 
 interface MerchantRepository extends JpaRepository<MerchantEntity, UUID> { }
 interface BranchRepository extends JpaRepository<BranchEntity, UUID> { }
-interface MembershipRepository extends JpaRepository<MembershipEntity, UUID> { }
+interface MembershipRepository extends JpaRepository<MembershipEntity, UUID> {
+    @Query("select count(ms) > 0 from MembershipEntity ms, BranchEntity b, MerchantEntity m "
+            + "where ms.actorId = :actorId and ms.branchId = :branchId and ms.active = true "
+            + "and b.id = ms.branchId and b.active = true and m.id = b.merchantId and m.active = true")
+    boolean hasActiveScope(@Param("actorId") UUID actorId, @Param("branchId") UUID branchId);
+}
 
 @RestController
 @Profile({"local", "test"})
@@ -218,5 +245,19 @@ class MembershipController {
     ResponseEntity<MerchantService.MembershipView> create(@Valid @RequestBody Request request) {
         var created = service.addMembership(request.actorId(), request.branchId());
         return ResponseEntity.status(HttpStatus.CREATED).body(created);
+    }
+}
+
+@RestController
+@Profile({"local", "test", "default", "prod"})
+@RequestMapping("/api/v1/merchant-branches/{branchId}/orders")
+class MerchantBranchOrdersController {
+    private final MerchantService service;
+    MerchantBranchOrdersController(MerchantService service) { this.service = service; }
+    @GetMapping
+    MerchantOrderReader.PageView list(@PathVariable UUID branchId,
+                                      @org.springframework.web.bind.annotation.RequestParam(defaultValue = "0") int page,
+                                      @org.springframework.web.bind.annotation.RequestParam(defaultValue = "20") int size) {
+        return service.branchOrders(branchId, page, size);
     }
 }

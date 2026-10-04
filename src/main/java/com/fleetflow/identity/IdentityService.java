@@ -59,10 +59,10 @@ public class IdentityService {
     }
 
     private ActorView view(ActorEntity actor) {
-        return new ActorView(actor.id, actor.issuer, actor.subject, actor.active);
+        return new ActorView(actor.id, actor.active);
     }
 
-    public record ActorView(UUID id, String issuer, String subject, boolean active) { }
+    public record ActorView(UUID id, boolean active) { }
 }
 
 @Entity
@@ -87,7 +87,9 @@ class ActorEntity {
     }
 }
 
-interface ActorRepository extends JpaRepository<ActorEntity, UUID> { }
+interface ActorRepository extends JpaRepository<ActorEntity, UUID> {
+    java.util.Optional<ActorEntity> findByIssuerAndSubject(String issuer, String subject);
+}
 
 @RestController
 @Profile({"local", "test"})

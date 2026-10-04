@@ -1,0 +1,11 @@
+# ADR 0003: OIDC trust and object scope
+
+Status: accepted for Phase 2 implementation, 2026-10-04.
+
+FleetFlow is an OAuth2 resource server. A configured external issuer and JWKS endpoint validate signed access tokens; exact issuer, `fleetflow-api` audience, subject, expiration and not-before are enforced. The issuer, JWKS URI and audience are required configuration in every active deployment profile. The application does not issue tokens, accept an identity header, or derive application privileges from token role, email, or username claims. A local Keycloak 26.7.4 realm supplies repeatable developer and CI tokens; its development password-grant client does not define a production identity provider policy.
+
+The verified `(iss, sub)` pair selects one active `actors` row. `V2__actor_roles.sql` stores controlled application roles with an allowlist, foreign key and composite primary key. No migration seeds roles. A local operator bootstraps the first ADMIN with `scripts/Bootstrap-LocalAdmin.ps1`; all other role grants and production provisioning are out of band. Every protected request re-reads the actor and roles, so revocation takes effect on the next request. SUPPORT, DISPATCHER and ADMIN grant no implicit access to customer orders or merchant branches.
+
+Customer detail uses `order id AND customer id` in SQL; customer pages include the same customer predicate. A merchant must have an active membership for the exact active branch; only then does a branch-scoped order query run. Driver self lookup uses the authenticated actor ID, never a caller-selected driver ID. Services require the authenticated actor's role before object operations. Foreign and absent specific resources share `404 RESOURCE_NOT_FOUND`. Missing/invalid tokens get `401`, and a valid token without a local active actor or required role gets `403`.
+
+Phase 1 order prices remain client submitted. The order create handler and all fixture administration handlers stay local/test and loopback only. Secured order, branch-order and driver-self reads exist in local/test/default/prod. Health probes remain anonymous with hidden detail. Security filter errors use the same bounded correlated JSON shape as MVC errors. This phase does not add lifecycle commands or a production write path.
