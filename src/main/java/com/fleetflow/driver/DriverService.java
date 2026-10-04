@@ -1,0 +1,156 @@
+package com.fleetflow.driver;
+
+import java.time.Clock;
+import java.time.Instant;
+import java.util.UUID;
+
+import com.fleetflow.api.ApiFailure;
+import com.fleetflow.identity.IdentityService;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.Id;
+import jakarta.persistence.Table;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Size;
+import org.springframework.context.annotation.Profile;
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+
+@Service
+public class DriverService {
+    private final DriverRepository drivers;
+    private final VehicleRepository vehicles;
+    private final IdentityService identity;
+    private final Clock clock;
+
+    DriverService(DriverRepository drivers, VehicleRepository vehicles, IdentityService identity, Clock clock) {
+        this.drivers = drivers;
+        this.vehicles = vehicles;
+        this.identity = identity;
+        this.clock = clock;
+    }
+
+    @Transactional
+    public DriverView createDriver(UUID actorId) {
+        identity.requireActive(actorId);
+        DriverEntity driver = new DriverEntity(UUID.randomUUID(), actorId, clock.instant());
+        drivers.saveAndFlush(driver);
+        return view(driver);
+    }
+
+    @Transactional(readOnly = true)
+    public DriverView getDriver(UUID id) {
+        return view(drivers.findById(id).orElseThrow(() ->
+                new ApiFailure(HttpStatus.NOT_FOUND, "DRIVER_NOT_FOUND", "Driver not found")));
+    }
+
+    @Transactional
+    public VehicleView createVehicle(UUID driverId, String type, int capacity) {
+        DriverEntity driver = drivers.findById(driverId).orElseThrow(() ->
+                new ApiFailure(HttpStatus.NOT_FOUND, "DRIVER_NOT_FOUND", "Driver not found"));
+        if (!driver.active || driver.suspended) {
+            throw new ApiFailure(HttpStatus.CONFLICT, "DRIVER_INACTIVE", "Driver is inactive");
+        }
+        VehicleEntity vehicle = new VehicleEntity(UUID.randomUUID(), driverId, type.strip(), capacity, clock.instant());
+        vehicles.saveAndFlush(vehicle);
+        return view(vehicle);
+    }
+
+    @Transactional(readOnly = true)
+    public VehicleView getVehicle(UUID id) {
+        return view(vehicles.findById(id).orElseThrow(() ->
+                new ApiFailure(HttpStatus.NOT_FOUND, "VEHICLE_NOT_FOUND", "Vehicle not found")));
+    }
+
+    private DriverView view(DriverEntity driver) {
+        return new DriverView(driver.id, driver.actorId, driver.active, driver.suspended);
+    }
+
+    private VehicleView view(VehicleEntity vehicle) {
+        return new VehicleView(vehicle.id, vehicle.driverId, vehicle.type, vehicle.capacity, vehicle.active);
+    }
+
+    public record DriverView(UUID id, UUID actorId, boolean active, boolean suspended) { }
+    public record VehicleView(UUID id, UUID driverId, String type, int capacity, boolean active) { }
+}
+
+@Entity
+@Table(name = "drivers")
+class DriverEntity {
+    @Id UUID id;
+    @Column(name = "actor_id", nullable = false) UUID actorId;
+    @Column(nullable = false) boolean active;
+    @Column(nullable = false) boolean suspended;
+    @Column(name = "created_at", nullable = false) Instant createdAt;
+    @Column(name = "updated_at", nullable = false) Instant updatedAt;
+    protected DriverEntity() { }
+    DriverEntity(UUID id, UUID actorId, Instant now) {
+        this.id = id; this.actorId = actorId; this.active = true; this.suspended = false;
+        this.createdAt = now; this.updatedAt = now;
+    }
+}
+
+@Entity
+@Table(name = "vehicles")
+class VehicleEntity {
+    @Id UUID id;
+    @Column(name = "driver_id", nullable = false) UUID driverId;
+    @Column(nullable = false, length = 32) String type;
+    @Column(nullable = false) int capacity;
+    @Column(nullable = false) boolean active;
+    @Column(name = "created_at", nullable = false) Instant createdAt;
+    @Column(name = "updated_at", nullable = false) Instant updatedAt;
+    protected VehicleEntity() { }
+    VehicleEntity(UUID id, UUID driverId, String type, int capacity, Instant now) {
+        this.id = id; this.driverId = driverId; this.type = type; this.capacity = capacity;
+        this.active = true; this.createdAt = now; this.updatedAt = now;
+    }
+}
+
+interface DriverRepository extends JpaRepository<DriverEntity, UUID> { }
+interface VehicleRepository extends JpaRepository<VehicleEntity, UUID> { }
+
+@RestController
+@Profile({"local", "test"})
+@RequestMapping("/api/v1/drivers")
+class DriverController {
+    private final DriverService service;
+    DriverController(DriverService service) { this.service = service; }
+    record Request(@NotNull UUID actorId) { }
+    @PostMapping
+    ResponseEntity<DriverService.DriverView> create(@Valid @RequestBody Request request) {
+        var created = service.createDriver(request.actorId());
+        return ResponseEntity.created(java.net.URI.create("/api/v1/drivers/" + created.id())).body(created);
+    }
+    @GetMapping("/{id}")
+    DriverService.DriverView get(@PathVariable UUID id) { return service.getDriver(id); }
+}
+
+@RestController
+@Profile({"local", "test"})
+@RequestMapping("/api/v1/vehicles")
+class VehicleController {
+    private final DriverService service;
+    VehicleController(DriverService service) { this.service = service; }
+    record Request(@NotNull UUID driverId, @NotBlank @Size(max = 32) String type,
+                   @Min(1) int capacity) { }
+    @PostMapping
+    ResponseEntity<DriverService.VehicleView> create(@Valid @RequestBody Request request) {
+        var created = service.createVehicle(request.driverId(), request.type(), request.capacity());
+        return ResponseEntity.created(java.net.URI.create("/api/v1/vehicles/" + created.id())).body(created);
+    }
+    @GetMapping("/{id}")
+    DriverService.VehicleView get(@PathVariable UUID id) { return service.getVehicle(id); }
+}

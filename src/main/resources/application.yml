@@ -45,3 +45,5 @@ management:
 logging:
   pattern:
     level: "%5p [cid:%X{correlationId:-}]"
+  level:
+    org.hibernate.orm.jdbc.error: OFF
