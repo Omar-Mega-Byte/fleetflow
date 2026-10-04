@@ -20,8 +20,17 @@ Flyway owns schema changes. `V1__core_model.sql` is immutable; `V2__actor_roles.
 4. Sign in to the local Keycloak Admin Console with the private bootstrap credentials. In realm `fleetflow`, create an enabled development user with username, email, first and last names, a permanent password, and no outstanding required actions. Copy its Keycloak user ID (`sub`), which is a UUID. For the first application administrator run `./scripts/Bootstrap-LocalAdmin.ps1 -Subject <Keycloak-user-id>`. The script inserts an active actor and ADMIN role into local PostgreSQL in one transaction. It does not expose an anonymous bootstrap endpoint. The Keycloak bootstrap administrator is distinct from a FleetFlow ADMIN actor.
 5. Run `./scripts/Run-Local.ps1`. It loads database and OIDC values from `.env`, selects `local`, and binds the HTTP server to `127.0.0.1:8080`. Health liveness and readiness are at `/actuator/health/liveness` and `/actuator/health/readiness`.
 6. Obtain a development access token from Keycloak's `fleetflow-cli` client. For example, in PowerShell, set `$username`, read `$password = Read-Host -AsSecureString`, then call `Invoke-RestMethod -Method Post -Uri "$env:OIDC_ISSUER/protocol/openid-connect/token" -Body @{grant_type='password';client_id='fleetflow-cli';username=$username;password=($password | ConvertFrom-SecureString -AsPlainText)}`. Set `$env:OIDC_ISSUER` from `.env` first or use its literal loopback URL. Keep the returned access token in a temporary shell variable and send `Authorization: Bearer <token>` to the API. The password grant exists only in this local learning realm.
+7. Open [local Swagger UI](http://127.0.0.1:8080/swagger-ui/index.html). Select **Authorize** and paste the access token value; Swagger UI adds the `Bearer` prefix. The token must map to an active FleetFlow actor with the role listed for that operation.
 
 Stop the app, then use `docker compose --env-file .env -p fleetflow --profile oidc down` to stop the services. The database volume persists; `down --volumes` would erase it.
+
+### Swagger and OpenAPI
+
+With the `local` or `test` profile on loopback, Swagger UI at `/swagger-ui/index.html` shows all **18 registered `/api/v1` operations**. The machine-readable contract is at `/v3/api-docs` (JSON) or `/v3/api-docs.yaml`. Operations are grouped by customer, merchant, driver and fixture purpose. Each lists its required role and profile, request and response schema, supported filters, and safe error responses.
+
+The local/test page includes fixture ADMIN routes and `POST /api/v1/orders`. Those routes are absent from default/prod, where the OpenAPI and Swagger endpoints are disabled. Submitted order prices remain untrusted, so the create route is only for loopback learning. The Actuator health probes are operational endpoints documented above; they are intentionally outside the business API contract.
+
+To try a customer read, provision an actor with a `CUSTOMER` role and customer profile, authorize Swagger with that actor's Keycloak token, then open **Customer orders**. To try a fixture route, use a separately provisioned `ADMIN` actor. An ADMIN role alone grants no customer or branch scope. The API never accepts `X-Dev-Actor-Id` as identity. Keep bearer tokens out of screenshots and committed examples.
 
 ### Provisioning and revocation
 
