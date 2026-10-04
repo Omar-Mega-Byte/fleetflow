@@ -1,6 +1,7 @@
 package com.fleetflow;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 import jakarta.servlet.Filter;
@@ -41,6 +42,14 @@ class DefaultProfileRoutesTests extends ProfileTestDatabase {
                 .addFilters(new CorrelationIdFilter(), context.getBean("springSecurityFilterChain", Filter.class))
                 .build()
                 .perform(post("/api/v1/actors").header("Authorization", "Bearer " + TestOidc.token("default-reader")))
+                .andExpect(status().isForbidden());
+        var mvc = MockMvcBuilders.webAppContextSetup(context)
+                .addFilters(new CorrelationIdFilter(), context.getBean("springSecurityFilterChain", Filter.class))
+                .build();
+        mvc.perform(get("/v3/api-docs").header("Authorization", "Bearer " + TestOidc.token("default-reader")))
+                .andExpect(status().isForbidden());
+        mvc.perform(get("/swagger-ui/index.html")
+                        .header("Authorization", "Bearer " + TestOidc.token("default-reader")))
                 .andExpect(status().isForbidden());
     }
 }

@@ -5,6 +5,13 @@ import java.time.Clock;
 import java.time.Instant;
 import java.util.UUID;
 
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.tags.Tag;
+
 import com.fleetflow.api.ApiFailure;
 import com.fleetflow.identity.IdentityService;
 import com.fleetflow.identity.Role;
@@ -134,13 +141,15 @@ public class MerchantService {
                              String name, String pickupLine1, String pickupCity,
                              BigDecimal pickupLatitude, BigDecimal pickupLongitude, boolean active) { }
     public record MembershipView(UUID id, UUID actorId, UUID branchId, boolean active) { }
-    public record BranchRequest(@NotNull UUID merchantId, @NotBlank @Size(max = 120) String name,
-                                @NotBlank @Size(max = 200) String pickupLine1,
-                                @NotBlank @Size(max = 120) String pickupCity,
+    @Schema(description = "Local branch fixture with a fixed pickup address and WGS84 coordinates.")
+    public record BranchRequest(@NotNull UUID merchantId,
+                                @Schema(example = "Downtown branch") @NotBlank @Size(max = 120) String name,
+                                @Schema(example = "12 Market Street") @NotBlank @Size(max = 200) String pickupLine1,
+                                @Schema(example = "Cairo") @NotBlank @Size(max = 120) String pickupCity,
                                 @NotNull @DecimalMin("-90") @DecimalMax("90") @Digits(integer = 3, fraction = 6)
-                                BigDecimal pickupLatitude,
+                                @Schema(example = "30.044420") BigDecimal pickupLatitude,
                                 @NotNull @DecimalMin("-180") @DecimalMax("180") @Digits(integer = 3, fraction = 6)
-                                BigDecimal pickupLongitude) { }
+                                @Schema(example = "31.235712") BigDecimal pickupLongitude) { }
 }
 
 @Entity
@@ -206,42 +215,64 @@ interface MembershipRepository extends JpaRepository<MembershipEntity, UUID> {
 @RestController
 @Profile({"local", "test"})
 @RequestMapping("/api/v1/merchants")
+@Tag(name = "Merchant fixtures", description = "Local/test loopback ADMIN routes for merchants.")
 class MerchantController {
     private final MerchantService service;
     MerchantController(MerchantService service) { this.service = service; }
-    record Request(@NotBlank @Size(max = 120) String name) { }
+    @Schema(name = "CreateMerchantRequest")
+    record Request(@Schema(example = "Example Merchant") @NotBlank @Size(max = 120) String name) { }
     @PostMapping
+    @Operation(summary = "Create merchant fixture", description = "Local/test ADMIN only. Creates an active merchant.")
+    @ApiResponse(responseCode = "201", description = "Merchant created.",
+            content = @Content(mediaType = "application/json", schema = @Schema(implementation = MerchantService.MerchantView.class)))
     ResponseEntity<MerchantService.MerchantView> create(@Valid @RequestBody Request request) {
         var created = service.createMerchant(request.name());
         return ResponseEntity.created(java.net.URI.create("/api/v1/merchants/" + created.id())).body(created);
     }
     @GetMapping("/{id}")
+    @Operation(summary = "Read merchant fixture", description = "Local/test ADMIN only.")
+    @ApiResponse(responseCode = "200", description = "Merchant profile.",
+            content = @Content(mediaType = "application/json", schema = @Schema(implementation = MerchantService.MerchantView.class)))
     MerchantService.MerchantView get(@PathVariable UUID id) { return service.getMerchant(id); }
 }
 
 @RestController
 @Profile({"local", "test"})
 @RequestMapping("/api/v1/merchant-branches")
+@Tag(name = "Branch fixtures", description = "Local/test loopback ADMIN routes for merchant branches.")
 class BranchController {
     private final MerchantService service;
     BranchController(MerchantService service) { this.service = service; }
     @PostMapping
+    @Operation(summary = "Create branch fixture", description = "Local/test ADMIN only. Requires an existing "
+            + "merchant; the pickup address becomes an order snapshot on creation.")
+    @ApiResponse(responseCode = "201", description = "Branch created.",
+            content = @Content(mediaType = "application/json", schema = @Schema(implementation = MerchantService.BranchView.class)))
     ResponseEntity<MerchantService.BranchView> create(@Valid @RequestBody MerchantService.BranchRequest request) {
         var created = service.createBranch(request);
         return ResponseEntity.created(java.net.URI.create("/api/v1/merchant-branches/" + created.id())).body(created);
     }
     @GetMapping("/{id}")
+    @Operation(summary = "Read branch fixture", description = "Local/test ADMIN only.")
+    @ApiResponse(responseCode = "200", description = "Branch and merchant status.",
+            content = @Content(mediaType = "application/json", schema = @Schema(implementation = MerchantService.BranchView.class)))
     MerchantService.BranchView get(@PathVariable UUID id) { return service.getBranch(id); }
 }
 
 @RestController
 @Profile({"local", "test"})
 @RequestMapping("/api/v1/merchant-staff-memberships")
+@Tag(name = "Staff membership fixtures", description = "Local/test loopback ADMIN routes for branch staff membership.")
 class MembershipController {
     private final MerchantService service;
     MembershipController(MerchantService service) { this.service = service; }
+    @Schema(name = "CreateStaffMembershipRequest", description = "Links an existing active actor to an exact branch.")
     record Request(@NotNull UUID actorId, @NotNull UUID branchId) { }
     @PostMapping
+    @Operation(summary = "Create branch staff membership", description = "Local/test ADMIN only. A MERCHANT role "
+            + "is provisioned separately; both that role and current active exact-branch membership are needed to read orders.")
+    @ApiResponse(responseCode = "201", description = "Active membership created.",
+            content = @Content(mediaType = "application/json", schema = @Schema(implementation = MerchantService.MembershipView.class)))
     ResponseEntity<MerchantService.MembershipView> create(@Valid @RequestBody Request request) {
         var created = service.addMembership(request.actorId(), request.branchId());
         return ResponseEntity.status(HttpStatus.CREATED).body(created);
@@ -251,12 +282,20 @@ class MembershipController {
 @RestController
 @Profile({"local", "test", "default", "prod"})
 @RequestMapping("/api/v1/merchant-branches/{branchId}/orders")
+@Tag(name = "Merchant branch orders", description = "MERCHANT role and current active membership for the exact branch.")
 class MerchantBranchOrdersController {
     private final MerchantService service;
     MerchantBranchOrdersController(MerchantService service) { this.service = service; }
     @GetMapping
-    MerchantOrderReader.PageView list(@PathVariable UUID branchId,
+    @Operation(summary = "List orders for my branch", description = "Returns narrow order summaries only when "
+            + "the actor has active membership for this exact active branch. Other and absent branches both return 404.")
+    @ApiResponse(responseCode = "200", description = "Branch-scoped page of order summaries.",
+            content = @Content(mediaType = "application/json", schema = @Schema(implementation = MerchantOrderReader.PageView.class)))
+    MerchantOrderReader.PageView list(@Parameter(description = "Exact branch ID to which the actor belongs.")
+                                      @PathVariable UUID branchId,
+                                      @Parameter(description = "Zero-based page index, minimum 0.")
                                       @org.springframework.web.bind.annotation.RequestParam(defaultValue = "0") int page,
+                                      @Parameter(description = "Page size from 1 to 100.")
                                       @org.springframework.web.bind.annotation.RequestParam(defaultValue = "20") int size) {
         return service.branchOrders(branchId, page, size);
     }

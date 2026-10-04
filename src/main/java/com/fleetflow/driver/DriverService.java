@@ -4,6 +4,12 @@ import java.time.Clock;
 import java.time.Instant;
 import java.util.UUID;
 
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.tags.Tag;
+
 import com.fleetflow.api.ApiFailure;
 import com.fleetflow.identity.IdentityService;
 import com.fleetflow.identity.Role;
@@ -141,42 +147,67 @@ interface VehicleRepository extends JpaRepository<VehicleEntity, UUID> { }
 @RestController
 @Profile({"local", "test"})
 @RequestMapping("/api/v1/drivers")
+@Tag(name = "Driver fixtures", description = "Local/test loopback ADMIN routes for driver profiles.")
 class DriverController {
     private final DriverService service;
     DriverController(DriverService service) { this.service = service; }
+    @Schema(name = "CreateDriverRequest", description = "Creates a driver profile for an existing active actor.")
     record Request(@NotNull UUID actorId) { }
     @PostMapping
+    @Operation(summary = "Create driver fixture", description = "Local/test ADMIN only. The DRIVER role is "
+            + "provisioned separately; this route does not assign it.")
+    @ApiResponse(responseCode = "201", description = "Driver profile created.",
+            content = @Content(mediaType = "application/json", schema = @Schema(implementation = DriverService.DriverView.class)))
     ResponseEntity<DriverService.DriverView> create(@Valid @RequestBody Request request) {
         var created = service.createDriver(request.actorId());
         return ResponseEntity.created(java.net.URI.create("/api/v1/drivers/" + created.id())).body(created);
     }
     @GetMapping("/{id}")
+    @Operation(summary = "Read driver fixture", description = "Local/test ADMIN only. This administrative "
+            + "lookup is not available to a DRIVER actor.")
+    @ApiResponse(responseCode = "200", description = "Driver profile and active/suspended status.",
+            content = @Content(mediaType = "application/json", schema = @Schema(implementation = DriverService.DriverView.class)))
     DriverService.DriverView get(@PathVariable UUID id) { return service.getDriver(id); }
 }
 
 @RestController
 @Profile({"local", "test"})
 @RequestMapping("/api/v1/vehicles")
+@Tag(name = "Vehicle fixtures", description = "Local/test loopback ADMIN routes for driver vehicles.")
 class VehicleController {
     private final DriverService service;
     VehicleController(DriverService service) { this.service = service; }
-    record Request(@NotNull UUID driverId, @NotBlank @Size(max = 32) String type,
-                   @Min(1) int capacity) { }
+    @Schema(name = "CreateVehicleRequest", description = "Vehicle for an existing active, unsuspended driver.")
+    record Request(@NotNull UUID driverId,
+                   @Schema(example = "BIKE") @NotBlank @Size(max = 32) String type,
+                   @Schema(example = "1") @Min(1) int capacity) { }
     @PostMapping
+    @Operation(summary = "Create vehicle fixture", description = "Local/test ADMIN only. The referenced "
+            + "driver must exist, be active, and not be suspended.")
+    @ApiResponse(responseCode = "201", description = "Vehicle created.",
+            content = @Content(mediaType = "application/json", schema = @Schema(implementation = DriverService.VehicleView.class)))
     ResponseEntity<DriverService.VehicleView> create(@Valid @RequestBody Request request) {
         var created = service.createVehicle(request.driverId(), request.type(), request.capacity());
         return ResponseEntity.created(java.net.URI.create("/api/v1/vehicles/" + created.id())).body(created);
     }
     @GetMapping("/{id}")
+    @Operation(summary = "Read vehicle fixture", description = "Local/test ADMIN only.")
+    @ApiResponse(responseCode = "200", description = "Vehicle and active status.",
+            content = @Content(mediaType = "application/json", schema = @Schema(implementation = DriverService.VehicleView.class)))
     DriverService.VehicleView get(@PathVariable UUID id) { return service.getVehicle(id); }
 }
 
 @RestController
 @Profile({"local", "test", "default", "prod"})
 @RequestMapping("/api/v1/drivers/me")
+@Tag(name = "Driver self", description = "DRIVER role; the profile is selected from the authenticated actor.")
 class DriverSelfController {
     private final DriverService service;
     DriverSelfController(DriverService service) { this.service = service; }
     @GetMapping
+    @Operation(summary = "Read my driver status", description = "Returns only the caller's own minimal driver "
+            + "status. A suspended driver may read this status; no driver lifecycle action is exposed here.")
+    @ApiResponse(responseCode = "200", description = "My active and suspended flags.",
+            content = @Content(mediaType = "application/json", schema = @Schema(implementation = DriverService.DriverSelfView.class)))
     DriverService.DriverSelfView me() { return service.me(); }
 }

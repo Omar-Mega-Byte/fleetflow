@@ -30,6 +30,10 @@ public class SecurityConfiguration {
                 .authorizeHttpRequests(auth -> {
                     auth.requestMatchers("/actuator/health", "/actuator/health/**", "/actuator/info", "/error")
                             .permitAll();
+                    if (localFixtures) {
+                        auth.requestMatchers("/v3/api-docs", "/v3/api-docs/**",
+                                "/swagger-ui.html", "/swagger-ui/**").permitAll();
+                    }
                     auth.requestMatchers(HttpMethod.GET, "/api/v1/orders", "/api/v1/orders/*")
                             .hasRole("CUSTOMER");
                     auth.requestMatchers(HttpMethod.GET, "/api/v1/merchant-branches/*/orders")
