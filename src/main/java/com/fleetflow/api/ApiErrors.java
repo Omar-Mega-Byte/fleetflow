@@ -10,6 +10,7 @@ import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.transaction.CannotCreateTransactionException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -42,7 +43,8 @@ class ApiErrors {
         return reply(HttpStatus.CONFLICT, "DATA_CONFLICT", "Resource conflicts with stored data", request, List.of());
     }
 
-    @ExceptionHandler({DataAccessException.class, PersistenceException.class})
+    @ExceptionHandler({DataAccessException.class, PersistenceException.class,
+            CannotCreateTransactionException.class})
     ResponseEntity<ApiProblem> unavailable(RuntimeException failure, HttpServletRequest request) {
         return reply(HttpStatus.SERVICE_UNAVAILABLE, "DATABASE_UNAVAILABLE", "Database is unavailable", request, List.of());
     }

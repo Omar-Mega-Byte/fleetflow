@@ -15,6 +15,7 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
+import org.springframework.transaction.CannotCreateTransactionException;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 public class ActorAuthenticationFilter extends OncePerRequestFilter {
@@ -50,7 +51,7 @@ public class ActorAuthenticationFilter extends OncePerRequestFilter {
                 SecurityContextHolder.clearContext();
                 errors.write(request, response, 403, "FORBIDDEN", "Access denied");
                 return;
-            } catch (DataAccessException | PersistenceException unavailable) {
+            } catch (DataAccessException | PersistenceException | CannotCreateTransactionException unavailable) {
                 SecurityContextHolder.clearContext();
                 errors.write(request, response, 503, "DATABASE_UNAVAILABLE", "Database is unavailable");
                 return;
