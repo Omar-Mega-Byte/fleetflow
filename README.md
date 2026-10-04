@@ -1,6 +1,6 @@
 # FleetFlow
 
-FleetFlow is a Java/Spring learning backend for delivery orchestration. Phases 0 and 1 are complete. Phase 2 adds OIDC bearer authentication, local actor roles, and object-scoped reads; its completion evidence is in [Phase 2](docs/phases/PHASE_2.md). Dispatch, assignment, live location, payments, and trusted pricing are not implemented.
+FleetFlow is a Java/Spring learning backend for delivery orchestration. Phases 0, 1, and 2 are complete. Phase 2 adds OIDC bearer authentication, local actor roles, and object-scoped reads; its completion evidence is in [Phase 2](docs/phases/PHASE_2.md). Dispatch, assignment, live location, payments, and trusted pricing are not implemented.
 
 **Order prices are still submitted by the caller.** `POST /api/v1/orders` is available only with the `local` or `test` profile on a loopback server. Authentication does not make that write suitable for public production use. The `default` and `prod` profiles register only the secured read routes below.
 

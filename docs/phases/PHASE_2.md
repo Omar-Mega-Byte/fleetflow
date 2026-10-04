@@ -1,6 +1,6 @@
 # Phase 2 — OIDC authentication and object-level authorization
 
-**Status: IN_PROGRESS.** The implementation and local acceptance tests pass; the pull request and final CI gate are pending. This file began as the Phase 2 specification. Its starting-point and implementation-sequence sections preserve the pre-change plan; the completion evidence below records observed behavior. Phase 2 does not establish general production readiness. [Phase 1](PHASE_1.md) completed the local/test core model. The [execution roadmap](../ROADMAP.md) places security before [Phase 3 lifecycles](../ROADMAP.md#phase-3--explicit-lifecycles). The older phase numbering in [PROJECT_CONTEXT.md](../../PROJECT_CONTEXT.md) is an outline; the execution roadmap controls delivery order.
+**Status: COMPLETE.** The implementation, local acceptance tests, signed-provider smoke, and CI gate passed. This file began as the Phase 2 specification. Its starting-point and implementation-sequence sections preserve the pre-change plan; the completion evidence below records observed behavior. Phase 2 does not establish general production readiness. [Phase 1](PHASE_1.md) completed the local/test core model. The [execution roadmap](../ROADMAP.md) places security before [Phase 3 lifecycles](../ROADMAP.md#phase-3--explicit-lifecycles). The older phase numbering in [PROJECT_CONTEXT.md](../../PROJECT_CONTEXT.md) is an outline; the execution roadmap controls delivery order.
 
 ## Objective and boundary
 
@@ -101,7 +101,7 @@ Mark Phase 2 `COMPLETE` only when all of these are demonstrated:
 - [x] No anonymous business mutation or fixture onboarding is available in default/prod; unsafe local network configuration fails closed.
 - [x] Public order creation is still disabled until trusted pricing is implemented and tested.
 - [x] 401/403/404 and safe correlated security errors are proven through HTTP tests; old validation/transaction guarantees remain green.
-- [ ] Real-provider signed-token tests, PostgreSQL integration tests, Maven verification and CI pass, with exact evidence recorded here.
+- [x] Real-provider signed-token tests, PostgreSQL integration tests, Maven verification and CI pass, with exact evidence recorded here.
 
 ## Learning and review questions
 
@@ -119,14 +119,17 @@ The developer should be able to explain the difference between authentication an
 
 ### Tested and verified locally
 
-- `./mvnw.cmd clean verify --no-transfer-progress -q` passed on Java 21.0.12: **33 tests across 11 classes, 0 failures, 0 errors, 0 skipped**. Docker Engine 29.6.2 and cached PostgreSQL 17.11/Keycloak 26.7.4 images were used. The existing Phase 0/1 tests remained in the suite.
+- `./mvnw.cmd clean verify --no-transfer-progress` passed on Java 21.0.12: **34 tests across 12 classes, 0 failures, 0 errors, 0 skipped**. Docker Engine 29.6.2 and cached PostgreSQL 17.11/Keycloak 26.7.4 images were used. The existing Phase 0/1 tests remained in the suite.
 - `Phase2SecurityTests` exercises valid and missing/malformed/expired/not-yet-valid/wrong-issuer/wrong-audience/bad-signature/unknown-key tokens; unknown and inactive actors; no default role; role revocation; spoofed identity header; customer A/B detail and list isolation; exact active branch membership, inactive membership and next-request revocation; two driver self profiles and suspended self-status; ADMIN/non-admin/anonymous fixture access; health/info policy; safe 401/403/404 bodies; and a correlated 503 actor-resolution outage. It also proves a claimed ADMIN token role is ignored.
 - `KeycloakProviderTests` starts the pinned provider, imports the realm, creates a user with runtime-generated credentials, obtains a real Keycloak-signed access token, verifies issuer/audience, observes 403 before local actor provisioning, then 200 on the scoped list after explicit actor, role and customer provisioning. No provider credentials or token are committed.
+- `DatabaseOutageTests` makes a successful signed customer request, stops its real PostgreSQL container, and confirms the next request returns correlated `503 DATABASE_UNAVAILABLE` without exposing the token, subject, or exception details. Both actor-resolution and MVC transaction-start failures map to the same safe status.
 - Fresh PostgreSQL Testcontainer startup applied V1 and V2 and passed Hibernate schema validation. `MigrationUpgradeTests` applied only V1, retained an existing actor while upgrading to V2, found zero implicit roles, confirmed a repeat migrate applied zero migrations, and exercised the role primary-key constraint. The original V1 file is unchanged.
 - Route tests cover local/test/default/prod registration, local-only fixture availability, no default/prod order POST handler, default/prod filter denial of order POST and fixture POST even for signed provisioned roles, and the existing unsafe local public-binding and mixed-profile startup failures. `OidcStartupTests` covers missing issuer, audience or JWKS URI across all four profiles. `docker compose --env-file .env.example --profile oidc config --quiet` passed.
 - Live loopback smoke started isolated Compose PostgreSQL and Keycloak from the cached pinned images and ran the packaged app with profile `local` on `127.0.0.1:18080`. Discovery returned the exact configured issuer; readiness became UP; anonymous order list returned 401; a real signed token from a user without a local actor returned 403; after out-of-band actor/CUSTOMER/customer provisioning the list returned 200 and zero rows. A spoofed `X-Dev-Actor-Id` was ignored. The smoke services, temporary database volume and environment file were removed afterward. No existing local volume was modified.
 - The `Bootstrap-LocalAdmin.ps1` procedure was separately exercised against isolated loopback PostgreSQL after applying V1 and V2: it inserted one actor and ADMIN role in a transaction, and a direct role query confirmed ADMIN. Its temporary Compose project and volume were removed.
 
-### Delivery pending
+### Delivery and limits
 
-- Final branch commits, pull request and green head CI checks have not yet been recorded. Phase 2 remains `IN_PROGRESS` until that gate passes. No production outage drill, external production identity provider, or merchant-authoritative pricing is claimed by this phase.
+- Branch `feature/phase-2-oidc-authorization` contains implementation commit `4c820ba`, documentation commit `f01ec7e`, and the real database-outage fix and test commit `77f66b5`. [PR #2](https://github.com/Omar-Mega-Byte/fleetflow/pull/2) is stacked on Phase 1 PR #1, with base `phase-1-core-model`; it is ready for review after the final documentation CI check. The Phase 1 PR should merge first, followed by retargeting and rechecking Phase 2 before merge. Neither PR was merged as part of this phase.
+- Both GitHub Actions `verify` runs for code head `77f66b5` passed: [branch push](https://github.com/Omar-Mega-Byte/fleetflow/actions/runs/37204986192) and [PR](https://github.com/Omar-Mega-Byte/fleetflow/actions/runs/37204988683). The GitGuardian Security Check passed on the PR. The final documentation commit receives its own checks before delivery.
+- A production outage drill, external production identity provider, merchant-authoritative pricing, and a production deployment were not independently verified or implemented in this phase. The loopback Keycloak smoke demonstrates the local issuer path only.
