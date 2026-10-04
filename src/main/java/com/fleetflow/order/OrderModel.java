@@ -94,6 +94,8 @@ class OrderItemEntity {
 }
 
 interface OrderRepository extends JpaRepository<OrderEntity, UUID>, JpaSpecificationExecutor<OrderEntity> {
+    org.springframework.data.domain.Page<OrderEntity> findByBranchId(
+            UUID branchId, org.springframework.data.domain.Pageable pageable);
     @EntityGraph(attributePaths = "items")
     @Query("select o from OrderEntity o where o.id = :id and o.customerId = :customerId")
     java.util.Optional<OrderEntity> findDetail(@Param("id") UUID id, @Param("customerId") UUID customerId);

@@ -5,6 +5,8 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import java.util.UUID;
+import jakarta.servlet.Filter;
+import org.springframework.jdbc.core.JdbcTemplate;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -21,6 +23,7 @@ import org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandl
 class LocalProfileRoutesTests extends ProfileTestDatabase {
     @Autowired @Qualifier("requestMappingHandlerMapping") RequestMappingHandlerMapping mappings;
     @Autowired WebApplicationContext context;
+    @Autowired JdbcTemplate jdbc;
 
     @Test
     void loopbackLocalRegistersPhase1Routes() {
@@ -30,10 +33,17 @@ class LocalProfileRoutesTests extends ProfileTestDatabase {
 
     @Test
     void localOnboardingAcceptsFixtureOnLoopback() throws Exception {
+        UUID admin = UUID.randomUUID();
+        jdbc.update("insert into actors (id, issuer, subject, active, created_at, updated_at) "
+                + "values (?, ?, 'local-route-admin', true, now(), now())", admin, TestOidc.ISSUER);
+        jdbc.update("insert into actor_roles (actor_id, role) values (?, 'ADMIN')", admin);
         String body = "{\"issuer\":\"local-fixture\",\"subject\":\"%s\"}"
                 .formatted(UUID.randomUUID());
-        MockMvcBuilders.webAppContextSetup(context).build()
-                .perform(post("/api/v1/actors").contentType(MediaType.APPLICATION_JSON).content(body))
+        MockMvcBuilders.webAppContextSetup(context)
+                .addFilters(new CorrelationIdFilter(), context.getBean("springSecurityFilterChain", Filter.class))
+                .build()
+                .perform(post("/api/v1/actors").header("Authorization", "Bearer " + TestOidc.token("local-route-admin"))
+                        .contentType(MediaType.APPLICATION_JSON).content(body))
                 .andExpect(status().isCreated());
     }
 }

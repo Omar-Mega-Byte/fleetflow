@@ -11,6 +11,8 @@ import java.util.UUID;
 import com.fleetflow.api.ApiFailure;
 import com.fleetflow.customer.CustomerService;
 import com.fleetflow.merchant.MerchantService;
+import com.fleetflow.identity.Role;
+import com.fleetflow.security.ActorAccess;
 import jakarta.persistence.EntityManager;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.DecimalMax;
@@ -37,19 +39,21 @@ public class OrderService {
     private final MerchantService merchants;
     private final EntityManager entityManager;
     private final Clock clock;
+    private final ActorAccess access;
 
     OrderService(OrderRepository orders, CustomerService customers, MerchantService merchants,
-                 EntityManager entityManager, Clock clock) {
+                 EntityManager entityManager, Clock clock, ActorAccess access) {
         this.orders = orders;
         this.customers = customers;
         this.merchants = merchants;
         this.entityManager = entityManager;
         this.clock = clock;
+        this.access = access;
     }
 
     @Transactional
-    public OrderView create(UUID actorId, CreateRequest request) {
-        CustomerService.CustomerView customer = customers.forActor(actorId);
+    public OrderView create(CreateRequest request) {
+        CustomerService.CustomerView customer = customers.forActor(access.require(Role.CUSTOMER).id());
         MerchantService.BranchView branch = merchants.branchForOrder(request.branchId());
         Currency.getInstance(request.currency());
         BigDecimal total = BigDecimal.ZERO.setScale(2);
@@ -75,16 +79,16 @@ public class OrderService {
     }
 
     @Transactional(readOnly = true)
-    public OrderView get(UUID actorId, UUID id) {
-        UUID customerId = customers.forActor(actorId).id();
+    public OrderView get(UUID id) {
+        UUID customerId = customers.forActor(access.require(Role.CUSTOMER).id()).id();
         OrderEntity order = orders.findDetail(id, customerId).orElseThrow(() -> notFound());
         return detail(order);
     }
 
     @Transactional(readOnly = true)
-    public PageView list(UUID actorId, UUID branchId, String status, Instant from, Instant to,
+    public PageView list(UUID branchId, String status, Instant from, Instant to,
                          int page, int size, String sort) {
-        UUID customerId = customers.forActor(actorId).id();
+        UUID customerId = customers.forActor(access.require(Role.CUSTOMER).id()).id();
         if (page < 0 || size < 1 || size > 100) {
             throw invalid("Page must be nonnegative and size must be between 1 and 100");
         }
@@ -156,7 +160,7 @@ public class OrderService {
     }
 
     private ApiFailure notFound() {
-        return new ApiFailure(HttpStatus.NOT_FOUND, "ORDER_NOT_FOUND", "Order not found");
+        return new ApiFailure(HttpStatus.NOT_FOUND, "RESOURCE_NOT_FOUND", "Resource not found");
     }
 
     private ApiFailure invalid(String message) {

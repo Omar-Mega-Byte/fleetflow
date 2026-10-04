@@ -1,6 +1,12 @@
 spring:
   application:
     name: fleetflow
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: ${OIDC_ISSUER:}
+          jwk-set-uri: ${OIDC_JWKS_URI:}
   datasource:
     url: ${DB_URL}
     username: ${DB_USER}
@@ -47,3 +53,6 @@ logging:
     level: "%5p [cid:%X{correlationId:-}]"
   level:
     org.hibernate.orm.jdbc.error: OFF
+fleetflow:
+  security:
+    audience: ${OIDC_AUDIENCE:}
