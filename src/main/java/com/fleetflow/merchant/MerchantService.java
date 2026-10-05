@@ -120,14 +120,20 @@ public class MerchantService {
 
     @Transactional(readOnly = true)
     public MerchantOrderReader.PageView branchOrders(UUID branchId, int page, int size) {
-        UUID actorId = access.require(Role.MERCHANT).id();
         if (page < 0 || size < 1 || size > 100) {
             throw new ApiFailure(HttpStatus.BAD_REQUEST, "INVALID_REQUEST", "Invalid page or size");
         }
+        requireActiveBranchScope(branchId);
+        return orderReader.listForBranch(branchId, page, size);
+    }
+
+    @Transactional(readOnly = true)
+    public UUID requireActiveBranchScope(UUID branchId) {
+        UUID actorId = access.require(Role.MERCHANT).id();
         if (!memberships.hasActiveScope(actorId, branchId)) {
             throw new ApiFailure(HttpStatus.NOT_FOUND, "RESOURCE_NOT_FOUND", "Resource not found");
         }
-        return orderReader.listForBranch(branchId, page, size);
+        return actorId;
     }
 
     private BranchView view(BranchEntity branch, MerchantEntity merchant) {

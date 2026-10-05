@@ -28,8 +28,8 @@ class OpenApiConfiguration {
         return new OpenAPI()
                 .info(new Info().title("FleetFlow API").version("v1")
                         .description("Current business routes. Local/test includes loopback-only ADMIN fixtures "
-                                + "and order creation with caller-submitted prices; default/prod register only "
-                                + "the scoped reads. Use a Keycloak access token with audience fleetflow-api. "
+                                + "and order creation with caller-submitted prices; default/prod register "
+                                + "scoped reads and Phase 3 lifecycle commands. Use a Keycloak access token with audience fleetflow-api. "
                                 + "FleetFlow roles are provisioned in PostgreSQL, not inferred from token claims."))
                 .addSecurityItem(new SecurityRequirement().addList("bearerAuth"))
                 .components(new Components()
@@ -57,7 +57,11 @@ class OpenApiConfiguration {
                     responses.addApiResponse("404", problem("Requested or referenced resource is unavailable."));
                 }
                 if (method == PathItem.HttpMethod.POST) {
-                    responses.addApiResponse("409", problem("Conflict with current or stored state (DATA_CONFLICT)."));
+                    responses.addApiResponse("409", problem(path.contains("/cancel")
+                            || path.contains("/confirm") || path.contains("/start-preparation")
+                            || path.contains("/ready-for-pickup") || path.contains("/drivers/me/")
+                            ? "Invalid, duplicate or competing lifecycle action (LIFECYCLE_CONFLICT)."
+                            : "Conflict with current or stored state (DATA_CONFLICT)."));
                 }
             }));
         };
