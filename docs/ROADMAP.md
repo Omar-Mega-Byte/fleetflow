@@ -109,7 +109,7 @@ Every phase requires a reviewable slice: behavior and negative cases verified, r
 
 ## Phase 5 — Candidate eligibility and matching
 
-- **Completion evidence (2026-10-05):** `./mvnw.cmd clean verify --no-transfer-progress` passed 62 tests with zero failures/errors/skips. [GitHub Actions verify on PR #7](https://github.com/Omar-Mega-Byte/fleetflow/actions/runs/37351422325) passed, and GitGuardian passed. The existing local Compose PostgreSQL upgraded through V7; app/PostgreSQL/Redis were healthy. A real Keycloak-signed merchant → driver → dispatcher → customer smoke passed. The [Phase 5 evidence and limits](phases/PHASE_5.md) record the full gate. Phase 3 remains `IN_PROGRESS` for cancellation and delivery lifecycle.
+- **Completion evidence (2026-10-05):** `./mvnw.cmd clean verify --no-transfer-progress` passed 62 tests with zero failures/errors/skips. [GitHub Actions verify on final Phase 5 code b5482e4](https://github.com/Omar-Mega-Byte/fleetflow/actions/runs/37352736835) passed, and GitGuardian passed on that head. The existing local Compose PostgreSQL upgraded through V7; app/PostgreSQL/Redis were healthy. A real Keycloak-signed merchant → driver → dispatcher → customer smoke passed, including coordinate-free customer output. The [Phase 5 evidence and limits](phases/PHASE_5.md) record the full gate. Phase 3 remains `IN_PROGRESS` for cancellation and delivery lifecycle.
 
 - **Objective:** Rank explainable dispatch candidates without allocating a driver.
 - **Business scope:** Ready order can start dispatch; candidate list, eligibility reasons and deterministic score; no offer yet.
