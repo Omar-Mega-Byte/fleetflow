@@ -1,6 +1,6 @@
 # FleetFlow
 
-FleetFlow is a Java/Spring learning backend for delivery orchestration. Phases 0, 1, and 2 are complete. Phase 2 adds OIDC bearer authentication, local actor roles, and object-scoped reads; its completion evidence is in [Phase 2](docs/phases/PHASE_2.md). The Phase 3 driver lifecycle prerequisite and Phase 4 live location are under implementation. Dispatch, assignment, payments, and trusted pricing are not implemented.
+FleetFlow is a Java/Spring learning backend for delivery orchestration. Phases 0, 1, 2, and 4 are complete. Phase 2 adds OIDC bearer authentication, local actor roles, and object-scoped reads; its completion evidence is in [Phase 2](docs/phases/PHASE_2.md). The Phase 3 durable driver state prerequisite is implemented, but its broader order and delivery lifecycle remains in progress. [Phase 4](docs/phases/PHASE_4.md) adds live driver location and internal Redis GEO candidate lookup. Dispatch, assignment, payments, and trusted pricing are not implemented.
 
 **Order prices are still submitted by the caller.** `POST /api/v1/orders` is available only with the `local` or `test` profile on a loopback server. Authentication does not make that write suitable for public production use. The `default` and `prod` profiles register only the secured read routes below.
 

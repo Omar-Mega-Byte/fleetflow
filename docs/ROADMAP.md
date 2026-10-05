@@ -1,6 +1,6 @@
 # FleetFlow execution roadmap
 
-[PROJECT_CONTEXT.md](../PROJECT_CONTEXT.md) is the primary living context. This roadmap tracks implementation status; the later phases remain plans. Status vocabulary: `NOT_STARTED` means planned only, `IN_PROGRESS` means implementation under way, `BLOCKED` means an identified prerequisite prevents completion, and `COMPLETE` means the phase acceptance gate passed with recorded evidence. As of 2026-10-04 Phases 0, 1, and 2 are complete; Phase 2 evidence is in its phase document.
+[PROJECT_CONTEXT.md](../PROJECT_CONTEXT.md) is the primary living context. This roadmap tracks implementation status; the later phases remain plans. Status vocabulary: `NOT_STARTED` means planned only, `IN_PROGRESS` means implementation under way, `BLOCKED` means an identified prerequisite prevents completion, and `COMPLETE` means the phase acceptance gate passed with recorded evidence. As of 2026-10-05 Phases 0, 1, 2, and 4 are complete; Phase 3 remains in progress because its order and delivery lifecycle is still planned.
 
 | Phase | Status | Purpose |
 | --- | --- | --- |
@@ -8,7 +8,7 @@
 | [1](phases/PHASE_1.md) Core model | COMPLETE | Durable actors, branches, drivers and order intake with REST/JPA fundamentals |
 | [2](phases/PHASE_2.md) Security | COMPLETE | OIDC authentication and object-level authorization before exposed business actions |
 | [3](phases/PHASE_3.md) Lifecycles | IN_PROGRESS | Durable driver self state and history implemented as Phase 4 prerequisite; order/delivery lifecycle remains |
-| [4](phases/PHASE_4.md) Live location | IN_PROGRESS | Redis heartbeat, latest GPS, GEO and stale-driver exclusion under verification |
+| [4](phases/PHASE_4.md) Live location | COMPLETE | Redis heartbeat, latest GPS, GEO and durable eligibility recheck verified; polar GEO prefilter limit documented |
 | 5 Matching | NOT_STARTED | Deterministic candidate eligibility and ranking, without assignment offers |
 | 6 Assignment | NOT_STARTED | Atomic reservation, offer, acceptance and 100-contender proof |
 | 7 Recovery | NOT_STARTED | Rejection, timeout, reassignment, cancellation and delivery incidents |
@@ -89,6 +89,7 @@ Every phase requires a reviewable slice: behavior and negative cases verified, r
 
 ## Phase 4 — Driver location and Redis GEO
 
+- **Completion evidence (2026-10-05):** `./mvnw.cmd clean verify --no-transfer-progress` passed 47 tests with no failures/errors/skips; [GitHub Actions verify on code commit b19be6b](https://github.com/Omar-Mega-Byte/fleetflow/actions/runs/37299376085) passed. One Compose project rebuilt app, PostgreSQL, Keycloak, and pinned Redis; app readiness and realm discovery returned HTTP 200 and Redis returned `PONG`. `KeycloakProviderTests` proves a signed DRIVER token through AVAILABLE, location write, and internal nearby result. [Phase 4 evidence and limits](phases/PHASE_4.md) record the full gate.
 - **Objective:** Introduce operational liveness and spatial candidate discovery.
 - **Business scope:** Driver self location/heartbeat; nearby available-driver lookup for dispatch internals.
 - **Engineering scope:** Validated coordinate/time model, Redis latest-location TTL, heartbeat TTL, GEO membership and stale-member filtering; explicit outage behavior.
