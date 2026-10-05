@@ -1,6 +1,6 @@
 # FleetFlow execution roadmap
 
-[PROJECT_CONTEXT.md](../PROJECT_CONTEXT.md) is the primary living context. This roadmap tracks implementation status; the later phases remain plans. Status vocabulary: `NOT_STARTED` means planned only, `IN_PROGRESS` means implementation under way, `BLOCKED` means an identified prerequisite prevents completion, and `COMPLETE` means the phase acceptance gate passed with recorded evidence. As of 2026-10-05 Phases 0, 1, 2, 4, and 5 are complete; Phase 3 remains in progress because cancellation and delivery lifecycle are still planned. Its ready-order prerequisite is implemented for Phase 5.
+[PROJECT_CONTEXT.md](../PROJECT_CONTEXT.md) is the primary living context. This roadmap tracks implementation status; the later phases remain plans. Status vocabulary: `NOT_STARTED` means planned only, `IN_PROGRESS` means implementation under way, `BLOCKED` means an identified prerequisite prevents completion, and `COMPLETE` means the phase acceptance gate passed with recorded evidence. As of 2026-10-06 Phases 0, 1, 2, 4, 5, and 6 are complete; Phase 3 remains in progress because cancellation and the later delivery lifecycle are still planned. Its ready-order prerequisite is implemented for matching and assignment.
 
 | Phase | Status | Purpose |
 | --- | --- | --- |
@@ -11,7 +11,7 @@
 | [4](phases/PHASE_4.md) Live location | COMPLETE | Redis heartbeat, latest GPS, GEO and durable eligibility recheck verified; polar GEO prefilter limit documented |
 | [5](phases/PHASE_5.md) Matching | COMPLETE | Deterministic candidate eligibility and ranking, without assignment offers |
 | [6](phases/PHASE_6.md) Assignment | COMPLETE | Atomic reservation, offer, acceptance and repeated 100-contender PostgreSQL proof |
-| 7 Recovery | NOT_STARTED | Rejection, timeout, reassignment, cancellation and delivery incidents |
+| 7 Recovery | NOT_STARTED | Rejection recovery, timeout, reassignment, cancellation and delivery incidents |
 | 8 Async events | NOT_STARTED | Kafka, transactional outbox, idempotent notification and analytics |
 | 9 Live tracking | NOT_STARTED | Authorized SSE tracking and driver simulator |
 | 10 Zones | NOT_STARTED | PostGIS serviceability and geofencing after basic dispatch |
