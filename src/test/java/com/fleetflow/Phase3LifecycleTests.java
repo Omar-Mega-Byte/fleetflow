@@ -153,7 +153,10 @@ class Phase3LifecycleTests extends ProfileTestDatabase {
         driverAction(driverActor, "online").andExpect(status().isOk()).andExpect(jsonPath("$.version").value(1));
         driverAction(driverActor, "available").andExpect(status().isConflict());
         createVehicle(driver);
-        driverAction(driverActor, "available").andExpect(status().isOk());
+        mvc.perform(post("/api/v1/drivers/me/available")
+                        .header("Authorization", bearer(driverActor))
+                        .header("X-Dev-Actor-Id", otherActor.id))
+                .andExpect(status().isOk());
         driverAction(driverActor, "pause").andExpect(status().isOk());
         driverAction(driverActor, "available").andExpect(status().isOk());
         driverAction(driverActor, "offline").andExpect(status().isOk());
