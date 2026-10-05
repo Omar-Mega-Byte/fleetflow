@@ -9,8 +9,10 @@ import java.time.Instant;
 import java.time.Duration;
 import java.net.ServerSocket;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import com.fleetflow.location.LocationService;
 import com.fleetflow.location.LocationFix;
@@ -30,6 +32,8 @@ import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
+import org.springframework.mock.web.MockHttpServletRequest;
+import org.springframework.mock.web.MockHttpServletResponse;
 import org.springframework.web.context.WebApplicationContext;
 import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.testcontainers.DockerClientFactory;
@@ -151,6 +155,21 @@ class Phase4LocationTests extends ProfileTestDatabase {
         jdbc.update("update drivers set active = true, suspended = true where id = ?", driver.driverId);
         mvc.perform(post("/api/v1/drivers/me/heartbeat").header("Authorization", bearer(driver)))
                 .andExpect(status().isConflict());
+    }
+
+    @Test
+    void locationBodyLimitAlsoRejectsUnknownContentLength() throws Exception {
+        var request = new MockHttpServletRequest("POST", "/api/v1/drivers/me/location") {
+            @Override public long getContentLengthLong() { return -1; }
+        };
+        request.setContent("x".repeat(1025).getBytes(StandardCharsets.UTF_8));
+        var response = new MockHttpServletResponse();
+        var reachedController = new AtomicBoolean();
+        Filter filter = context.getBean("locationBodyLimit", FilterRegistrationBean.class).getFilter();
+        filter.doFilter(request, response, (ignoredRequest, ignoredResponse) -> reachedController.set(true));
+        assertThat(response.getStatus()).isEqualTo(400);
+        assertThat(response.getContentAsString()).contains("INVALID_REQUEST");
+        assertThat(reachedController.get()).isFalse();
     }
 
     @Test

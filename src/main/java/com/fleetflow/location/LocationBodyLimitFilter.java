@@ -1,6 +1,7 @@
 package com.fleetflow.location;
 
 import java.io.IOException;
+import java.io.ByteArrayInputStream;
 
 import com.fleetflow.api.SecurityProblemWriter;
 import jakarta.servlet.FilterChain;
@@ -35,24 +36,45 @@ class LocationBodyLimitFilter {
                     errors.write(request, response, 400, "INVALID_REQUEST", "Location request is too large");
                     return;
                 }
+                // Content-Length may be absent (for example with chunked transfer encoding).
+                byte[] body = request.getInputStream().readNBytes(MAX_BYTES + 1);
+                if (body.length > MAX_BYTES) {
+                    errors.write(request, response, 400, "INVALID_REQUEST", "Location request is too large");
+                    return;
+                }
                 chain.doFilter(new HttpServletRequestWrapper(request) {
-                    private ServletInputStream limited;
+                    private ServletInputStream replay;
                     @Override
                     public ServletInputStream getInputStream() throws IOException {
-                        if (limited != null) return limited;
-                        ServletInputStream delegate = super.getInputStream();
-                        limited = new ServletInputStream() {
-                            private int count;
-                            @Override public boolean isFinished() { return delegate.isFinished(); }
-                            @Override public boolean isReady() { return delegate.isReady(); }
-                            @Override public void setReadListener(ReadListener listener) { delegate.setReadListener(listener); }
+                        if (replay != null) return replay;
+                        ByteArrayInputStream bytes = new ByteArrayInputStream(body);
+                        replay = new ServletInputStream() {
+                            private ReadListener listener;
+                            private boolean complete;
+                            @Override public boolean isFinished() { return bytes.available() == 0; }
+                            @Override public boolean isReady() { return true; }
+                            @Override public void setReadListener(ReadListener next) {
+                                listener = next;
+                                try {
+                                    if (isFinished()) signalComplete();
+                                    else listener.onDataAvailable();
+                                } catch (IOException failure) {
+                                    listener.onError(failure);
+                                }
+                            }
                             @Override public int read() throws IOException {
-                                int value = delegate.read();
-                                if (value != -1 && ++count > MAX_BYTES) throw new IOException("Location body limit");
+                                int value = bytes.read();
+                                if (value == -1) signalComplete();
                                 return value;
                             }
+                            private void signalComplete() throws IOException {
+                                if (listener != null && !complete) {
+                                    complete = true;
+                                    listener.onAllDataRead();
+                                }
+                            }
                         };
-                        return limited;
+                        return replay;
                     }
 
                     @Override
