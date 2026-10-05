@@ -14,6 +14,7 @@ import com.fleetflow.api.ApiFailure;
 import com.fleetflow.customer.CustomerService;
 import com.fleetflow.merchant.MerchantService;
 import com.fleetflow.identity.Role;
+import com.fleetflow.lifecycle.LifecycleHistory;
 import com.fleetflow.security.ActorAccess;
 import jakarta.persistence.EntityManager;
 import jakarta.validation.Valid;
@@ -42,15 +43,17 @@ public class OrderService {
     private final EntityManager entityManager;
     private final Clock clock;
     private final ActorAccess access;
+    private final LifecycleHistory history;
 
     OrderService(OrderRepository orders, CustomerService customers, MerchantService merchants,
-                 EntityManager entityManager, Clock clock, ActorAccess access) {
+                 EntityManager entityManager, Clock clock, ActorAccess access, LifecycleHistory history) {
         this.orders = orders;
         this.customers = customers;
         this.merchants = merchants;
         this.entityManager = entityManager;
         this.clock = clock;
         this.access = access;
+        this.history = history;
     }
 
     @Transactional
@@ -77,6 +80,8 @@ public class OrderService {
         lines.forEach(order::addItem);
         entityManager.persist(order);
         entityManager.flush();
+        history.order(order.id, 0, null, "CREATED", "CREATE", now,
+                access.require(Role.CUSTOMER).id(), null);
         return detail(order);
     }
 
@@ -97,7 +102,8 @@ public class OrderService {
         if (from != null && to != null && !from.isBefore(to)) {
             throw invalid("from must be before to");
         }
-        if (status != null && !status.equals("CREATED")) {
+        if (status != null && !java.util.Set.of("CREATED", "CONFIRMED", "PREPARING",
+                "READY_FOR_PICKUP", "CANCELLED").contains(status)) {
             throw invalid("Unsupported status");
         }
         Sort requestedSort = sortOrder(sort);
@@ -149,7 +155,7 @@ public class OrderService {
     private OrderView detail(OrderEntity order) {
         List<ItemView> items = order.items.stream().map(item -> new ItemView(item.lineNumber,
                 item.description, item.quantity, item.unitAmount, item.lineAmount)).toList();
-        return new OrderView(order.id, order.customerId, order.branchId, order.status,
+        return new OrderView(order.id, order.customerId, order.branchId, order.status, order.version,
                 order.customerName, order.merchantName, order.branchName,
                 new Address(order.pickupLine1, order.pickupCity, order.pickupLatitude, order.pickupLongitude),
                 new Address(order.deliveryLine1, order.deliveryCity, order.deliveryLatitude,
@@ -189,7 +195,7 @@ public class OrderService {
     public record ItemView(int lineNumber, String description, int quantity,
                            BigDecimal unitAmount, BigDecimal lineAmount) { }
     @Schema(description = "Owned order with saved names, addresses, prices, and items.")
-    public record OrderView(UUID id, UUID customerId, UUID branchId, String status,
+    public record OrderView(UUID id, UUID customerId, UUID branchId, String status, long version,
                             String customerName, String merchantName, String branchName,
                             Address pickup, Address delivery, String currency, BigDecimal totalAmount,
                             Instant createdAt, List<ItemView> items) { }

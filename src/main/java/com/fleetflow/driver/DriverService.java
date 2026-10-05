@@ -13,11 +13,13 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import com.fleetflow.api.ApiFailure;
 import com.fleetflow.identity.IdentityService;
 import com.fleetflow.identity.Role;
+import com.fleetflow.lifecycle.LifecycleHistory;
 import com.fleetflow.security.ActorAccess;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
+import jakarta.persistence.LockModeType;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
@@ -25,6 +27,9 @@ import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 import org.springframework.context.annotation.Profile;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
@@ -43,21 +48,25 @@ public class DriverService {
     private final IdentityService identity;
     private final Clock clock;
     private final ActorAccess access;
+    private final LifecycleHistory history;
 
     DriverService(DriverRepository drivers, VehicleRepository vehicles, IdentityService identity, Clock clock,
-                  ActorAccess access) {
+                  ActorAccess access, LifecycleHistory history) {
         this.drivers = drivers;
         this.vehicles = vehicles;
         this.identity = identity;
         this.clock = clock;
         this.access = access;
+        this.history = history;
     }
 
     @Transactional
     public DriverView createDriver(UUID actorId) {
+        UUID creator = access.require(Role.ADMIN).id();
         identity.requireActive(actorId);
         DriverEntity driver = new DriverEntity(UUID.randomUUID(), actorId, clock.instant());
         drivers.saveAndFlush(driver);
+        history.driver(driver.id, 0, null, "OFFLINE", "CREATE", driver.createdAt, creator);
         return view(driver);
     }
 
@@ -72,7 +81,8 @@ public class DriverService {
         UUID actorId = access.require(Role.DRIVER).id();
         DriverEntity driver = drivers.findByActorId(actorId).orElseThrow(() ->
                 new ApiFailure(HttpStatus.NOT_FOUND, "RESOURCE_NOT_FOUND", "Resource not found"));
-        return new DriverSelfView(driver.id, driver.active, driver.suspended);
+        return new DriverSelfView(driver.id, driver.active, driver.suspended,
+                driver.operationalStatus, driver.version);
     }
 
     @Transactional
@@ -102,7 +112,8 @@ public class DriverService {
     }
 
     public record DriverView(UUID id, UUID actorId, boolean active, boolean suspended) { }
-    public record DriverSelfView(UUID id, boolean active, boolean suspended) { }
+    public record DriverSelfView(UUID id, boolean active, boolean suspended,
+                                 String operationalStatus, long version) { }
     public record VehicleView(UUID id, UUID driverId, String type, int capacity, boolean active) { }
 }
 
@@ -113,11 +124,14 @@ class DriverEntity {
     @Column(name = "actor_id", nullable = false) UUID actorId;
     @Column(nullable = false) boolean active;
     @Column(nullable = false) boolean suspended;
+    @Column(name = "operational_status", nullable = false, length = 32) String operationalStatus;
+    @Column(nullable = false) long version;
     @Column(name = "created_at", nullable = false) Instant createdAt;
     @Column(name = "updated_at", nullable = false) Instant updatedAt;
     protected DriverEntity() { }
     DriverEntity(UUID id, UUID actorId, Instant now) {
         this.id = id; this.actorId = actorId; this.active = true; this.suspended = false;
+        this.operationalStatus = "OFFLINE"; this.version = 0;
         this.createdAt = now; this.updatedAt = now;
     }
 }
@@ -141,8 +155,13 @@ class VehicleEntity {
 
 interface DriverRepository extends JpaRepository<DriverEntity, UUID> {
     java.util.Optional<DriverEntity> findByActorId(UUID actorId);
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select d from DriverEntity d where d.actorId = :actorId")
+    java.util.Optional<DriverEntity> lockForActor(@Param("actorId") UUID actorId);
 }
-interface VehicleRepository extends JpaRepository<VehicleEntity, UUID> { }
+interface VehicleRepository extends JpaRepository<VehicleEntity, UUID> {
+    boolean existsByDriverIdAndActiveTrueAndCapacityGreaterThan(UUID driverId, int capacity);
+}
 
 @RestController
 @Profile({"local", "test"})
