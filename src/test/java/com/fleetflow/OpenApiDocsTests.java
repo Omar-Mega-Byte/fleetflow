@@ -43,13 +43,20 @@ class OpenApiDocsTests extends ProfileTestDatabase {
                     JsonNode operation = document.path("paths").path(path).path(method);
                     assertThat(operation.path("summary").asText()).isNotBlank();
                     assertThat(operation.path("tags").isEmpty()).isFalse();
-                    String success = method.equals("post") ? "201" : "200";
-                    assertThat(operation.path("responses").path(success).path("content")
-                            .path("application/json").path("schema").path("$ref").asText())
-                            .withFailMessage("Missing success schema for %s %s: %s", method, path,
-                                    operation.path("responses").path(success))
-                            .isNotBlank();
-                    if (method.equals("post")) {
+                    boolean noContent = method.equals("post") && path.startsWith("/api/v1/drivers/me/");
+                    String success = method.equals("get") ? "200" : noContent ? "204" : "201";
+                    assertThat(operation.path("responses").has(success))
+                            .withFailMessage("Missing success response for %s %s", method, path).isTrue();
+                    if (!noContent) {
+                        assertThat(operation.path("responses").path(success).path("content")
+                                .path("application/json").path("schema").path("$ref").asText())
+                                .withFailMessage("Missing success schema for %s %s", method, path).isNotBlank();
+                    }
+                    if (method.equals("post") && !noContent) {
+                        assertThat(operation.path("requestBody").path("content")
+                                .path("application/json").path("schema").path("$ref").asText()).isNotBlank();
+                    }
+                    if (path.equals("/api/v1/drivers/me/location")) {
                         assertThat(operation.path("requestBody").path("content")
                                 .path("application/json").path("schema").path("$ref").asText()).isNotBlank();
                     }
@@ -74,7 +81,7 @@ class OpenApiDocsTests extends ProfileTestDatabase {
                 }
             }
         });
-        assertThat(actual).hasSize(18).containsExactlyInAnyOrderElementsOf(registered);
+        assertThat(actual).hasSize(24).containsExactlyInAnyOrderElementsOf(registered);
         assertThat(document.path("paths").has("/actuator/health")).isFalse();
         assertThat(document.path("components").path("securitySchemes").path("bearerAuth")
                 .path("scheme").asText()).isEqualTo("bearer");

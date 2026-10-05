@@ -17,7 +17,10 @@ import com.fleetflow.security.ActorAccess;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
+import jakarta.persistence.Enumerated;
+import jakarta.persistence.EnumType;
 import jakarta.persistence.Table;
+import jakarta.persistence.Version;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
@@ -72,7 +75,7 @@ public class DriverService {
         UUID actorId = access.require(Role.DRIVER).id();
         DriverEntity driver = drivers.findByActorId(actorId).orElseThrow(() ->
                 new ApiFailure(HttpStatus.NOT_FOUND, "RESOURCE_NOT_FOUND", "Resource not found"));
-        return new DriverSelfView(driver.id, driver.active, driver.suspended);
+        return new DriverSelfView(driver.id, driver.active, driver.suspended, driver.status);
     }
 
     @Transactional
@@ -94,15 +97,15 @@ public class DriverService {
     }
 
     private DriverView view(DriverEntity driver) {
-        return new DriverView(driver.id, driver.actorId, driver.active, driver.suspended);
+        return new DriverView(driver.id, driver.actorId, driver.active, driver.suspended, driver.status);
     }
 
     private VehicleView view(VehicleEntity vehicle) {
         return new VehicleView(vehicle.id, vehicle.driverId, vehicle.type, vehicle.capacity, vehicle.active);
     }
 
-    public record DriverView(UUID id, UUID actorId, boolean active, boolean suspended) { }
-    public record DriverSelfView(UUID id, boolean active, boolean suspended) { }
+    public record DriverView(UUID id, UUID actorId, boolean active, boolean suspended, DriverStatus status) { }
+    public record DriverSelfView(UUID id, boolean active, boolean suspended, DriverStatus status) { }
     public record VehicleView(UUID id, UUID driverId, String type, int capacity, boolean active) { }
 }
 
@@ -113,11 +116,16 @@ class DriverEntity {
     @Column(name = "actor_id", nullable = false) UUID actorId;
     @Column(nullable = false) boolean active;
     @Column(nullable = false) boolean suspended;
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 16) DriverStatus status;
+    @Version
+    @Column(nullable = false) long version;
     @Column(name = "created_at", nullable = false) Instant createdAt;
     @Column(name = "updated_at", nullable = false) Instant updatedAt;
     protected DriverEntity() { }
     DriverEntity(UUID id, UUID actorId, Instant now) {
         this.id = id; this.actorId = actorId; this.active = true; this.suspended = false;
+        this.status = DriverStatus.OFFLINE;
         this.createdAt = now; this.updatedAt = now;
     }
 }
@@ -142,7 +150,9 @@ class VehicleEntity {
 interface DriverRepository extends JpaRepository<DriverEntity, UUID> {
     java.util.Optional<DriverEntity> findByActorId(UUID actorId);
 }
-interface VehicleRepository extends JpaRepository<VehicleEntity, UUID> { }
+interface VehicleRepository extends JpaRepository<VehicleEntity, UUID> {
+    boolean existsByDriverIdAndActiveTrue(UUID driverId);
+}
 
 @RestController
 @Profile({"local", "test"})
@@ -203,11 +213,39 @@ class VehicleController {
 @Tag(name = "Driver self", description = "DRIVER role; the profile is selected from the authenticated actor.")
 class DriverSelfController {
     private final DriverService service;
-    DriverSelfController(DriverService service) { this.service = service; }
+    private final DriverLifecycleService lifecycle;
+    DriverSelfController(DriverService service, DriverLifecycleService lifecycle) {
+        this.service = service;
+        this.lifecycle = lifecycle;
+    }
     @GetMapping
     @Operation(summary = "Read my driver status", description = "Returns only the caller's own minimal driver "
             + "status. A suspended driver may read this status; no driver lifecycle action is exposed here.")
     @ApiResponse(responseCode = "200", description = "My active and suspended flags.",
             content = @Content(mediaType = "application/json", schema = @Schema(implementation = DriverService.DriverSelfView.class)))
     DriverService.DriverSelfView me() { return service.me(); }
+
+    @PostMapping("/online")
+    @Operation(summary = "Go online", description = "DRIVER self action; requires OFFLINE and an active unsuspended profile.")
+    @ApiResponse(responseCode = "204", description = "Driver is ONLINE.")
+    @org.springframework.web.bind.annotation.ResponseStatus(HttpStatus.NO_CONTENT)
+    void online() { lifecycle.goOnline(); }
+
+    @PostMapping("/available")
+    @Operation(summary = "Become available", description = "DRIVER self action; requires ONLINE or PAUSED and an active vehicle.")
+    @ApiResponse(responseCode = "204", description = "Driver is AVAILABLE.")
+    @org.springframework.web.bind.annotation.ResponseStatus(HttpStatus.NO_CONTENT)
+    void available() { lifecycle.becomeAvailable(); }
+
+    @PostMapping("/pause")
+    @Operation(summary = "Pause work", description = "DRIVER self action from ONLINE or AVAILABLE.")
+    @ApiResponse(responseCode = "204", description = "Driver is PAUSED.")
+    @org.springframework.web.bind.annotation.ResponseStatus(HttpStatus.NO_CONTENT)
+    void pause() { lifecycle.pause(); }
+
+    @PostMapping("/offline")
+    @Operation(summary = "Go offline", description = "DRIVER self action from ONLINE, AVAILABLE, or PAUSED.")
+    @ApiResponse(responseCode = "204", description = "Driver is OFFLINE.")
+    @org.springframework.web.bind.annotation.ResponseStatus(HttpStatus.NO_CONTENT)
+    void offline() { lifecycle.goOffline(); }
 }

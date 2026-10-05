@@ -27,7 +27,7 @@ class MigrationUpgradeTests {
 
             Flyway upgraded = Flyway.configure().dataSource(db.getJdbcUrl(), db.getUsername(), db.getPassword())
                     .locations("classpath:db/migration").load();
-            assertThat(upgraded.migrate().migrationsExecuted).isEqualTo(1);
+            assertThat(upgraded.migrate().migrationsExecuted).isEqualTo(2);
             assertThat(upgraded.migrate().migrationsExecuted).isZero();
             assertThat(jdbc.queryForObject("select count(*) from actors where id = ?", Integer.class, actor))
                     .isEqualTo(1);

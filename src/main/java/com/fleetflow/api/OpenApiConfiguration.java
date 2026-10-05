@@ -28,8 +28,8 @@ class OpenApiConfiguration {
         return new OpenAPI()
                 .info(new Info().title("FleetFlow API").version("v1")
                         .description("Current business routes. Local/test includes loopback-only ADMIN fixtures "
-                                + "and order creation with caller-submitted prices; default/prod register only "
-                                + "the scoped reads. Use a Keycloak access token with audience fleetflow-api. "
+                                + "and order creation with caller-submitted prices; default/prod also expose "
+                                + "authenticated driver self actions. Use a Keycloak access token with audience fleetflow-api. "
                                 + "FleetFlow roles are provisioned in PostgreSQL, not inferred from token claims."))
                 .addSecurityItem(new SecurityRequirement().addList("bearerAuth"))
                 .components(new Components()
@@ -47,7 +47,7 @@ class OpenApiConfiguration {
                 var responses = operation.getResponses();
                 responses.addApiResponse("401", problem("Missing or invalid bearer token (UNAUTHENTICATED)."));
                 responses.addApiResponse("403", problem("Actor missing, inactive, or lacking the required role (FORBIDDEN)."));
-                responses.addApiResponse("503", problem("Database unavailable (DATABASE_UNAVAILABLE)."));
+                responses.addApiResponse("503", problem("Required database or Redis service unavailable."));
                 if (method != PathItem.HttpMethod.GET || !path.endsWith("/me")) {
                     responses.addApiResponse("400", problem("Malformed input or unsupported filter (INVALID_REQUEST)."));
                 }
@@ -58,6 +58,10 @@ class OpenApiConfiguration {
                 }
                 if (method == PathItem.HttpMethod.POST) {
                     responses.addApiResponse("409", problem("Conflict with current or stored state (DATA_CONFLICT)."));
+                    if (path.equals("/api/v1/drivers/me/location")
+                            || path.equals("/api/v1/drivers/me/heartbeat")) {
+                        responses.addApiResponse("429", problem("Driver update rate exceeded."));
+                    }
                 }
             }));
         };

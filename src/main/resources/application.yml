@@ -14,6 +14,13 @@ spring:
     hikari:
       connection-timeout: 5000
       maximum-pool-size: 10
+  data:
+    redis:
+      host: ${REDIS_HOST:127.0.0.1}
+      port: ${REDIS_PORT:6379}
+      timeout: 2s
+      repositories:
+        enabled: false
   jpa:
     open-in-view: false
     hibernate:
@@ -45,7 +52,7 @@ management:
         enabled: true
       group:
         readiness:
-          include: readinessState,db
+          include: readinessState,db,redis
         liveness:
           include: livenessState
 logging:
@@ -56,6 +63,20 @@ logging:
 fleetflow:
   security:
     audience: ${OIDC_AUDIENCE:}
+  location:
+    heartbeat-ttl: ${LOCATION_HEARTBEAT_TTL:30s}
+    location-ttl: ${LOCATION_TTL:2m}
+    max-gps-age: ${LOCATION_MAX_GPS_AGE:45s}
+    max-ingest-age: ${LOCATION_MAX_INGEST_AGE:2m}
+    future-skew: ${LOCATION_FUTURE_SKEW:5s}
+    max-radius-meters: ${LOCATION_MAX_RADIUS_METERS:20000}
+    max-results: ${LOCATION_MAX_RESULTS:50}
+    overfetch-factor: ${LOCATION_OVERFETCH_FACTOR:4}
+    overfetch-cap: ${LOCATION_OVERFETCH_CAP:200}
+    update-limit: ${LOCATION_UPDATE_LIMIT:30}
+    update-window: ${LOCATION_UPDATE_WINDOW:1m}
+    heartbeat-limit: ${LOCATION_HEARTBEAT_LIMIT:60}
+    heartbeat-window: ${LOCATION_HEARTBEAT_WINDOW:1m}
 springdoc:
   paths-to-match: /api/v1/**
   api-docs:

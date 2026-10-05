@@ -39,6 +39,10 @@ public class SecurityConfiguration {
                     auth.requestMatchers(HttpMethod.GET, "/api/v1/merchant-branches/*/orders")
                             .hasRole("MERCHANT");
                     auth.requestMatchers(HttpMethod.GET, "/api/v1/drivers/me").hasRole("DRIVER");
+                    auth.requestMatchers(HttpMethod.POST, "/api/v1/drivers/me/online",
+                            "/api/v1/drivers/me/available", "/api/v1/drivers/me/pause",
+                            "/api/v1/drivers/me/offline", "/api/v1/drivers/me/location",
+                            "/api/v1/drivers/me/heartbeat").hasRole("DRIVER");
                     if (localFixtures) {
                         auth.requestMatchers(HttpMethod.POST, "/api/v1/orders").hasRole("CUSTOMER");
                         auth.requestMatchers(HttpMethod.POST, "/api/v1/actors", "/api/v1/customers",
