@@ -22,7 +22,7 @@ class DriverLocationController {
 
     @PostMapping("/location")
     @Operation(summary = "Update my location", description = "Accepts a newer WGS84 fix for the authenticated "
-            + "ONLINE or AVAILABLE driver. No driver ID is accepted as identity.")
+            + "ONLINE, AVAILABLE, RESERVED, or DELIVERING driver. No driver ID is accepted as identity.")
     @ApiResponse(responseCode = "204", description = "Latest fix accepted.")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     void update(@RequestBody LocationService.LocationRequest request) { location.update(request); }

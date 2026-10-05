@@ -45,6 +45,13 @@ public class SecurityConfiguration {
                             .hasRole("DISPATCHER");
                     auth.requestMatchers(HttpMethod.GET, "/api/v1/dispatch/orders/*/attempts")
                             .hasRole("DISPATCHER");
+                    auth.requestMatchers(HttpMethod.POST, "/api/v1/dispatch/orders/*/offers")
+                            .hasRole("DISPATCHER");
+                    auth.requestMatchers(HttpMethod.GET, "/api/v1/dispatch/orders/*/assignments")
+                            .hasRole("DISPATCHER");
+                    auth.requestMatchers(HttpMethod.GET, "/api/v1/drivers/me/offers").hasRole("DRIVER");
+                    auth.requestMatchers(HttpMethod.POST, "/api/v1/drivers/me/offers/*/accept",
+                            "/api/v1/drivers/me/offers/*/reject").hasRole("DRIVER");
                     auth.requestMatchers(HttpMethod.GET, "/api/v1/drivers/me").hasRole("DRIVER");
                     auth.requestMatchers(HttpMethod.POST, "/api/v1/drivers/me/online",
                             "/api/v1/drivers/me/available", "/api/v1/drivers/me/pause",

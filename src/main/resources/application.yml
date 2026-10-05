@@ -83,6 +83,9 @@ fleetflow:
     distance-weight: ${MATCH_DISTANCE_WEIGHT:0.80}
     freshness-weight: ${MATCH_FRESHNESS_WEIGHT:0.20}
     metres-per-second: ${MATCH_METRES_PER_SECOND:8.33}
+  assignment:
+    offer-ttl: ${ASSIGNMENT_OFFER_TTL:90s}
+    max-preflight-age: ${ASSIGNMENT_MAX_PREFLIGHT_AGE:5s}
 springdoc:
   paths-to-match: /api/v1/**
   api-docs:

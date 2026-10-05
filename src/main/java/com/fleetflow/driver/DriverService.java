@@ -149,6 +149,9 @@ class VehicleEntity {
 
 interface DriverRepository extends JpaRepository<DriverEntity, UUID> {
     java.util.Optional<DriverEntity> findByActorId(UUID actorId);
+    @org.springframework.data.jpa.repository.Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
+    @org.springframework.data.jpa.repository.Query("select d from DriverEntity d where d.actorId = :actorId")
+    java.util.Optional<DriverEntity> findByActorIdForUpdate(@org.springframework.data.repository.query.Param("actorId") UUID actorId);
 }
 interface VehicleRepository extends JpaRepository<VehicleEntity, UUID> {
     boolean existsByDriverIdAndActiveTrue(UUID driverId);

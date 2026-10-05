@@ -161,6 +161,33 @@ public class LocationService {
         return List.copyOf(result);
     }
 
+    /** Rechecks one selected candidate directly; GEO result limits cannot hide this driver. */
+    public Instant requireOfferCandidate(UUID driverId, double latitude, double longitude, int radiusMeters) {
+        if (driverId == null || !validLatitude(latitude) || !validLongitude(longitude)
+                || radiusMeters < 1 || radiusMeters > settings.maxRadiusMeters()) {
+            throw new IllegalArgumentException("Invalid offer candidate search");
+        }
+        Instant checkedAt = clock.instant();
+        try {
+            LocationFix fix = redis.latest(driverId);
+            Instant beat = redis.lastHeartbeat(driverId);
+            boolean usable = fix != null && validLatitude(fix.latitude())
+                    && validLongitude(fix.longitude())
+                    && fresh(fix.reportedAt(), checkedAt, settings.maxGpsAge())
+                    && fresh(fix.receivedAt(), checkedAt, settings.maxGpsAge())
+                    && beat != null && fresh(beat, checkedAt, settings.heartbeatTtl());
+            if (!usable || Wgs84Distance.metres(latitude, longitude,
+                    fix.latitude(), fix.longitude()) > radiusMeters) {
+                throw new ApiFailure(HttpStatus.CONFLICT, "CANDIDATE_INELIGIBLE",
+                        "Driver is no longer eligible for this offer");
+            }
+            return checkedAt;
+        } catch (DataAccessException failure) {
+            count("redis", "failure");
+            throw unavailable();
+        }
+    }
+
     private boolean freshOrPresent(Instant time, Instant now, Duration maxAge) {
         return time != null && fresh(time, now, maxAge);
     }

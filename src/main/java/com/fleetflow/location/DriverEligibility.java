@@ -39,7 +39,8 @@ public class DriverEligibility {
         }
         Facts driver = facts.getFirst();
         if (!driver.active || driver.suspended ||
-                !(driver.status.equals("ONLINE") || driver.status.equals("AVAILABLE"))) {
+                !(driver.status.equals("ONLINE") || driver.status.equals("AVAILABLE")
+                    || driver.status.equals("RESERVED") || driver.status.equals("DELIVERING"))) {
             throw new ApiFailure(HttpStatus.CONFLICT, "DRIVER_STATE_CONFLICT",
                     "Driver state does not allow this action");
         }

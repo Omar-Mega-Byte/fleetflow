@@ -45,7 +45,7 @@ public class DriverLifecycleService {
 
     private void change(DriverStatus target) {
         UUID actorId = access.require(Role.DRIVER).id();
-        DriverEntity driver = drivers.findByActorId(actorId).orElseThrow(() ->
+        DriverEntity driver = drivers.findByActorIdForUpdate(actorId).orElseThrow(() ->
                 new ApiFailure(HttpStatus.NOT_FOUND, "RESOURCE_NOT_FOUND", "Resource not found"));
         if (!driver.active || driver.suspended) {
             throw conflict();
@@ -57,6 +57,7 @@ public class DriverLifecycleService {
             case PAUSED -> prior == DriverStatus.ONLINE || prior == DriverStatus.AVAILABLE;
             case OFFLINE -> prior == DriverStatus.ONLINE || prior == DriverStatus.AVAILABLE
                     || prior == DriverStatus.PAUSED;
+            case RESERVED, DELIVERING -> false;
         };
         if (!allowed || (target == DriverStatus.AVAILABLE &&
                 !vehicles.existsByDriverIdAndActiveTrue(driver.id))) {
