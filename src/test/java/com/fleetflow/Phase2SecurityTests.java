@@ -203,7 +203,7 @@ class Phase2SecurityTests extends ProfileTestDatabase {
 
     @Test
     void anonymousHealthAndInfoExposeNoBusinessData() throws Exception {
-        MvcResult health = mvc.perform(get("/actuator/health"))
+        MvcResult health = mvc.perform(get("/actuator/health/liveness"))
                 .andExpect(status().isOk()).andReturn();
         assertThat(health.getResponse().getContentAsString()).contains("UP")
                 .doesNotContain("db", "password", "issuer");

@@ -136,6 +136,21 @@ class Phase4LocationTests extends ProfileTestDatabase {
                 .contentType(MediaType.APPLICATION_JSON).content(body(30, 31, Instant.now())
                         .replace("30.0", "NaN")))
                 .andExpect(status().isBadRequest());
+        Fixture otherDriver = fixture("DRIVER", true, true);
+        var spoof = mvc.perform(post("/api/v1/drivers/me/location")
+                .header("Authorization", bearer(driver))
+                .contentType(MediaType.APPLICATION_JSON).content(body(30, 31, Instant.now())
+                        .replace("}", ",\"driverId\":\"" + otherDriver.driverId + "\"}")))
+                .andReturn();
+        assertThat(spoof.getResponse().getStatus()).isIn(204, 400);
+        assertThat(redisTemplate.hasKey("fleetflow:driver:location:" + otherDriver.driverId)).isFalse();
+        jdbc.update("update drivers set active = false where id = ?", driver.driverId);
+        mvc.perform(post("/api/v1/drivers/me/location").header("Authorization", bearer(driver))
+                .contentType(MediaType.APPLICATION_JSON).content(body(30, 31, Instant.now())))
+                .andExpect(status().isConflict());
+        jdbc.update("update drivers set active = true, suspended = true where id = ?", driver.driverId);
+        mvc.perform(post("/api/v1/drivers/me/heartbeat").header("Authorization", bearer(driver)))
+                .andExpect(status().isConflict());
     }
 
     @Test
@@ -152,12 +167,15 @@ class Phase4LocationTests extends ProfileTestDatabase {
         String heartbeat = redisTemplate.opsForValue().get(heartbeatKey);
         Long ttl = redisTemplate.getExpire(locationKey);
         Long heartbeatTtl = redisTemplate.getExpire(heartbeatKey);
+        var geoBefore = redisTemplate.opsForGeo().position("fleetflow:geo:available", driver.driverId.toString());
         update(driver, 31, 32, first, 409);
         update(driver, 31, 32, first.minusSeconds(1), 409);
         assertThat(redisTemplate.opsForHash().get(locationKey, "longitude")).isEqualTo("31.0");
         assertThat(redisTemplate.opsForValue().get(heartbeatKey)).isEqualTo(heartbeat);
         assertThat(redisTemplate.getExpire(locationKey)).isLessThanOrEqualTo(ttl);
         assertThat(redisTemplate.getExpire(heartbeatKey)).isLessThanOrEqualTo(heartbeatTtl);
+        assertThat(redisTemplate.opsForGeo().position("fleetflow:geo:available", driver.driverId.toString()))
+                .isEqualTo(geoBefore);
         mvc.perform(post("/api/v1/drivers/me/heartbeat").header("Authorization", bearer(driver)))
                 .andExpect(status().isNoContent());
         assertThat(redisTemplate.opsForHash().get(locationKey, "longitude")).isEqualTo("31.0");
@@ -181,10 +199,14 @@ class Phase4LocationTests extends ProfileTestDatabase {
     void nearbyRechecksRedisAndPostgresFacts() throws Exception {
         Fixture near = fixture("DRIVER", true, true);
         Fixture far = fixture("DRIVER", true, true);
+        Fixture onlineOnly = fixture("DRIVER", true, true);
         onlineAvailable(near);
         onlineAvailable(far);
+        mvc.perform(post("/api/v1/drivers/me/online").header("Authorization", bearer(onlineOnly)))
+                .andExpect(status().isNoContent());
         update(near, 30, 31, Instant.now(), 204);
         update(far, 30.01, 31.01, Instant.now(), 204);
+        update(onlineOnly, 30.001, 31.001, Instant.now(), 204);
         assertThat(redisTemplate.opsForZSet().score("fleetflow:geo:available", near.driverId.toString())).isNotNull();
         assertThat(redisTemplate.opsForZSet().score("fleetflow:geo:available", far.driverId.toString())).isNotNull();
         assertThat(redisTemplate.opsForGeo().position("fleetflow:geo:available", near.driverId.toString())
@@ -199,6 +221,10 @@ class Phase4LocationTests extends ProfileTestDatabase {
         jdbc.update("update drivers set status = 'AVAILABLE', suspended = true where id = ?", near.driverId);
         assertThat(locations.nearby(30, 31, 3000, 2)).extracting(LocationService.NearbyDriver::driverId)
                 .containsExactly(far.driverId);
+        jdbc.update("update drivers set suspended = false where id = ?", near.driverId);
+        mvc.perform(post("/api/v1/drivers/me/pause").header("Authorization", bearer(near)))
+                .andExpect(status().isNoContent());
+        assertThat(redisTemplate.opsForZSet().score("fleetflow:geo:available", near.driverId.toString())).isNull();
         jdbc.update("update vehicles set active = false where driver_id = ?", far.driverId);
         assertThat(locations.nearby(30, 31, 3000, 2)).isEmpty();
         jdbc.update("update vehicles set active = true where driver_id = ?", far.driverId);
