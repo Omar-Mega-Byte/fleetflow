@@ -2,7 +2,7 @@ FROM maven:3.9-eclipse-temurin-21@sha256:613124833fa6718ded9d655a2ebfab6425818c1
 WORKDIR /workspace
 COPY pom.xml ./
 COPY src src
-RUN mvn -B -DskipTests package --no-transfer-progress
+RUN --mount=type=cache,target=/root/.m2 mvn -B -DskipTests package --no-transfer-progress
 
 FROM eclipse-temurin:21-jre-alpine@sha256:51ab5e3302e7141ce665ca3ea85e8b5cd648eafbc3c0c90dd79d6537684e4555
 WORKDIR /app
