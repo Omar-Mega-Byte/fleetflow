@@ -97,7 +97,8 @@ public class OrderService {
         if (from != null && to != null && !from.isBefore(to)) {
             throw invalid("from must be before to");
         }
-        if (status != null && !status.equals("CREATED")) {
+        if (status != null && !java.util.Set.of("CREATED", "CONFIRMED", "PREPARING",
+                "READY_FOR_PICKUP", "DISPATCHING", "DISPATCH_FAILED").contains(status)) {
             throw invalid("Unsupported status");
         }
         Sort requestedSort = sortOrder(sort);

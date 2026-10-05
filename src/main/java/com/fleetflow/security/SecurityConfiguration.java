@@ -38,6 +38,13 @@ public class SecurityConfiguration {
                             .hasRole("CUSTOMER");
                     auth.requestMatchers(HttpMethod.GET, "/api/v1/merchant-branches/*/orders")
                             .hasRole("MERCHANT");
+                    auth.requestMatchers(HttpMethod.POST, "/api/v1/merchant/orders/*/confirm",
+                            "/api/v1/merchant/orders/*/prepare", "/api/v1/merchant/orders/*/ready")
+                            .hasRole("MERCHANT");
+                    auth.requestMatchers(HttpMethod.POST, "/api/v1/dispatch/orders/*/match")
+                            .hasRole("DISPATCHER");
+                    auth.requestMatchers(HttpMethod.GET, "/api/v1/dispatch/orders/*/attempts")
+                            .hasRole("DISPATCHER");
                     auth.requestMatchers(HttpMethod.GET, "/api/v1/drivers/me").hasRole("DRIVER");
                     auth.requestMatchers(HttpMethod.POST, "/api/v1/drivers/me/online",
                             "/api/v1/drivers/me/available", "/api/v1/drivers/me/pause",

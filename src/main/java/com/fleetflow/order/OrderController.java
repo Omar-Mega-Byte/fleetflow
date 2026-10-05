@@ -53,7 +53,7 @@ class OrderController {
             @Parameter(name = "branchId", in = ParameterIn.QUERY,
                     description = "Optional branch filter within my orders.", schema = @Schema(type = "string", format = "uuid")),
             @Parameter(name = "status", in = ParameterIn.QUERY,
-                    description = "Only the current CREATED state is supported.", schema = @Schema(allowableValues = "CREATED")),
+                    description = "Optional current order status."),
             @Parameter(name = "from", in = ParameterIn.QUERY,
                     description = "Inclusive UTC creation time.", schema = @Schema(type = "string", format = "date-time")),
             @Parameter(name = "to", in = ParameterIn.QUERY,
