@@ -1,6 +1,6 @@
 # Phase 6 — atomic assignment and acceptance
 
-**Status: IN_PROGRESS (2026-10-06).** Implementation and acceptance verification are under way. The [execution roadmap](../ROADMAP.md) controls phase order. Phase 5 has committed, immutable ranking snapshots; Phase 6 is the first phase that may reserve a driver or create an offer. Phase 3's cancellation and delivery lifecycle remain incomplete, so this phase adds only the delivery state needed for acceptance and leaves pickup/completion to later work.
+**Status: COMPLETE (2026-10-06).** The [execution roadmap](../ROADMAP.md) controls phase order. Phase 5 has committed, immutable ranking snapshots; Phase 6 is the first phase that may reserve a driver or create an offer. Phase 3's cancellation and delivery lifecycle remain incomplete, so this phase adds only the delivery state needed for acceptance and leaves pickup/completion to later work.
 
 ## Objective and boundary
 
@@ -82,22 +82,28 @@ Use real PostgreSQL through Testcontainers for migration, uniqueness, rollback a
 
 Cover two simultaneous offers for one order, pause/offline versus reserve, stale ranking, lost eligibility, Redis outage, statement/insert rollback, and database unique-constraint enforcement. Cover accept/accept, accept/reject, reject/reject, wrong driver, expired accept, a lock wait crossing the exact deadline, incompatible order/driver state and acceptance rollback. Include signed OIDC MVC/API cases for each role and ownership boundary. Run fresh and upgrade Flyway tests, `./mvnw.cmd clean verify --no-transfer-progress`, a signed local offer/accept flow, and GitHub CI on the final commit. Record exact test counts, failures/skips, commit and CI run links in this document before changing its status or the roadmap to `COMPLETE`.
 
-- [ ] Forward migration and database constraints pass fresh and upgrade tests.
-- [ ] Offer commits reservation, assignment, pending delivery and history together, or none of them.
-- [ ] Exact owner can accept or reject; duplicate, late and conflicting commands have one terminal winner.
-- [ ] Acceptance commits assignment, driver, order, delivery and history as one consistent tuple.
-- [ ] The 100-contender PostgreSQL proof produces one winner and 99 safe losers on repeated runs.
-- [ ] Object-level OIDC authorization, Redis outage behavior, signed local smoke and final CI pass.
-- [ ] Evidence is recorded here, then Phase 6 and the roadmap are marked `COMPLETE`.
+- [x] Forward migration and database constraints pass fresh and upgrade tests.
+- [x] Offer commits reservation, assignment, pending delivery and history together, or none of them.
+- [x] Exact owner can accept or reject; duplicate, late and conflicting commands have one terminal winner.
+- [x] Acceptance commits assignment, driver, order, delivery and history as one consistent tuple.
+- [x] The 100-contender PostgreSQL proof produces one winner and 99 safe losers on repeated runs.
+- [x] Object-level OIDC authorization, Redis outage behavior, signed local smoke and CI pass.
+- [x] Evidence is recorded here, then Phase 6 and the roadmap are marked `COMPLETE`.
 
 ## Open implementation limits
 
 Phase 7 must add deterministic timeout cleanup, next-candidate selection, cancellation, reassignment and delivery incident handling. Until then, an expired offer can block a new one and needs explicit operator visibility; a rejection does not automatically redispatch. No route ETA, package-fit guarantee or PostGIS zone guarantee is introduced here.
 
-## Implementation notes (acceptance pending)
+## Implementation notes
 
 `V8__atomic_assignment.sql` extends the legal order and driver states, adds composite foreign keys from assignments to their matching evidence and from deliveries to the accepted assignment/order pair, and creates partial unique indexes for active driver, order and delivery ownership. `AssignmentService` performs a direct Redis GPS/heartbeat/distance recheck for the selected ranked driver. `AssignmentCommit` takes the short PostgreSQL order lock, conditionally reserves the still-eligible driver, writes the offer, pending delivery and history together, and checks the preflight age again after acquiring the driver row. Accept and reject use the exact driver's database actor mapping, an offer row lock, PostgreSQL wall-clock deadline checks, guarded state updates and rollback on mismatch. The existing JPA driver lifecycle now locks its row before self-transition so pause/offline cannot overwrite a reservation.
 
 The driver may continue GPS and heartbeat updates while `RESERVED` or `DELIVERING`; nearby matching still requires durable `AVAILABLE`. An offer is visible only to its owning driver and dispatchers through bounded, role-scoped reads. Partial unique indexes remain the durable backstop if a caller bypasses service checks. The selected offer TTL is 90 seconds, the maximum age between Redis preflight and durable reservation is five seconds, and offer/response transactions use a two-second PostgreSQL lock timeout. These defaults are validated at startup or fixed in the transaction code.
 
-Focused PostgreSQL/Redis/OIDC tests have passed the atomic tuple, role/owner scope, rejection, expiry, injected rollback, Redis outage, active-order/driver uniqueness, same-order race, pause-versus-reserve race, accept-versus-reject race, lock-wait deadline, and two 100-contender repetitions. The full clean verify, live signed Keycloak smoke and final CI evidence are still required before marking this phase complete.
+## Verification evidence
+
+Commit [`84b036c`](https://github.com/Omar-Mega-Byte/fleetflow/commit/84b036c) passed `./mvnw.cmd --% -Dmaven.repo.local=C:\Users\Tolis\.m2\repository clean verify --no-transfer-progress` locally on 2026-10-06: **72 tests, 0 failures, 0 errors, 0 skipped**. The Phase 6 PostgreSQL/Redis/OIDC class ran 10 tests covering the atomic tuple, role and owner scope, rejection, expiry, injected rollback, Redis outage, durable eligibility loss, active order and driver uniqueness, same-order race, pause-versus-reserve race, accept-versus-reject race, and lock wait crossing the deadline. Its two synchronized 100-caller PostgreSQL repetitions each committed **one offer and 99 conflicts**, with measured elapsed times **1,059 ms** and **368 ms**; direct SQL assertions found one reserved driver, one active assignment, one pending delivery, and no losing-order delivery fragments. These timings describe this local run, not a latency service level.
+
+The local Compose application built from cached images, applied Flyway through **V8**, and passed `scripts/Phase6-Local-Smoke.ps1` with real signed Keycloak tokens. The flow progressed from merchant readiness through driver liveness, ranked matching, dispatcher offer, owner-only read, acceptance and duplicate `409`. A direct PostgreSQL query returned `ACCEPTED|DELIVERING|DRIVER_ASSIGNED|ASSIGNED` for order `f1318f3f-8b5e-4583-9075-57336299f4ac`; the customer order read exposed only the coarse assigned state.
+
+[PR #8](https://github.com/Omar-Mega-Byte/fleetflow/pull/8) checks for code commit `84b036c` passed: [push verify](https://github.com/Omar-Mega-Byte/fleetflow/actions/runs/37377108993/job/111988972028) and [pull request verify](https://github.com/Omar-Mega-Byte/fleetflow/actions/runs/37377163809/job/111989173069), with GitGuardian Security Checks passing. This local and CI evidence supports Phase 6 assignment and acceptance; it does not claim deployed production traffic or Phase 7 recovery.
