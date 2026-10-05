@@ -77,6 +77,12 @@ fleetflow:
     update-window: ${LOCATION_UPDATE_WINDOW:1m}
     heartbeat-limit: ${LOCATION_HEARTBEAT_LIMIT:60}
     heartbeat-window: ${LOCATION_HEARTBEAT_WINDOW:1m}
+  matching:
+    radius-meters: ${MATCH_RADIUS_METERS:5000}
+    candidate-limit: ${MATCH_CANDIDATE_LIMIT:50}
+    distance-weight: ${MATCH_DISTANCE_WEIGHT:0.80}
+    freshness-weight: ${MATCH_FRESHNESS_WEIGHT:0.20}
+    metres-per-second: ${MATCH_METRES_PER_SECOND:8.33}
 springdoc:
   paths-to-match: /api/v1/**
   api-docs:

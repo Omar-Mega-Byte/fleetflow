@@ -3,6 +3,7 @@ package com.fleetflow.location;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.Map;
+import java.util.HashMap;
 import java.util.Set;
 import java.util.UUID;
 
@@ -56,6 +57,27 @@ public class DriverEligibility {
                   and exists (select 1 from vehicles v where v.driver_id = d.id and v.active and v.capacity > 0)
                 """, Map.of("ids", candidateIds), UUID.class);
         return new HashSet<>(ids);
+    }
+
+    @Transactional(readOnly = true)
+    public Map<UUID, String> matchingReasons(Collection<UUID> candidateIds) {
+        if (candidateIds.isEmpty()) return Map.of();
+        Map<UUID, String> reasons = new HashMap<>();
+        namedJdbc.query("""
+                select d.id, d.active, d.suspended, d.status, a.active as actor_active,
+                  exists(select 1 from actor_roles r where r.actor_id = a.id and r.role = 'DRIVER') as has_role,
+                  exists(select 1 from vehicles v where v.driver_id = d.id and v.active and v.capacity > 0) as has_vehicle
+                from drivers d join actors a on a.id = d.actor_id where d.id in (:ids)
+                """, Map.of("ids", candidateIds), rs -> {
+            UUID id = (UUID) rs.getObject("id");
+            String reason = !rs.getBoolean("active") || rs.getBoolean("suspended")
+                    || !"AVAILABLE".equals(rs.getString("status")) ? "DRIVER_NOT_AVAILABLE"
+                    : !rs.getBoolean("actor_active") ? "ACTOR_INACTIVE"
+                    : !rs.getBoolean("has_role") ? "ROLE_MISSING"
+                    : !rs.getBoolean("has_vehicle") ? "VEHICLE_INACTIVE" : "ELIGIBLE";
+            reasons.put(id, reason);
+        });
+        return reasons;
     }
 
     private record Facts(UUID id, boolean active, boolean suspended, String status) { }

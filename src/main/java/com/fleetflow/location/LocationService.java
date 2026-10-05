@@ -126,6 +126,51 @@ public class LocationService {
         return List.copyOf(result);
     }
 
+    /** Bounded Phase 5 inspection, including GEO hits rejected by Redis freshness or exact distance. */
+    public List<InspectedDriver> inspect(double latitude, double longitude, int radiusMeters,
+                                         int limit, Instant decisionAt) {
+        if (!validLatitude(latitude) || !validLongitude(longitude) || radiusMeters < 1
+                || radiusMeters > settings.maxRadiusMeters() || limit < 1 || limit > settings.maxResults()) {
+            throw new IllegalArgumentException("Invalid nearby search bounds");
+        }
+        int fetch = Math.min(settings.overfetchCap(), Math.max(limit, limit * settings.overfetchFactor()));
+        List<InspectedDriver> result = new ArrayList<>();
+        try {
+            // GEO uses a sphere; 1% padding avoids dropping a WGS84-eligible boundary fix.
+            for (var hit : redis.nearby(latitude, longitude, (int) Math.ceil(radiusMeters * 1.01), fetch)) {
+                LocationFix fix = redis.latest(hit.driverId());
+                Instant beat = redis.lastHeartbeat(hit.driverId());
+                if (fix == null) redis.removeOrphan(hit.driverId());
+                boolean usable = fix != null && validLatitude(fix.latitude())
+                        && validLongitude(fix.longitude());
+                double exact = !usable ? Double.NaN : Wgs84Distance.metres(latitude, longitude,
+                        fix.latitude(), fix.longitude());
+                long age = fix == null ? -1 : Math.max(0,
+                        Duration.between(fix.reportedAt(), decisionAt).toMillis());
+                String reason = !freshOrPresent(beat, decisionAt, settings.heartbeatTtl())
+                        ? "STALE_HEARTBEAT"
+                        : !usable || !fresh(fix.reportedAt(), decisionAt, settings.maxGpsAge())
+                        || !fresh(fix.receivedAt(), decisionAt, settings.maxGpsAge())
+                        ? "STALE_GPS" : exact > radiusMeters ? "OUTSIDE_RADIUS" : null;
+                result.add(new InspectedDriver(hit.driverId(), exact, age, reason));
+            }
+        } catch (DataAccessException failure) {
+            count("redis", "failure");
+            throw unavailable();
+        }
+        return List.copyOf(result);
+    }
+
+    private boolean freshOrPresent(Instant time, Instant now, Duration maxAge) {
+        return time != null && fresh(time, now, maxAge);
+    }
+
+    public int geoCap(int limit) {
+        return Math.min(settings.overfetchCap(), Math.max(limit, limit * settings.overfetchFactor()));
+    }
+
+    public LocationProperties policy() { return settings; }
+
     private void validate(LocationRequest request, Instant now) {
         if (request == null || request.latitude() == null || request.longitude() == null
                 || request.reportedAt() == null || !validLatitude(request.latitude())
@@ -165,4 +210,5 @@ public class LocationService {
     public record LocationRequest(Double latitude, Double longitude, Double heading, Double speed,
                                   Instant reportedAt) { }
     public record NearbyDriver(UUID driverId, double distanceMeters, LocationFix fix) { }
+    public record InspectedDriver(UUID driverId, double distanceMeters, long gpsAgeMillis, String redisReason) { }
 }
