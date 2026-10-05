@@ -2,13 +2,13 @@ package com.fleetflow.order;
 
 import java.time.Clock;
 import java.time.Instant;
-import java.util.Set;
 import java.util.UUID;
 
 import com.fleetflow.api.ApiFailure;
 import com.fleetflow.customer.CustomerService;
 import com.fleetflow.identity.Role;
 import com.fleetflow.lifecycle.LifecycleHistory;
+import com.fleetflow.lifecycle.OrderTransition;
 import com.fleetflow.merchant.MerchantService;
 import com.fleetflow.security.ActorAccess;
 import org.springframework.http.HttpStatus;
@@ -36,23 +36,23 @@ public class OrderLifecycleService {
 
     @Transactional
     public StateView confirm(UUID branchId, UUID orderId) {
-        return merchant(branchId, orderId, Command.CONFIRM, null);
+        return merchant(branchId, orderId, OrderTransition.CONFIRM, null);
     }
 
     @Transactional
     public StateView startPreparation(UUID branchId, UUID orderId) {
-        return merchant(branchId, orderId, Command.START_PREPARATION, null);
+        return merchant(branchId, orderId, OrderTransition.START_PREPARATION, null);
     }
 
     @Transactional
     public StateView readyForPickup(UUID branchId, UUID orderId) {
-        return merchant(branchId, orderId, Command.READY_FOR_PICKUP, null);
+        return merchant(branchId, orderId, OrderTransition.READY_FOR_PICKUP, null);
     }
 
     @Transactional
     public StateView cancelMerchant(UUID branchId, UUID orderId, String reason) {
         String validated = reason(reason);
-        return merchant(branchId, orderId, Command.CANCEL_MERCHANT, validated);
+        return merchant(branchId, orderId, OrderTransition.CANCEL_MERCHANT, validated);
     }
 
     @Transactional
@@ -61,22 +61,22 @@ public class OrderLifecycleService {
         UUID actorId = access.require(Role.CUSTOMER).id();
         UUID customerId = customers.forActor(actorId).id();
         OrderEntity order = orders.lockForCustomer(orderId, customerId).orElseThrow(OrderLifecycleService::notFound);
-        return apply(order, Command.CANCEL_CUSTOMER, actorId, validated);
+        return apply(order, OrderTransition.CANCEL_CUSTOMER, actorId, validated);
     }
 
-    private StateView merchant(UUID branchId, UUID orderId, Command command, String reason) {
+    private StateView merchant(UUID branchId, UUID orderId, OrderTransition command, String reason) {
         UUID actorId = merchants.requireActiveBranchScope(branchId);
         OrderEntity order = orders.lockForBranch(orderId, branchId).orElseThrow(OrderLifecycleService::notFound);
         return apply(order, command, actorId, reason);
     }
 
-    private StateView apply(OrderEntity order, Command command, UUID actorId, String reason) {
-        if (!command.from.contains(order.status)) {
+    private StateView apply(OrderEntity order, OrderTransition command, UUID actorId, String reason) {
+        if (!command.allows(order.status)) {
             throw new ApiFailure(HttpStatus.CONFLICT, "LIFECYCLE_CONFLICT", "Order state does not allow this action");
         }
         String previous = order.status;
         Instant now = clock.instant();
-        order.status = command.to;
+        order.status = command.next();
         order.version++;
         order.updatedAt = now;
         switch (command) {
@@ -99,18 +99,6 @@ public class OrderLifecycleService {
 
     private static ApiFailure notFound() {
         return new ApiFailure(HttpStatus.NOT_FOUND, "RESOURCE_NOT_FOUND", "Resource not found");
-    }
-
-    private enum Command {
-        CONFIRM(Set.of("CREATED"), "CONFIRMED"),
-        START_PREPARATION(Set.of("CONFIRMED"), "PREPARING"),
-        READY_FOR_PICKUP(Set.of("PREPARING"), "READY_FOR_PICKUP"),
-        CANCEL_CUSTOMER(Set.of("CREATED", "CONFIRMED"), "CANCELLED"),
-        CANCEL_MERCHANT(Set.of("CREATED", "CONFIRMED", "PREPARING", "READY_FOR_PICKUP"), "CANCELLED");
-
-        final Set<String> from;
-        final String to;
-        Command(Set<String> from, String to) { this.from = from; this.to = to; }
     }
 
     public record StateView(UUID id, String status, long version, Instant confirmedAt,
