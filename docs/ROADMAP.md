@@ -7,8 +7,8 @@
 | [0](phases/PHASE_0.md) Foundation | COMPLETE | Reproducible Spring, PostgreSQL, Flyway and CI baseline |
 | [1](phases/PHASE_1.md) Core model | COMPLETE | Durable actors, branches, drivers and order intake with REST/JPA fundamentals |
 | [2](phases/PHASE_2.md) Security | COMPLETE | OIDC authentication and object-level authorization before exposed business actions |
-| 3 Lifecycles | NOT_STARTED | Explicit order/driver/delivery transitions and durable history |
-| 4 Live location | NOT_STARTED | Redis heartbeat, latest GPS, GEO and stale-driver exclusion |
+| [3](phases/PHASE_3.md) Lifecycles | IN_PROGRESS | Durable driver self state and history implemented as Phase 4 prerequisite; order/delivery lifecycle remains |
+| [4](phases/PHASE_4.md) Live location | IN_PROGRESS | Redis heartbeat, latest GPS, GEO and stale-driver exclusion under verification |
 | 5 Matching | NOT_STARTED | Deterministic candidate eligibility and ranking, without assignment offers |
 | 6 Assignment | NOT_STARTED | Atomic reservation, offer, acceptance and 100-contender proof |
 | 7 Recovery | NOT_STARTED | Rejection, timeout, reassignment, cancellation and delivery incidents |
