@@ -1,6 +1,6 @@
 # Phase 5 — candidate eligibility and matching
 
-**Status: IN_PROGRESS.** The implementation is present and local verification is under way. The [execution roadmap](../ROADMAP.md) controls scope and order. The older Phase 5 outline in [PROJECT_CONTEXT.md](../../PROJECT_CONTEXT.md) includes assignment offers; those belong to Phase 6 under the execution roadmap.
+**Status: COMPLETE (2026-10-05).** The implementation, local verification, signed runtime smoke, and pull-request CI acceptance gate passed. The [execution roadmap](../ROADMAP.md) controls scope and order. The older Phase 5 outline in [PROJECT_CONTEXT.md](../../PROJECT_CONTEXT.md) includes assignment offers; those belong to Phase 6 under the execution roadmap.
 
 ## Objective and boundary
 
@@ -12,8 +12,8 @@ The demonstration path is: authorized merchant staff advances an order to ready 
 
 - Phase 4 provides an internal `LocationService.nearby` lookup with GEO overfetch, exact distance check, GPS and heartbeat freshness checks, and a batched PostgreSQL recheck. It fails closed on Redis outage. Its result is a current candidate hint, not a reservation.
 - The durable driver states implemented so far are `OFFLINE`, `ONLINE`, `AVAILABLE`, and `PAUSED`. Eligibility currently requires an active, unsuspended driver, active actor with `DRIVER` role, `AVAILABLE`, and an active positive-capacity vehicle. There is no `RESERVED` or `DELIVERING` state yet.
-- Orders currently have only `CREATED`, enforced by `ck_orders_status`; there is no guarded way to reach `READY_FOR_PICKUP`, no order status history, and no delivery record. Finish the necessary Phase 3 order transition slice before the Phase 5 dispatch action can be accepted. This does not make all of Phase 3 complete: cancellation and the full delivery lifecycle remain separate work.
-- There is no dispatch table, assignment, offer, zone polygon, route provider, workload/rating history, or order package-size requirement. Do not claim to filter by vehicle fit or zone, or score workload, acceptance rate, or rating from missing data.
+- Before this phase, orders had only `CREATED`, enforced by `ck_orders_status`; there was no guarded way to reach `READY_FOR_PICKUP`, no order status history, and no delivery record. The necessary Phase 3 order transition slice is now present. This does not make all of Phase 3 complete: cancellation and the full delivery lifecycle remain separate work.
+- Before this phase, there was no dispatch table. Assignment, offers, zone polygons, route providers, workload/rating history, and order package-size requirements remain absent. Do not claim to filter by vehicle fit or zone, or score workload, acceptance rate, or rating from missing data.
 
 ## Decisions to freeze before implementation
 
@@ -71,14 +71,14 @@ Proposed routes are `POST /api/v1/dispatch/orders/{orderId}/match` and bounded `
 
 Mark Phase 5 `COMPLETE` only after all of the following have recorded evidence:
 
-- [ ] A guarded, authorized Phase 3 order path reaches `READY_FOR_PICKUP`, with durable transition history.
-- [ ] Matching starts only for a ready order, and duplicate/concurrent starts have one durable winner.
-- [ ] Redis/GPS/heartbeat and current PostgreSQL facts are hard filters; ineligible drivers have no rank or score.
-- [ ] The same captured inputs, decision time, and validated configuration yield the same score, order, estimate, and explanation.
-- [ ] Both ranked and no-candidate outcomes preserve bounded, inspectable attempt history without raw GPS trails.
-- [ ] Redis outage and failed transactions leave durable order/attempt state unchanged; no stale fallback decides a match.
-- [ ] Dispatcher authorization, customer privacy, migration upgrades, PostgreSQL/Redis integration tests, full Maven verify, CI, and signed local smoke pass.
-- [ ] No reservation, offer, driver status change to `RESERVED`, automatic retry, PostGIS zone decision, or external route claim is introduced.
+- [x] A guarded, authorized Phase 3 order path reaches `READY_FOR_PICKUP`, with durable transition history.
+- [x] Matching starts only for a ready order, and duplicate/concurrent starts have one durable winner.
+- [x] Redis/GPS/heartbeat and current PostgreSQL facts are hard filters; ineligible drivers have no rank or score.
+- [x] The same captured inputs, decision time, and validated configuration yield the same score, order, estimate, and explanation.
+- [x] Both ranked and no-candidate outcomes preserve bounded, inspectable attempt history without raw GPS trails.
+- [x] Redis outage and failed transactions leave durable order/attempt state unchanged; no stale fallback decides a match.
+- [x] Dispatcher authorization, customer privacy, migration upgrades, PostgreSQL/Redis integration tests, full Maven verify, CI, and signed local smoke pass.
+- [x] No reservation, offer, driver status change to `RESERVED`, automatic retry, PostGIS zone decision, or external route claim is introduced.
 
 Phase 6 consumes this ranking but must make its own current eligibility check and atomic PostgreSQL reservation/offer decision. Phase 7 owns retries, timeouts, and recovery from `DISPATCH_FAILED`.
 
@@ -100,4 +100,4 @@ Scoring uses distance weight **0.80** and GPS freshness weight **0.20**. The pur
 
 Local verification before the CI gate: `./mvnw.cmd clean verify --no-transfer-progress` passed **62 tests, 0 failures, 0 errors, 0 skips**. This includes pure scoring and WGS84 unit tests; fresh and V1/V3 upgrade migrations; PostgreSQL constraints and immutable triggers; injected failures in order history, attempt, and candidate inserts; actual PostgreSQL concurrent starts; real Redis and PostgreSQL hard-filter, limit, radius, and outage cases; and signed MVC/OIDC security and privacy checks. `docker compose --env-file .env -p fleetflow up -d --build --pull never app` rebuilt the app from cached images. The existing local PostgreSQL schema advanced to Flyway V7; app, PostgreSQL, and Redis were healthy. `./scripts/Phase5-Local-Smoke.ps1` then used live Keycloak-signed customer, merchant, dispatcher, and driver tokens: merchant confirm/prepare/ready each returned 204, driver online/available/location each returned 204, dispatcher match returned 201 `RANKED`, dispatcher attempt read returned 200 with rank 1, customer attempt read returned 403, and customer order read returned 200 without candidate detail. It generated temporary credentials only in process memory and printed no tokens. Exact final local smoke order: `81948aff-cf13-477b-9858-c2332e6ff98c`.
 
-CI, final full verification, and the final acceptance decision are recorded after branch delivery. Open limits: no route ETA or package fit, no assignment/reservation/offer, no retry, and no Phase 3 cancellation or delivery lifecycle.
+The [GitHub Actions verify run for PR #7 on commit ca855e6](https://github.com/Omar-Mega-Byte/fleetflow/actions/runs/37351422325) passed, and GitGuardian reported pass. The final documentation-only completion commit requires its own CI check before the PR is marked ready. Open limits: no route ETA or package fit, no assignment/reservation/offer, no retry, and no Phase 3 cancellation or delivery lifecycle.

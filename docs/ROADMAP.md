@@ -1,6 +1,6 @@
 # FleetFlow execution roadmap
 
-[PROJECT_CONTEXT.md](../PROJECT_CONTEXT.md) is the primary living context. This roadmap tracks implementation status; the later phases remain plans. Status vocabulary: `NOT_STARTED` means planned only, `IN_PROGRESS` means implementation under way, `BLOCKED` means an identified prerequisite prevents completion, and `COMPLETE` means the phase acceptance gate passed with recorded evidence. As of 2026-10-05 Phases 0, 1, 2, and 4 are complete; Phase 3 remains in progress because cancellation and delivery lifecycle are still planned. Its ready-order prerequisite is implemented for Phase 5, which is in progress.
+[PROJECT_CONTEXT.md](../PROJECT_CONTEXT.md) is the primary living context. This roadmap tracks implementation status; the later phases remain plans. Status vocabulary: `NOT_STARTED` means planned only, `IN_PROGRESS` means implementation under way, `BLOCKED` means an identified prerequisite prevents completion, and `COMPLETE` means the phase acceptance gate passed with recorded evidence. As of 2026-10-05 Phases 0, 1, 2, 4, and 5 are complete; Phase 3 remains in progress because cancellation and delivery lifecycle are still planned. Its ready-order prerequisite is implemented for Phase 5.
 
 | Phase | Status | Purpose |
 | --- | --- | --- |
@@ -9,7 +9,7 @@
 | [2](phases/PHASE_2.md) Security | COMPLETE | OIDC authentication and object-level authorization before exposed business actions |
 | [3](phases/PHASE_3.md) Lifecycles | IN_PROGRESS | Driver state and guarded ready-order path implemented; cancellation and delivery lifecycle remain |
 | [4](phases/PHASE_4.md) Live location | COMPLETE | Redis heartbeat, latest GPS, GEO and durable eligibility recheck verified; polar GEO prefilter limit documented |
-| [5](phases/PHASE_5.md) Matching | IN_PROGRESS | Deterministic candidate eligibility and ranking, without assignment offers |
+| [5](phases/PHASE_5.md) Matching | COMPLETE | Deterministic candidate eligibility and ranking, without assignment offers |
 | 6 Assignment | NOT_STARTED | Atomic reservation, offer, acceptance and 100-contender proof |
 | 7 Recovery | NOT_STARTED | Rejection, timeout, reassignment, cancellation and delivery incidents |
 | 8 Async events | NOT_STARTED | Kafka, transactional outbox, idempotent notification and analytics |
@@ -108,6 +108,8 @@ Every phase requires a reviewable slice: behavior and negative cases verified, r
 - **Deliverables:** Redis adapter/config, API, tests, key/TTL documentation and failure metrics.
 
 ## Phase 5 — Candidate eligibility and matching
+
+- **Completion evidence (2026-10-05):** `./mvnw.cmd clean verify --no-transfer-progress` passed 62 tests with zero failures/errors/skips. [GitHub Actions verify on PR #7](https://github.com/Omar-Mega-Byte/fleetflow/actions/runs/37351422325) passed, and GitGuardian passed. The existing local Compose PostgreSQL upgraded through V7; app/PostgreSQL/Redis were healthy. A real Keycloak-signed merchant → driver → dispatcher → customer smoke passed. The [Phase 5 evidence and limits](phases/PHASE_5.md) record the full gate. Phase 3 remains `IN_PROGRESS` for cancellation and delivery lifecycle.
 
 - **Objective:** Rank explainable dispatch candidates without allocating a driver.
 - **Business scope:** Ready order can start dispatch; candidate list, eligibility reasons and deterministic score; no offer yet.
