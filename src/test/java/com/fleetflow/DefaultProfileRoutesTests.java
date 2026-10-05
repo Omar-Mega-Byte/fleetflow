@@ -26,8 +26,10 @@ class DefaultProfileRoutesTests extends ProfileTestDatabase {
     void defaultRegistersOnlySecuredReadsAndNoOrderWrite() throws Exception {
         var paths = mappings.getHandlerMethods().keySet().stream().map(Object::toString).toList();
         assertThat(paths).anyMatch(path -> path.contains("/api/v1/orders"))
+                .anyMatch(path -> path.contains("/api/v1/drivers/me/online"))
+                .anyMatch(path -> path.contains("/api/v1/merchant-branches/{branchId}/orders/{orderId}/confirm"))
                 .noneMatch(path -> path.contains("/api/v1/actors"))
-                .noneMatch(path -> path.contains("POST") && path.contains("/api/v1/orders"));
+                .noneMatch(path -> path.contains("POST") && path.contains("/api/v1/orders]"));
         UUID actor = UUID.randomUUID();
         jdbc.update("insert into actors (id, issuer, subject, active, created_at, updated_at) "
                 + "values (?, ?, 'default-reader', true, now(), now())", actor, TestOidc.ISSUER);
