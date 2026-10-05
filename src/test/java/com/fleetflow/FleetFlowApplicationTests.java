@@ -53,10 +53,13 @@ class FleetFlowApplicationTests {
     @Test
     void contextConnectsToPostgresAndValidatesFirstMigration() {
         assertThat(new JdbcTemplate(dataSource).queryForObject("select 1", Integer.class)).isEqualTo(1);
-        assertThat(flyway.info().applied()).hasSize(3);
+        assertThat(flyway.info().applied()).hasSize(7);
         assertThat(flyway.info().applied()[0].getVersion().getVersion()).isEqualTo("1");
         assertThat(flyway.info().applied()[1].getVersion().getVersion()).isEqualTo("2");
         assertThat(flyway.info().applied()[2].getVersion().getVersion()).isEqualTo("3");
+        assertThat(flyway.info().applied()[4].getVersion().getVersion()).isEqualTo("5");
+        assertThat(flyway.info().applied()[5].getVersion().getVersion()).isEqualTo("6");
+        assertThat(flyway.info().applied()[6].getVersion().getVersion()).isEqualTo("7");
         assertThat(flyway.migrate().migrationsExecuted).isZero();
     }
 
