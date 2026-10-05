@@ -158,7 +158,9 @@ class Phase5MatchingTests extends ProfileTestDatabase {
         assertThat(saved.get("score")).isEqualTo(reproduced.score());
         mvc.perform(get("/api/v1/orders/{id}", f.order).header("Authorization", bearer(f.customer)))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.status").value("DISPATCHING"))
-                .andExpect(jsonPath("$.candidates").doesNotExist());
+                .andExpect(jsonPath("$.candidates").doesNotExist())
+                .andExpect(jsonPath("$.pickup.latitude").doesNotExist())
+                .andExpect(jsonPath("$.delivery.longitude").doesNotExist());
         mvc.perform(post("/api/v1/dispatch/orders/{id}/match", f.order)
                 .header("Authorization", bearer(f.dispatcher)))
                 .andExpect(status().isConflict());

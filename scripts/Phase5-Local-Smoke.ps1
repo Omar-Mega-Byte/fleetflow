@@ -120,8 +120,9 @@ try {
     if ($denied.StatusCode -ne 403) { throw "Customer attempt read returned $($denied.StatusCode)." }
     Write-Host 'customer/attempts -> 403'
     $customerOrder = Send-Request 'Get' "/api/v1/orders/$orderId" $customer.token
-    if ($customerOrder.StatusCode -ne 200 -or $customerOrder.Content -match 'candidates|driverId|score|rank') {
-        throw 'Customer order response exposed candidate detail.'
+    if ($customerOrder.StatusCode -ne 200 -or
+        $customerOrder.Content -match 'candidates|driverId|score|rank|latitude|longitude') {
+        throw 'Customer order response exposed dispatch detail or raw coordinates.'
     }
     Write-Host 'customer/order -> 200 without candidate detail'
     Write-Host "Phase 5 local signed-token smoke passed for order $orderId."

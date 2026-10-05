@@ -320,8 +320,11 @@ class Phase1ApiTests {
         mvc.perform(post("/api/v1/orders").header("Authorization", bearer(fixture.actor()))
                         .contentType(MediaType.APPLICATION_JSON).content(boundary))
                 .andExpect(status().isCreated())
-                .andExpect(jsonPath("$.delivery.latitude").value(90.0))
-                .andExpect(jsonPath("$.delivery.longitude").value(-180.0));
+                .andExpect(jsonPath("$.delivery.latitude").doesNotExist())
+                .andExpect(jsonPath("$.delivery.longitude").doesNotExist());
+        assertThat(jdbc.queryForObject("select delivery_latitude from orders where customer_id = ?",
+                java.math.BigDecimal.class, UUID.fromString(fixture.customer())))
+                .isEqualByComparingTo("90.000000");
     }
 
     @Test
