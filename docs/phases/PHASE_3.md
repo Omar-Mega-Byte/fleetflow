@@ -1,6 +1,6 @@
 # Phase 3 — Explicit order, driver, and delivery lifecycles
 
-**Status: IN_PROGRESS.** The lifecycle implementation and local acceptance tests pass; PR CI is pending. [Phase 1](PHASE_1.md) supplies the core model and [Phase 2](PHASE_2.md) supplies OIDC and object authorization. The [execution roadmap](../ROADMAP.md) controls phase order; [PROJECT_CONTEXT.md](../../PROJECT_CONTEXT.md) uses older numbering. The broader [state plan](../architecture/STATE_MACHINES.md) includes later dispatch and fulfillment transitions; this document defines the Phase 3 slice.
+**Status: COMPLETE.** The lifecycle implementation, local acceptance tests, and implementation-head PR CI pass. [Phase 1](PHASE_1.md) supplies the core model and [Phase 2](PHASE_2.md) supplies OIDC and object authorization. The [execution roadmap](../ROADMAP.md) controls phase order; [PROJECT_CONTEXT.md](../../PROJECT_CONTEXT.md) uses older numbering. The broader [state plan](../architecture/STATE_MACHINES.md) includes later dispatch and fulfillment transitions; this document defines the Phase 3 slice.
 
 ## Objective and boundary
 
@@ -106,12 +106,12 @@ Do not add a broad SUPPORT/DISPATCHER/ADMIN override as a shortcut. If a privile
 
 Mark Phase 3 `COMPLETE` only with recorded evidence for all items:
 
-- [ ] Each implemented order and driver transition has an authorized actor, state guard, durable event, and stable HTTP contract.
-- [ ] Current state and history commit atomically; invalid, duplicate, unauthorized, and racing commands leave no partial write.
-- [ ] Customer cutoff, merchant branch membership, driver self scope, suspension, and vehicle guards pass real PostgreSQL and security tests.
-- [ ] V3-style forward migration, existing-row baseline, fresh/upgrade paths, status checks, indexes, and schema validation pass.
-- [ ] Delivery persistence and transition contract are prepared without claiming assignment or fulfillment functionality.
-- [ ] Bounded reads, route profiles, OpenAPI, full Maven verification, and CI pass; exact counts and any environment limitations are recorded.
+- [x] Each implemented order and driver transition has an authorized actor, state guard, durable event, and stable HTTP contract.
+- [x] Current state and history commit atomically; invalid, duplicate, unauthorized, and racing commands leave no partial write.
+- [x] Customer cutoff, merchant branch membership, driver self scope, suspension, and vehicle guards pass real PostgreSQL and security tests.
+- [x] V3-style forward migration, existing-row baseline, fresh/upgrade paths, status checks, indexes, and schema validation pass.
+- [x] Delivery persistence and transition contract are prepared without claiming assignment or fulfillment functionality.
+- [x] Bounded reads, route profiles, OpenAPI, full Maven verification, and CI pass; exact counts and any environment limitations are recorded.
 
 ## Learning and review questions
 
@@ -125,4 +125,4 @@ Explain why a named transition is safer than a status setter; how one transactio
 - New order creation and local/test driver fixture creation insert their initial history in the creation transaction. Customer order detail returns a version, customer list accepts Phase 3 statuses, driver self returns operational status/version, and action responses return the new version. No unbounded history read API was added. Existing fixture administration and client-priced order intake remain local/test loopback only; default/prod register lifecycle commands and scoped reads.
 - The delivery table has no rows created by Phase 3, and no delivery command, assignment, offer, Redis, dispatch, pickup or fulfillment code exists. Its order index does not decide a future attempt/reassignment uniqueness policy. A ready order and an available driver remain separate facts.
 - `LifecycleRulesTests` adds 2 pure state-matrix tests. `Phase3LifecycleTests` adds 9 real PostgreSQL/signed-token tests covering every allowed edge, invalid/skipped/terminal commands, actor and branch scope, revoked membership, inactive/suspended driver, vehicle guard, validated reason/correlation ID, three concurrent races, failed-history rollback, and zero delivery rows. `MigrationUpgradeTests` adds 1 V2-to-V3 existing-row/constraint/immutability test; fresh schema and Hibernate validation run in application tests. Route and OpenAPI tests assert the 27 local/test operations and default/prod intake/fixture boundary. An existing timestamp assertion was adjusted to PostgreSQL microsecond precision after a full-suite failure.
-- Local command `./mvnw.cmd clean verify --no-transfer-progress` passed on Java 21.0.12 against real Testcontainers PostgreSQL 17.11 and Keycloak: **47 tests, 0 failures, 0 errors, 0 skipped**. Docker images were already cached. GitHub Actions CI is pending on the implementation PR.
+- Local command `./mvnw.cmd clean verify --no-transfer-progress` passed on Java 21.0.12 against real Testcontainers PostgreSQL 17.11 and Keycloak: **47 tests, 0 failures, 0 errors, 0 skipped**. Docker images were already cached. GitHub Actions `verify` passed for implementation head `1c9aee9` on the [branch push](https://github.com/Omar-Mega-Byte/fleetflow/actions/runs/37248762021) and [PR #5](https://github.com/Omar-Mega-Byte/fleetflow/actions/runs/37248800404); GitGuardian passed. PR #5 is based on the still-open Swagger PR #3 and must be retargeted to `main` after #3 merges. No external production OIDC provider, production deployment, live outage drill, or dispatch workflow was verified in this phase.

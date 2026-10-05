@@ -1,13 +1,13 @@
 # FleetFlow execution roadmap
 
-[PROJECT_CONTEXT.md](../PROJECT_CONTEXT.md) is the primary living context. This roadmap tracks implementation status; the later phases remain plans. Status vocabulary: `NOT_STARTED` means planned only, `IN_PROGRESS` means implementation under way, `BLOCKED` means an identified prerequisite prevents completion, and `COMPLETE` means the phase acceptance gate passed with recorded evidence. As of 2026-10-05 Phases 0, 1, and 2 are complete; Phase 3 local acceptance passed and its PR CI is pending.
+[PROJECT_CONTEXT.md](../PROJECT_CONTEXT.md) is the primary living context. This roadmap tracks implementation status; the later phases remain plans. Status vocabulary: `NOT_STARTED` means planned only, `IN_PROGRESS` means implementation under way, `BLOCKED` means an identified prerequisite prevents completion, and `COMPLETE` means the phase acceptance gate passed with recorded evidence. As of 2026-10-05 Phases 0–3 are complete; Phase 3 evidence is in its phase document.
 
 | Phase | Status | Purpose |
 | --- | --- | --- |
 | [0](phases/PHASE_0.md) Foundation | COMPLETE | Reproducible Spring, PostgreSQL, Flyway and CI baseline |
 | [1](phases/PHASE_1.md) Core model | COMPLETE | Durable actors, branches, drivers and order intake with REST/JPA fundamentals |
 | [2](phases/PHASE_2.md) Security | COMPLETE | OIDC authentication and object-level authorization before exposed business actions |
-| [3](phases/PHASE_3.md) Lifecycles | IN_PROGRESS | Explicit order/driver commands, durable history and delivery persistence skeleton; CI pending |
+| [3](phases/PHASE_3.md) Lifecycles | COMPLETE | Explicit order/driver commands, durable history and delivery persistence skeleton |
 | 4 Live location | NOT_STARTED | Redis heartbeat, latest GPS, GEO and stale-driver exclusion |
 | 5 Matching | NOT_STARTED | Deterministic candidate eligibility and ranking, without assignment offers |
 | 6 Assignment | NOT_STARTED | Atomic reservation, offer, acceptance and 100-contender proof |

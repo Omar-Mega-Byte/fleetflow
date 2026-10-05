@@ -1,6 +1,6 @@
 # FleetFlow
 
-FleetFlow is a Java/Spring learning backend for delivery orchestration. Phases 0–2 are complete; Phase 3 adds guarded order and driver lifecycles with durable history. Its acceptance evidence is in [Phase 3](docs/phases/PHASE_3.md). Dispatch, assignment, live location, payments, and trusted pricing are not implemented.
+FleetFlow is a Java/Spring learning backend for delivery orchestration. Phases 0–3 are complete; Phase 3 adds guarded order and driver lifecycles with durable history. Its acceptance evidence is in [Phase 3](docs/phases/PHASE_3.md). Dispatch, assignment, live location, payments, and trusted pricing are not implemented.
 
 **Order prices are still submitted by the caller.** `POST /api/v1/orders` is available only with the `local` or `test` profile on a loopback server. Authentication does not make that write suitable for public production use. The `default` and `prod` profiles register secured reads and lifecycle commands, but not intake or fixture administration.
 
