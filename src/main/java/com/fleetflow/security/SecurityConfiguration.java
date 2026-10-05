@@ -30,11 +30,26 @@ public class SecurityConfiguration {
                 .authorizeHttpRequests(auth -> {
                     auth.requestMatchers("/actuator/health", "/actuator/health/**", "/actuator/info", "/error")
                             .permitAll();
+                    if (localFixtures) {
+                        auth.requestMatchers("/v3/api-docs", "/v3/api-docs/**",
+                                "/swagger-ui.html", "/swagger-ui/**").permitAll();
+                    }
                     auth.requestMatchers(HttpMethod.GET, "/api/v1/orders", "/api/v1/orders/*")
                             .hasRole("CUSTOMER");
                     auth.requestMatchers(HttpMethod.GET, "/api/v1/merchant-branches/*/orders")
                             .hasRole("MERCHANT");
                     auth.requestMatchers(HttpMethod.GET, "/api/v1/drivers/me").hasRole("DRIVER");
+                    auth.requestMatchers(HttpMethod.POST, "/api/v1/orders/*/cancel")
+                            .hasRole("CUSTOMER");
+                    auth.requestMatchers(HttpMethod.POST,
+                            "/api/v1/merchant-branches/*/orders/*/confirm",
+                            "/api/v1/merchant-branches/*/orders/*/start-preparation",
+                            "/api/v1/merchant-branches/*/orders/*/ready-for-pickup",
+                            "/api/v1/merchant-branches/*/orders/*/cancel")
+                            .hasRole("MERCHANT");
+                    auth.requestMatchers(HttpMethod.POST, "/api/v1/drivers/me/online",
+                            "/api/v1/drivers/me/available", "/api/v1/drivers/me/pause",
+                            "/api/v1/drivers/me/offline").hasRole("DRIVER");
                     if (localFixtures) {
                         auth.requestMatchers(HttpMethod.POST, "/api/v1/orders").hasRole("CUSTOMER");
                         auth.requestMatchers(HttpMethod.POST, "/api/v1/actors", "/api/v1/customers",

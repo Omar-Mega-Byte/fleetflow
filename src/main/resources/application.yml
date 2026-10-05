@@ -56,3 +56,12 @@ logging:
 fleetflow:
   security:
     audience: ${OIDC_AUDIENCE:}
+springdoc:
+  paths-to-match: /api/v1/**
+  api-docs:
+    enabled: false
+  swagger-ui:
+    enabled: false
+    persist-authorization: false
+    operations-sorter: alpha
+    tags-sorter: alpha

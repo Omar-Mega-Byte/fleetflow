@@ -5,6 +5,8 @@ import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 
+import io.swagger.v3.oas.annotations.media.Schema;
+
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
@@ -28,6 +30,8 @@ public class MerchantOrderReader {
         return new PageView(content, page, size, found.getTotalElements(), found.getTotalPages());
     }
 
+    @Schema(name = "MerchantBranchOrderSummary", description = "Narrow order summary visible to exact-branch staff.")
     public record Summary(UUID id, String status, String currency, BigDecimal totalAmount, Instant createdAt) { }
+    @Schema(name = "MerchantBranchOrderPage", description = "Zero-based page scoped to one authorized branch.")
     public record PageView(List<Summary> content, int page, int size, long totalElements, int totalPages) { }
 }

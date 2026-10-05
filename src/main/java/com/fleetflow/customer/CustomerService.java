@@ -4,6 +4,12 @@ import java.time.Clock;
 import java.time.Instant;
 import java.util.UUID;
 
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.tags.Tag;
+
 import com.fleetflow.api.ApiFailure;
 import com.fleetflow.identity.IdentityService;
 import jakarta.persistence.Column;
@@ -95,6 +101,7 @@ interface CustomerRepository extends JpaRepository<CustomerEntity, UUID> {
 @RestController
 @Profile({"local", "test"})
 @RequestMapping("/api/v1/customers")
+@Tag(name = "Customer fixtures", description = "Local/test loopback ADMIN routes for customer profiles.")
 class CustomerController {
     private final CustomerService service;
 
@@ -102,15 +109,25 @@ class CustomerController {
         this.service = service;
     }
 
-    record Request(@NotNull UUID actorId, @NotBlank @Size(max = 120) String displayName) { }
+    @Schema(name = "CreateCustomerRequest", description = "Connects an existing active actor to a customer profile.")
+    record Request(@NotNull UUID actorId,
+                   @Schema(example = "Example Customer") @NotBlank @Size(max = 120) String displayName) { }
 
     @PostMapping
+    @Operation(summary = "Create customer fixture", description = "Local/test ADMIN only. Requires an existing "
+            + "active actor; role provisioning is a separate database operation.")
+    @ApiResponse(responseCode = "201", description = "Customer profile created.",
+            content = @Content(mediaType = "application/json", schema = @Schema(implementation = CustomerService.CustomerView.class)))
     ResponseEntity<CustomerService.CustomerView> create(@Valid @RequestBody Request request) {
         var created = service.create(request.actorId(), request.displayName());
         return ResponseEntity.created(java.net.URI.create("/api/v1/customers/" + created.id())).body(created);
     }
 
     @GetMapping("/{id}")
+    @Operation(summary = "Read customer fixture", description = "Local/test ADMIN only. This fixture lookup "
+            + "does not grant access to customer orders.")
+    @ApiResponse(responseCode = "200", description = "Customer profile.",
+            content = @Content(mediaType = "application/json", schema = @Schema(implementation = CustomerService.CustomerView.class)))
     CustomerService.CustomerView get(@PathVariable UUID id) {
         return service.get(id);
     }

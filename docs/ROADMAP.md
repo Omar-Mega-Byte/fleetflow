@@ -1,13 +1,13 @@
 # FleetFlow execution roadmap
 
-[PROJECT_CONTEXT.md](../PROJECT_CONTEXT.md) is the primary living context. This roadmap tracks implementation status; the later phases remain plans. Status vocabulary: `NOT_STARTED` means planned only, `IN_PROGRESS` means implementation under way, `BLOCKED` means an identified prerequisite prevents completion, and `COMPLETE` means the phase acceptance gate passed with recorded evidence. As of 2026-10-04 Phases 0, 1, and 2 are complete; Phase 2 evidence is in its phase document.
+[PROJECT_CONTEXT.md](../PROJECT_CONTEXT.md) is the primary living context. This roadmap tracks implementation status; the later phases remain plans. Status vocabulary: `NOT_STARTED` means planned only, `IN_PROGRESS` means implementation under way, `BLOCKED` means an identified prerequisite prevents completion, and `COMPLETE` means the phase acceptance gate passed with recorded evidence. As of 2026-10-05 Phases 0–3 are complete; Phase 3 evidence is in its phase document.
 
 | Phase | Status | Purpose |
 | --- | --- | --- |
 | [0](phases/PHASE_0.md) Foundation | COMPLETE | Reproducible Spring, PostgreSQL, Flyway and CI baseline |
 | [1](phases/PHASE_1.md) Core model | COMPLETE | Durable actors, branches, drivers and order intake with REST/JPA fundamentals |
 | [2](phases/PHASE_2.md) Security | COMPLETE | OIDC authentication and object-level authorization before exposed business actions |
-| [3](phases/PHASE_3.md) Lifecycles | NOT_STARTED | Explicit order/driver/delivery transitions and durable history |
+| [3](phases/PHASE_3.md) Lifecycles | COMPLETE | Explicit order/driver commands, durable history and delivery persistence skeleton |
 | 4 Live location | NOT_STARTED | Redis heartbeat, latest GPS, GEO and stale-driver exclusion |
 | 5 Matching | NOT_STARTED | Deterministic candidate eligibility and ranking, without assignment offers |
 | 6 Assignment | NOT_STARTED | Atomic reservation, offer, acceptance and 100-contender proof |
@@ -73,12 +73,12 @@ Every phase requires a reviewable slice: behavior and negative cases verified, r
 - **Objective:** Turn order and driver data into guarded business workflows.
 - **Business scope:** Confirm, prepare, ready, eligible cancellation; driver online/available/pause/offline; delivery lifecycle skeleton and status history.
 - **Engineering scope:** Domain transition methods, application transaction coordinator, clock abstraction, stable conflict errors and audited changes.
-- **Java/Spring concepts learned:** Invariants, enums, service/domain split, optimistic versioning and rollback. Developer explains why arbitrary status setters are unsafe.
+- **Java/Spring concepts learned:** Invariants, enums, service/domain split, PostgreSQL row locks and rollback. Developer explains why arbitrary status setters are unsafe.
 - **Domain changes:** Order/Driver/Delivery state machines and histories per [state plan](architecture/STATE_MACHINES.md); no assignment acceptance yet.
 - **Database changes:** Status/history tables, version fields, transition timestamps, relevant checks/indexes.
 - **API changes:** Explicit order action endpoints and driver self-state endpoints; bounded order reads.
 - **Infrastructure changes:** PostgreSQL only.
-- **Security work:** Customer cancellation cutoff, merchant branch membership, driver self action, privileged override with reason.
+- **Security work:** Customer cancellation cutoff, merchant branch membership and driver self action. No privileged override in this phase.
 - **Testing requirements:** Exhaustive valid/invalid transition unit tests, transactional history tests, authorization and cancellation race tests.
 - **Failure cases:** Duplicate action, skipped transition, unauthorized merchant, cancellation during preparation, suspended driver command.
 - **Acceptance criteria:** Every transition has actor, guard and history; invalid command leaves no partial write; terminal states cannot regress; security tests pass.

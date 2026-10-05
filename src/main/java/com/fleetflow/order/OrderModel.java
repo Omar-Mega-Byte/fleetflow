@@ -16,6 +16,8 @@ import jakarta.persistence.ManyToOne;
 import jakarta.persistence.OneToMany;
 import jakarta.persistence.OrderBy;
 import jakarta.persistence.Table;
+import jakarta.persistence.LockModeType;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
@@ -29,6 +31,11 @@ class OrderEntity {
     @Column(name = "customer_id", nullable = false) UUID customerId;
     @Column(name = "merchant_branch_id", nullable = false) UUID branchId;
     @Column(nullable = false, length = 32) String status;
+    @Column(nullable = false) long version;
+    @Column(name = "confirmed_at") Instant confirmedAt;
+    @Column(name = "preparing_at") Instant preparingAt;
+    @Column(name = "ready_at") Instant readyAt;
+    @Column(name = "cancelled_at") Instant cancelledAt;
     @Column(name = "customer_name_snapshot", nullable = false, length = 120) String customerName;
     @Column(name = "merchant_name_snapshot", nullable = false, length = 120) String merchantName;
     @Column(name = "branch_name_snapshot", nullable = false, length = 120) String branchName;
@@ -56,6 +63,7 @@ class OrderEntity {
                 String deliveryCity, BigDecimal deliveryLatitude, BigDecimal deliveryLongitude,
                 String currency, BigDecimal totalAmount, Instant now) {
         this.id = id; this.customerId = customerId; this.branchId = branchId; this.status = "CREATED";
+        this.version = 0;
         this.customerName = customerName; this.merchantName = merchantName; this.branchName = branchName;
         this.pickupLine1 = pickupLine1; this.pickupCity = pickupCity;
         this.pickupLatitude = pickupLatitude; this.pickupLongitude = pickupLongitude;
@@ -99,4 +107,10 @@ interface OrderRepository extends JpaRepository<OrderEntity, UUID>, JpaSpecifica
     @EntityGraph(attributePaths = "items")
     @Query("select o from OrderEntity o where o.id = :id and o.customerId = :customerId")
     java.util.Optional<OrderEntity> findDetail(@Param("id") UUID id, @Param("customerId") UUID customerId);
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select o from OrderEntity o where o.id = :id and o.customerId = :customerId")
+    java.util.Optional<OrderEntity> lockForCustomer(@Param("id") UUID id, @Param("customerId") UUID customerId);
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select o from OrderEntity o where o.id = :id and o.branchId = :branchId")
+    java.util.Optional<OrderEntity> lockForBranch(@Param("id") UUID id, @Param("branchId") UUID branchId);
 }

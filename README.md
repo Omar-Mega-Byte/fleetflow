@@ -1,8 +1,8 @@
 # FleetFlow
 
-FleetFlow is a Java/Spring learning backend for delivery orchestration. Phases 0, 1, and 2 are complete. Phase 2 adds OIDC bearer authentication, local actor roles, and object-scoped reads; its completion evidence is in [Phase 2](docs/phases/PHASE_2.md). Dispatch, assignment, live location, payments, and trusted pricing are not implemented.
+FleetFlow is a Java/Spring learning backend for delivery orchestration. Phases 0–3 are complete; Phase 3 adds guarded order and driver lifecycles with durable history. Its acceptance evidence is in [Phase 3](docs/phases/PHASE_3.md). Dispatch, assignment, live location, payments, and trusted pricing are not implemented.
 
-**Order prices are still submitted by the caller.** `POST /api/v1/orders` is available only with the `local` or `test` profile on a loopback server. Authentication does not make that write suitable for public production use. The `default` and `prod` profiles register only the secured read routes below.
+**Order prices are still submitted by the caller.** `POST /api/v1/orders` is available only with the `local` or `test` profile on a loopback server. Authentication does not make that write suitable for public production use. The `default` and `prod` profiles register secured reads and lifecycle commands, but not intake or fixture administration.
 
 ## Prerequisites and verification
 
@@ -10,7 +10,7 @@ FleetFlow is a Java/Spring learning backend for delivery orchestration. Phases 0
 - Docker Engine and Compose for PostgreSQL and local Keycloak. The images are pinned in `compose.yaml`: PostgreSQL `17.11-alpine3.24` and Keycloak `26.7.4` by digest.
 - `./mvnw.cmd clean verify --no-transfer-progress` on Windows, or `./mvnw clean verify --no-transfer-progress` on Linux/macOS. Tests start disposable PostgreSQL and Keycloak containers. Check `docker image inspect postgres:17.11-alpine3.24` and `docker image inspect quay.io/keycloak/keycloak:26.7.4` before pulling an absent image.
 
-Flyway owns schema changes. `V1__core_model.sql` is immutable; `V2__actor_roles.sql` adds the explicit role table and branch-order index without assigning any role. Hibernate uses `ddl-auto=validate` in every profile.
+Flyway owns schema changes. V1 and V2 remain immutable; `V3__lifecycle_history.sql` adds guarded states, versions, histories, honest existing-row baselines, and an unused delivery skeleton. Hibernate uses `ddl-auto=validate` in every profile.
 
 ## Local OIDC setup
 
@@ -20,8 +20,17 @@ Flyway owns schema changes. `V1__core_model.sql` is immutable; `V2__actor_roles.
 4. Sign in to the local Keycloak Admin Console with the private bootstrap credentials. In realm `fleetflow`, create an enabled development user with username, email, first and last names, a permanent password, and no outstanding required actions. Copy its Keycloak user ID (`sub`), which is a UUID. For the first application administrator run `./scripts/Bootstrap-LocalAdmin.ps1 -Subject <Keycloak-user-id>`. The script inserts an active actor and ADMIN role into local PostgreSQL in one transaction. It does not expose an anonymous bootstrap endpoint. The Keycloak bootstrap administrator is distinct from a FleetFlow ADMIN actor.
 5. Run `./scripts/Run-Local.ps1`. It loads database and OIDC values from `.env`, selects `local`, and binds the HTTP server to `127.0.0.1:8080`. Health liveness and readiness are at `/actuator/health/liveness` and `/actuator/health/readiness`.
 6. Obtain a development access token from Keycloak's `fleetflow-cli` client. For example, in PowerShell, set `$username`, read `$password = Read-Host -AsSecureString`, then call `Invoke-RestMethod -Method Post -Uri "$env:OIDC_ISSUER/protocol/openid-connect/token" -Body @{grant_type='password';client_id='fleetflow-cli';username=$username;password=($password | ConvertFrom-SecureString -AsPlainText)}`. Set `$env:OIDC_ISSUER` from `.env` first or use its literal loopback URL. Keep the returned access token in a temporary shell variable and send `Authorization: Bearer <token>` to the API. The password grant exists only in this local learning realm.
+7. Open [local Swagger UI](http://127.0.0.1:8080/swagger-ui/index.html). Select **Authorize** and paste the access token value; Swagger UI adds the `Bearer` prefix. The token must map to an active FleetFlow actor with the role listed for that operation.
 
 Stop the app, then use `docker compose --env-file .env -p fleetflow --profile oidc down` to stop the services. The database volume persists; `down --volumes` would erase it.
+
+### Swagger and OpenAPI
+
+With the `local` or `test` profile on loopback, Swagger UI at `/swagger-ui/index.html` shows all **27 registered `/api/v1` operations**. The machine-readable contract is at `/v3/api-docs` (JSON) or `/v3/api-docs.yaml`. Operations are grouped by customer, merchant, driver and fixture purpose. Each lists its required role and profile, request and response schema, supported filters, and safe error responses.
+
+The local/test page includes fixture ADMIN routes and `POST /api/v1/orders`. Those routes are absent from default/prod, where the OpenAPI and Swagger endpoints are disabled. Submitted order prices remain untrusted, so the create route is only for loopback learning. The Actuator health probes are operational endpoints documented above; they are intentionally outside the business API contract.
+
+To try a customer read, provision an actor with a `CUSTOMER` role and customer profile, authorize Swagger with that actor's Keycloak token, then open **Customer orders**. To try a fixture route, use a separately provisioned `ADMIN` actor. An ADMIN role alone grants no customer or branch scope. The API never accepts `X-Dev-Actor-Id` as identity. Keep bearer tokens out of screenshots and committed examples.
 
 ### Provisioning and revocation
 
@@ -57,15 +66,18 @@ Missing issuer, JWKS URI, or audience fails application startup. Signed tokens m
 | `GET /api/v1/orders/{id}` | local/test/default/prod | CUSTOMER; query includes order ID and the caller's customer ID. Foreign and absent orders both return `404 RESOURCE_NOT_FOUND`. |
 | `GET /api/v1/orders` | local/test/default/prod | CUSTOMER; customer scope is in the SQL query, with bounded Phase 1 filters, sort, and pagination. No owner parameter. |
 | `GET /api/v1/merchant-branches/{branchId}/orders` | local/test/default/prod | MERCHANT plus current active membership for that exact active branch; narrow summaries, branch-scoped SQL. Inaccessible branch returns `404 RESOURCE_NOT_FOUND`. |
-| `GET /api/v1/drivers/me` | local/test/default/prod | DRIVER; resolves only the caller's profile. A suspended/inactive driver can read minimal self status; no operational action exists yet. |
+| `GET /api/v1/drivers/me` | local/test/default/prod | DRIVER; resolves only the caller's profile and reports durable operational state/version. A suspended/inactive driver may read self status. |
+| `POST /api/v1/orders/{orderId}/cancel` | local/test/default/prod | Owning CUSTOMER; CREATED or CONFIRMED only, with a required reason. |
+| `POST /api/v1/merchant-branches/{branchId}/orders/{orderId}/confirm`, `/start-preparation`, `/ready-for-pickup`, `/cancel` | local/test/default/prod | MERCHANT with active exact branch membership; cancellation requires a reason. |
+| `POST /api/v1/drivers/me/online`, `/available`, `/pause`, `/offline` | local/test/default/prod | Active, unsuspended DRIVER acting only on self; availability also needs an active suitable vehicle. It does not imply fresh location or dispatch eligibility. |
 | `POST /api/v1/orders` | local/test, loopback | CUSTOMER; caller-derived customer and existing validation, snapshots, and rollback. Submitted prices are untrusted. No default/prod handler. |
 | Fixture actor/customer/merchant/branch/membership/driver/vehicle create/read routes | local/test, loopback | Explicitly provisioned ADMIN only; no production fixture controllers. |
 | `/actuator/health/**`, `/actuator/info` | Health in all profiles; info except prod | Anonymous probes, hidden health details. Other routes do not inherit this permit rule. |
 
-The order list allows `branchId`, `status=CREATED`, inclusive `from`, exclusive `to`, zero-based `page`, `size` 1–100, and `sort=createdAt,asc/desc` or `id,asc/desc`. `POST /api/v1/orders` retains Phase 1's request body and exact decimal calculation; [Phase 1](docs/phases/PHASE_1.md) records that behavior. All API requests use `Authorization: Bearer <access-token>`; `X-Dev-Actor-Id` has no identity effect.
+The order list allows `branchId`, any Phase 3 order status, inclusive `from`, exclusive `to`, zero-based `page`, `size` 1–100, and `sort=createdAt,asc/desc` or `id,asc/desc`. `POST /api/v1/orders` retains Phase 1's request body and exact decimal calculation; [Phase 1](docs/phases/PHASE_1.md) records that behavior. All API requests use `Authorization: Bearer <access-token>`; `X-Dev-Actor-Id` has no identity effect.
 
-API and security errors include a stable code, safe message, path, timestamp, correlation ID, and bounded fields list. Missing or invalid tokens return `401 UNAUTHENTICATED`; a valid token without a provisioned active actor or required role returns `403 FORBIDDEN`; object-scope denial returns `404 RESOURCE_NOT_FOUND`. Database failure returns a safe `503` where a response can be sent. `X-Correlation-ID` is validated or generated and returned on both MVC and security-filter responses. Health details are hidden. Do not log tokens, credentials, subjects, request bodies, or SQL bind values.
+API and security errors include a stable code, safe message, path, timestamp, correlation ID, and bounded fields list. Missing or invalid tokens return `401 UNAUTHENTICATED`; a valid token without a provisioned active actor or required role returns `403 FORBIDDEN`; object-scope denial returns `404 RESOURCE_NOT_FOUND`; invalid, duplicate and losing-race lifecycle commands return `409 LIFECYCLE_CONFLICT`. Database failure returns a safe `503` where a response can be sent. `X-Correlation-ID` is validated or generated and returned on both MVC and security-filter responses. Health details are hidden. Do not log tokens, credentials, subjects, request bodies, or SQL bind values.
 
 ## Delivery status
 
-The [execution roadmap](docs/ROADMAP.md) tracks phase status. [Phase 2](docs/phases/PHASE_2.md) contains its test, provider, migration, CI, smoke, and delivery evidence, with any unverified gates called out. No production readiness claim follows from this security slice alone.
+The [execution roadmap](docs/ROADMAP.md) tracks phase status. [Phase 3](docs/phases/PHASE_3.md) records lifecycle verification and remaining operational limits. No production readiness claim follows from these slices alone.

@@ -53,9 +53,10 @@ class FleetFlowApplicationTests {
     @Test
     void contextConnectsToPostgresAndValidatesFirstMigration() {
         assertThat(new JdbcTemplate(dataSource).queryForObject("select 1", Integer.class)).isEqualTo(1);
-        assertThat(flyway.info().applied()).hasSize(2);
+        assertThat(flyway.info().applied()).hasSize(3);
         assertThat(flyway.info().applied()[0].getVersion().getVersion()).isEqualTo("1");
         assertThat(flyway.info().applied()[1].getVersion().getVersion()).isEqualTo("2");
+        assertThat(flyway.info().applied()[2].getVersion().getVersion()).isEqualTo("3");
         assertThat(flyway.migrate().migrationsExecuted).isZero();
     }
 
@@ -123,7 +124,9 @@ class FleetFlowApplicationTests {
             Instant after = Instant.now();
             OffsetDateTime stored = new JdbcTemplate(dataSource).queryForObject(
                     "select created_at from actors where id = ?", OffsetDateTime.class, actorId);
-            assertThat(stored.toInstant()).isBetween(before, after);
+            // PostgreSQL timestamptz stores microseconds; the lower nanoseconds can round down.
+            assertThat(stored.toInstant()).isBetween(before.truncatedTo(java.time.temporal.ChronoUnit.MICROS),
+                    after.plus(1, java.time.temporal.ChronoUnit.MICROS));
         } finally {
             TimeZone.setDefault(original);
         }

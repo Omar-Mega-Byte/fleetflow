@@ -8,10 +8,13 @@ import java.util.Currency;
 import java.util.List;
 import java.util.UUID;
 
+import io.swagger.v3.oas.annotations.media.Schema;
+
 import com.fleetflow.api.ApiFailure;
 import com.fleetflow.customer.CustomerService;
 import com.fleetflow.merchant.MerchantService;
 import com.fleetflow.identity.Role;
+import com.fleetflow.lifecycle.LifecycleHistory;
 import com.fleetflow.security.ActorAccess;
 import jakarta.persistence.EntityManager;
 import jakarta.validation.Valid;
@@ -40,15 +43,17 @@ public class OrderService {
     private final EntityManager entityManager;
     private final Clock clock;
     private final ActorAccess access;
+    private final LifecycleHistory history;
 
     OrderService(OrderRepository orders, CustomerService customers, MerchantService merchants,
-                 EntityManager entityManager, Clock clock, ActorAccess access) {
+                 EntityManager entityManager, Clock clock, ActorAccess access, LifecycleHistory history) {
         this.orders = orders;
         this.customers = customers;
         this.merchants = merchants;
         this.entityManager = entityManager;
         this.clock = clock;
         this.access = access;
+        this.history = history;
     }
 
     @Transactional
@@ -75,6 +80,8 @@ public class OrderService {
         lines.forEach(order::addItem);
         entityManager.persist(order);
         entityManager.flush();
+        history.order(order.id, 0, null, "CREATED", "CREATE", now,
+                access.require(Role.CUSTOMER).id(), null);
         return detail(order);
     }
 
@@ -95,7 +102,8 @@ public class OrderService {
         if (from != null && to != null && !from.isBefore(to)) {
             throw invalid("from must be before to");
         }
-        if (status != null && !status.equals("CREATED")) {
+        if (status != null && !java.util.Set.of("CREATED", "CONFIRMED", "PREPARING",
+                "READY_FOR_PICKUP", "CANCELLED").contains(status)) {
             throw invalid("Unsupported status");
         }
         Sort requestedSort = sortOrder(sort);
@@ -147,7 +155,7 @@ public class OrderService {
     private OrderView detail(OrderEntity order) {
         List<ItemView> items = order.items.stream().map(item -> new ItemView(item.lineNumber,
                 item.description, item.quantity, item.unitAmount, item.lineAmount)).toList();
-        return new OrderView(order.id, order.customerId, order.branchId, order.status,
+        return new OrderView(order.id, order.customerId, order.branchId, order.status, order.version,
                 order.customerName, order.merchantName, order.branchName,
                 new Address(order.pickupLine1, order.pickupCity, order.pickupLatitude, order.pickupLongitude),
                 new Address(order.deliveryLine1, order.deliveryCity, order.deliveryLatitude,
@@ -167,25 +175,33 @@ public class OrderService {
         return new ApiFailure(HttpStatus.BAD_REQUEST, "INVALID_REQUEST", message);
     }
 
-    public record Address(@NotBlank @Size(max = 200) String line1,
-                          @NotBlank @Size(max = 120) String city,
+    @Schema(description = "Address snapshot stored with an order; coordinates use WGS84 degrees.")
+    public record Address(@Schema(example = "12 Market Street") @NotBlank @Size(max = 200) String line1,
+                          @Schema(example = "Cairo") @NotBlank @Size(max = 120) String city,
                           @NotNull @DecimalMin("-90") @DecimalMax("90") @Digits(integer = 3, fraction = 6)
-                          BigDecimal latitude,
+                          @Schema(example = "30.044420") BigDecimal latitude,
                           @NotNull @DecimalMin("-180") @DecimalMax("180") @Digits(integer = 3, fraction = 6)
-                          BigDecimal longitude) { }
-    public record ItemInput(@NotBlank @Size(max = 200) String description, @Min(1) int quantity,
+                          @Schema(example = "31.235712") BigDecimal longitude) { }
+    @Schema(description = "Item and submitted unit amount for a local test order. The amount is not trusted pricing.")
+    public record ItemInput(@Schema(example = "Small parcel") @NotBlank @Size(max = 200) String description,
+                            @Schema(example = "2") @Min(1) int quantity,
                             @NotNull @DecimalMin("0") @Digits(integer = 16, fraction = 2)
-                            BigDecimal unitAmount) { }
-    public record CreateRequest(@NotNull UUID branchId, @NotNull @Valid Address delivery,
-                                @NotBlank @Pattern(regexp = "[A-Z]{3}") String currency,
+                            @Schema(example = "12.50") BigDecimal unitAmount) { }
+    @Schema(description = "Local/test order input. Customer identity is never accepted in this body.")
+    public record CreateRequest(@Schema(description = "Target merchant branch ID.") @NotNull UUID branchId,
+                                @NotNull @Valid Address delivery,
+                                @Schema(example = "USD") @NotBlank @Pattern(regexp = "[A-Z]{3}") String currency,
                                 @NotEmpty List<@Valid ItemInput> items) { }
     public record ItemView(int lineNumber, String description, int quantity,
                            BigDecimal unitAmount, BigDecimal lineAmount) { }
-    public record OrderView(UUID id, UUID customerId, UUID branchId, String status,
+    @Schema(description = "Owned order with saved names, addresses, prices, and items.")
+    public record OrderView(UUID id, UUID customerId, UUID branchId, String status, long version,
                             String customerName, String merchantName, String branchName,
                             Address pickup, Address delivery, String currency, BigDecimal totalAmount,
                             Instant createdAt, List<ItemView> items) { }
+    @Schema(name = "CustomerOrderSummary", description = "Customer-owned order summary without item details.")
     public record Summary(UUID id, UUID branchId, String status, String branchName,
                           String currency, BigDecimal totalAmount, Instant createdAt) { }
+    @Schema(name = "CustomerOrderPage", description = "Zero-based page of customer-owned order summaries.")
     public record PageView(List<Summary> content, int page, int size, long totalElements, int totalPages) { }
 }
