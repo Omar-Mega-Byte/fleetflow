@@ -1,6 +1,6 @@
 # FleetFlow
 
-FleetFlow is a Java/Spring learning backend for delivery orchestration. Phases 0–8 provide guarded order and driver lifecycles, Redis-backed live location, immutable dispatch matching evidence, atomic assignment offers, recovery, delivery progress, and a PostgreSQL outbox with Kafka delivery to in-app notifications and transition counts. [Phase 8](docs/phases/PHASE_8.md) records its acceptance evidence, and [the roadmap](docs/ROADMAP.md) tracks remaining work. Payments and trusted pricing are not implemented.
+FleetFlow is a Java/Spring learning backend for delivery orchestration. Phases 0–8 provide guarded order and driver lifecycles, Redis-backed live location, immutable dispatch matching evidence, atomic assignment offers, recovery, delivery progress, and a PostgreSQL outbox with Kafka delivery to in-app notifications and transition counts. [Phase 8](docs/phases/PHASE_8.md) records its acceptance evidence. [Phase 9](docs/phases/Phase9.md) tracks the customer live-tracking implementation; [the roadmap](docs/ROADMAP.md) tracks the remaining work. Payments and trusted pricing are not implemented.
 
 **Order prices are still submitted by the caller.** `POST /api/v1/orders` is available only with the `local` or `test` profile on a loopback server. Authentication does not make that write suitable for public production use. The `default` and `prod` profiles register secured reads and lifecycle commands, but not intake or fixture administration.
 

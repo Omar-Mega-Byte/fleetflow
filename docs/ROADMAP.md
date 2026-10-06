@@ -13,7 +13,7 @@
 | [6](phases/PHASE_6.md) Assignment | IN_PROGRESS | Atomic reservation, offer, acceptance and repeated 100-contender PostgreSQL proof; integration CI pending |
 | [7](phases/PHASE_7.md) Recovery | COMPLETE | Timeout and rejection recovery, bounded retry, pre-pickup reassignment/cancellation, delivery and incidents; draft integration PR pending review |
 | [8](phases/PHASE_8.md) Async events | COMPLETE | Kafka, transactional outbox, idempotent notification and analytics; local and PR CI evidence recorded |
-| 9 Live tracking | NOT_STARTED | Authorized SSE tracking and driver simulator |
+| [9](phases/Phase9.md) Live tracking | IN_PROGRESS | Authorized SSE snapshot/stream and local driver simulator; acceptance evidence pending |
 | 10 Zones | NOT_STARTED | PostGIS serviceability and geofencing after basic dispatch |
 | 11 Hardening | NOT_STARTED | Operations, resilience, backup/restore, security and demo proof |
 
