@@ -1,6 +1,6 @@
 # Phase 8 — asynchronous events, outbox and idempotency
 
-**Status: IN_PROGRESS (2026-10-06).** [Phase 7](PHASE_7.md) supplies the synchronous order, offer and delivery transitions. This phase adds asynchronous in-app notification and derived analytics after those transitions commit. The [execution roadmap](../ROADMAP.md) remains the source for the phase acceptance gate. Real broker tests, the final clean verify, and signed Compose smoke have passed; GitHub CI evidence is still pending.
+**Status: COMPLETE (2026-10-06).** [Phase 7](PHASE_7.md) supplies the synchronous order, offer and delivery transitions. This phase adds asynchronous in-app notification and derived analytics after those transitions commit. The [execution roadmap](../ROADMAP.md) tracks the accepted phase status. Real broker tests, the final clean verify, signed Compose smoke, and GitHub CI passed.
 
 ## Objective and boundary
 
@@ -57,7 +57,7 @@ Use real PostgreSQL and Kafka in Testcontainers. Test the database transaction b
 - [x] Event envelope/version, order-key partitioning and per-order publication assumptions are verified.
 - [x] Read endpoints enforce actor ownership/dispatcher role and reveal no sensitive event payload.
 - [x] Backlog/lag and poison-event handling are observable; retry and retention policy are documented.
-- [ ] Real broker integration tests, fresh/upgrade migrations, signed local flow and CI pass; exact test counts, commit and CI links are recorded here before changing this document and the roadmap to `COMPLETE`.
+- [x] Real broker integration tests, fresh/upgrade migrations, signed local flow and CI pass; exact test counts, commit and CI links are recorded below.
 
 ## Operator runbook
 
@@ -99,4 +99,4 @@ The final `./mvnw.cmd clean verify --no-transfer-progress` passed **108 tests, 0
 
 The isolated `fleetflow-phase8-smoke` Compose project used a fresh PostgreSQL/Kafka/Keycloak volume set and real Keycloak-signed customer, merchant, dispatcher, and driver tokens. The flow reached `COMPLETED|AVAILABLE|DELIVERED|DELIVERED`; customer and driver saw their own notifications, the dispatcher saw UTC analytics and the secured backlog metric, and a customer was denied the dispatcher report. With Kafka stopped, a new merchant confirmation returned success and left `CONFIRMED|PENDING` in PostgreSQL. After Kafka restarted, that event became `PUBLISHED` with both processed markers. Final direct queries found **19 published outbox rows, 19 notification markers, 19 analytics markers, 15 notification rows, zero quarantined rows**, and no pending/failed rows. Both consumer groups had **zero lag on the two nonempty partitions**; the third partition was empty. The broker described three partitions, one local replica, and `retention.ms=604800000`. The isolated containers and only their new volumes were removed afterward; the existing `fleetflow` project was untouched.
 
-The final gate remains open for a delivered commit and GitHub CI. The local `gh` credential currently reports an invalid token, so remote delivery and CI cannot be claimed yet. Keep this phase and the roadmap `IN_PROGRESS` until that evidence exists.
+The four implementation and evidence commits are `dde3fa0`, `615f401`, `9107b6d`, and `cc64234`. The delivered code head `cc642348bb3c2c63471f507679b316378e2150d6` passed both [push verify](https://github.com/Omar-Mega-Byte/fleetflow/actions/runs/37475492910) and [PR verify](https://github.com/Omar-Mega-Byte/fleetflow/actions/runs/37475795063): the PR run reported **108 tests, 0 failures, 0 errors, 0 skipped** and `BUILD SUCCESS`. GitGuardian Security Checks passed. [PR #10](https://github.com/Omar-Mega-Byte/fleetflow/pull/10) carries the reviewable branch. The completion status records acceptance of this Phase 8 slice; it does not assert a production-readiness review or merge to `main`.
