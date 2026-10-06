@@ -1,6 +1,6 @@
 # FleetFlow execution roadmap
 
-[PROJECT_CONTEXT.md](../PROJECT_CONTEXT.md) is the primary living context. This roadmap tracks implementation status; the later phases remain plans. Status vocabulary: `NOT_STARTED` means planned only, `IN_PROGRESS` means implementation under way, `BLOCKED` means an identified prerequisite prevents completion, and `COMPLETE` means the phase acceptance gate passed with recorded evidence. As of 2026-10-06 Phases 0–6 are implemented; their integration with the current Phase 3 baseline is under final CI review.
+[PROJECT_CONTEXT.md](../PROJECT_CONTEXT.md) is the primary living context. This roadmap tracks implementation status; the later phases remain plans. Status vocabulary: `NOT_STARTED` means planned only, `IN_PROGRESS` means implementation under way, `BLOCKED` means an identified prerequisite prevents completion, and `COMPLETE` means the phase acceptance gate passed with recorded evidence. As of 2026-10-06 Phase 7 is accepted and Phase 8 implementation is under verification; the statuses below preserve each phase's recorded CI boundary.
 
 | Phase | Status | Purpose |
 | --- | --- | --- |
@@ -12,7 +12,7 @@
 | [5](phases/PHASE_5.md) Matching | IN_PROGRESS | Deterministic candidate eligibility and ranking; integration CI pending |
 | [6](phases/PHASE_6.md) Assignment | IN_PROGRESS | Atomic reservation, offer, acceptance and repeated 100-contender PostgreSQL proof; integration CI pending |
 | [7](phases/PHASE_7.md) Recovery | COMPLETE | Timeout and rejection recovery, bounded retry, pre-pickup reassignment/cancellation, delivery and incidents; draft integration PR pending review |
-| 8 Async events | NOT_STARTED | Kafka, transactional outbox, idempotent notification and analytics |
+| [8](phases/PHASE_8.md) Async events | IN_PROGRESS | Kafka, transactional outbox, idempotent notification and analytics; final CI pending |
 | 9 Live tracking | NOT_STARTED | Authorized SSE tracking and driver simulator |
 | 10 Zones | NOT_STARTED | PostGIS serviceability and geofencing after basic dispatch |
 | 11 Hardening | NOT_STARTED | Operations, resilience, backup/restore, security and demo proof |
