@@ -4,6 +4,7 @@ import java.time.Instant;
 import java.sql.Timestamp;
 import java.util.UUID;
 
+import com.fleetflow.events.OutboxEvents;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Component;
 import org.springframework.web.context.request.RequestContextHolder;
@@ -13,9 +14,11 @@ import org.springframework.web.context.request.ServletRequestAttributes;
 @Component
 public class LifecycleHistory {
     private final JdbcTemplate jdbc;
+    private final OutboxEvents outbox;
 
-    public LifecycleHistory(JdbcTemplate jdbc) {
+    public LifecycleHistory(JdbcTemplate jdbc, OutboxEvents outbox) {
         this.jdbc = jdbc;
+        this.outbox = outbox;
     }
 
     public void order(UUID id, long version, String previous, String next, String action,
@@ -26,6 +29,7 @@ public class LifecycleHistory {
                  actor_id, source, reason, correlation_id)
                 values (?, ?, ?, ?, ?, ?, ?, 'ACTOR', ?, ?)
                 """, id, version, previous, next, action, Timestamp.from(when), actorId, reason, correlationId());
+        if (previous != null) outbox.orderStatusChanged(id, version, previous, next, when);
     }
 
     public void orderSystem(UUID id, long version, String previous, String next, String action,
@@ -36,6 +40,7 @@ public class LifecycleHistory {
                  actor_id, source, reason, correlation_id)
                 values (?, ?, ?, ?, ?, ?, NULL, 'SYSTEM', ?, ?)
                 """, id, version, previous, next, action, Timestamp.from(when), reason, correlationId());
+        if (previous != null) outbox.orderStatusChanged(id, version, previous, next, when);
     }
 
     public void driver(UUID id, long version, String previous, String next, String action,

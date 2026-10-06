@@ -4,6 +4,7 @@ import java.sql.Timestamp;
 import java.time.Instant;
 import java.util.UUID;
 
+import com.fleetflow.events.OutboxEvents;
 import com.fleetflow.lifecycle.LifecycleHistory;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
@@ -15,13 +16,15 @@ class AssignmentCommit {
     private final AssignmentProperties config;
     private final LifecycleHistory lifecycle;
     private final RecoveryQueue recovery;
+    private final OutboxEvents outbox;
 
     AssignmentCommit(JdbcTemplate jdbc, AssignmentProperties config, LifecycleHistory lifecycle,
-                     RecoveryQueue recovery) {
+                     RecoveryQueue recovery, OutboxEvents outbox) {
         this.jdbc = jdbc;
         this.config = config;
         this.lifecycle = lifecycle;
         this.recovery = recovery;
+        this.outbox = outbox;
     }
 
     @Transactional
@@ -86,6 +89,7 @@ class AssignmentCommit {
             else lifecycle.delivery(deliveryId, 0, null, "PENDING", "ASSIGNMENT_OFFER", offeredAt, dispatcherId);
         }
         driverHistory(driverId, dispatcherId, "AVAILABLE", "RESERVED", changedAt);
+        outbox.driverOfferCreated(orderId, offerId, offeredAt);
         return new AssignmentService.OfferReceipt(offerId, "OFFERED", expiresAt);
     }
 
