@@ -1,6 +1,6 @@
 # Phase 9 — live tracking and simulator
 
-**Status: IN_PROGRESS (2026-10-06).** This document is the implementation and acceptance contract for the Phase 9 slice. Phase 8 is merged; tracking reads durable order/delivery state from PostgreSQL and the latest fresh driver fix from Redis. It does not use Kafka as a GPS stream.
+**Status: COMPLETE (2026-10-06).** This document records the implementation and acceptance evidence for the Phase 9 slice. Phase 8 is merged; tracking reads durable order/delivery state from PostgreSQL and the latest fresh driver fix from Redis. It does not use Kafka as a GPS stream.
 
 ## Objective and scope
 
@@ -32,7 +32,7 @@ After assigning a driver in the local stack, set `FLEETFLOW_DRIVER_TOKEN` in tha
 - [x] Assignment change, cancellation, completion and failure cannot leak a prior driver's position; terminal state closes the stream.
 - [x] Bounded connections/work, heartbeat, token expiry, timeout/error/disconnect cleanup and Redis outage behavior are tested.
 - [x] Local-only simulator exercises signed movement through the normal driver API; its bounded pause models disconnect, while stale/absent location behavior is covered by integration tests.
-- [ ] Real PostgreSQL and Redis integration tests, full clean Maven verify, signed local smoke, and GitHub CI pass. Record exact evidence before marking Phase 9 complete.
+- [x] Real PostgreSQL and Redis integration tests, full clean Maven verify, signed local smoke, and GitHub CI pass. Exact evidence is recorded below.
 
 ## Verification evidence
 
@@ -40,4 +40,4 @@ The Phase 9 tests use signed JWTs, real PostgreSQL 17 and Redis 7 Testcontainers
 
 The isolated `fleetflow-phase9-smoke` Compose project used fresh PostgreSQL, Keycloak, Redis and Kafka volumes. A Keycloak-signed customer saw the assigned driver's snapshot and an SSE movement event; another signed customer received `404`. The signed simulator produced two further locations through the normal driver API, and the owner snapshot followed those points. After pickup, transit and completion, the durable tuple was `COMPLETED|AVAILABLE|DELIVERED|DELIVERED`, and terminal tracking exposed no position. The same signed smoke passed after rebuilding the app with the final assignment/role checks. Only this isolated project's containers and volumes were removed; its temporary credential file was deleted.
 
-The final clean Maven result and GitHub CI links are still pending. Keep Phase 9 `IN_PROGRESS` until they are recorded here.
+The delivered code head `3b6159fb61f020a83521871432f3e6329d655ab4` consists of commits `84ea473`, `d40fd8d`, and `3b6159f`. The final local `./mvnw.cmd clean verify --no-transfer-progress` on that head passed **114 tests, 0 failures, 0 errors, 0 skipped** and `BUILD SUCCESS`. Both [push verify](https://github.com/Omar-Mega-Byte/fleetflow/actions/runs/37518496065) and [PR verify](https://github.com/Omar-Mega-Byte/fleetflow/actions/runs/37518543953) passed on the same head; the PR log reports **114 tests, 0 failures, 0 errors, 0 skipped** and `BUILD SUCCESS`. GitGuardian Security Checks passed. [PR #11](https://github.com/Omar-Mega-Byte/fleetflow/pull/11) carries the reviewable branch. This phase status records acceptance of this tracking slice; it does not claim a production-readiness review or a merge to `main`.

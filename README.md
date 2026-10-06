@@ -1,6 +1,6 @@
 # FleetFlow
 
-FleetFlow is a Java/Spring learning backend for delivery orchestration. Phases 0–8 provide guarded order and driver lifecycles, Redis-backed live location, immutable dispatch matching evidence, atomic assignment offers, recovery, delivery progress, and a PostgreSQL outbox with Kafka delivery to in-app notifications and transition counts. [Phase 8](docs/phases/PHASE_8.md) records its acceptance evidence. [Phase 9](docs/phases/Phase9.md) tracks the customer live-tracking implementation; [the roadmap](docs/ROADMAP.md) tracks the remaining work. Payments and trusted pricing are not implemented.
+FleetFlow is a Java/Spring learning backend for delivery orchestration. Phases 0–9 provide guarded order and driver lifecycles, Redis-backed live location, immutable dispatch matching evidence, atomic assignment offers, recovery, delivery progress, a PostgreSQL outbox with Kafka delivery, and owner-scoped live tracking. [Phase 9](docs/phases/Phase9.md) records its acceptance evidence, and [the roadmap](docs/ROADMAP.md) tracks remaining work. Payments and trusted pricing are not implemented.
 
 **Order prices are still submitted by the caller.** `POST /api/v1/orders` is available only with the `local` or `test` profile on a loopback server. Authentication does not make that write suitable for public production use. The `default` and `prod` profiles register secured reads and lifecycle commands, but not intake or fixture administration.
 
@@ -90,4 +90,4 @@ API and security errors include a stable code, safe message, path, timestamp, co
 
 ## Delivery status
 
-The [execution roadmap](docs/ROADMAP.md) tracks phase status. [Phase 6](docs/phases/PHASE_6.md) records assignment and concurrency evidence. [Phase 7](docs/phases/PHASE_7.md) records timeout recovery, candidate retries, reassignment, delivery progress, incidents, and their acceptance evidence. [Phase 8](docs/phases/PHASE_8.md) records event transport and its local and CI proof. No production readiness claim follows from these slices alone.
+The [execution roadmap](docs/ROADMAP.md) tracks phase status. [Phase 6](docs/phases/PHASE_6.md) records assignment and concurrency evidence. [Phase 7](docs/phases/PHASE_7.md) records recovery and delivery evidence. [Phase 8](docs/phases/PHASE_8.md) records event transport proof. [Phase 9](docs/phases/Phase9.md) records tracking and simulator proof. No production readiness claim follows from these slices alone.

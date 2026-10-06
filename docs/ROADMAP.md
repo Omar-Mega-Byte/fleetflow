@@ -1,6 +1,6 @@
 # FleetFlow execution roadmap
 
-[PROJECT_CONTEXT.md](../PROJECT_CONTEXT.md) is the primary living context. This roadmap tracks implementation status; the later phases remain plans. Status vocabulary: `NOT_STARTED` means planned only, `IN_PROGRESS` means implementation under way, `BLOCKED` means an identified prerequisite prevents completion, and `COMPLETE` means the phase acceptance gate passed with recorded evidence. As of 2026-10-06 Phases 7 and 8 are accepted; the statuses below preserve each phase's recorded CI boundary.
+[PROJECT_CONTEXT.md](../PROJECT_CONTEXT.md) is the primary living context. This roadmap tracks implementation status; the later phases remain plans. Status vocabulary: `NOT_STARTED` means planned only, `IN_PROGRESS` means implementation under way, `BLOCKED` means an identified prerequisite prevents completion, and `COMPLETE` means the phase acceptance gate passed with recorded evidence. As of 2026-10-06 Phases 7, 8 and 9 are accepted; the statuses below preserve each phase's recorded CI boundary.
 
 | Phase | Status | Purpose |
 | --- | --- | --- |
@@ -13,7 +13,7 @@
 | [6](phases/PHASE_6.md) Assignment | IN_PROGRESS | Atomic reservation, offer, acceptance and repeated 100-contender PostgreSQL proof; integration CI pending |
 | [7](phases/PHASE_7.md) Recovery | COMPLETE | Timeout and rejection recovery, bounded retry, pre-pickup reassignment/cancellation, delivery and incidents; draft integration PR pending review |
 | [8](phases/PHASE_8.md) Async events | COMPLETE | Kafka, transactional outbox, idempotent notification and analytics; local and PR CI evidence recorded |
-| [9](phases/Phase9.md) Live tracking | IN_PROGRESS | Authorized SSE snapshot/stream and local driver simulator; acceptance evidence pending |
+| [9](phases/Phase9.md) Live tracking | COMPLETE | Authorized SSE snapshot/stream and local driver simulator; local and PR CI evidence recorded |
 | 10 Zones | NOT_STARTED | PostGIS serviceability and geofencing after basic dispatch |
 | 11 Hardening | NOT_STARTED | Operations, resilience, backup/restore, security and demo proof |
 
