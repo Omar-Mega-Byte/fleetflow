@@ -19,7 +19,8 @@ import org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandl
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 
-@SpringBootTest
+@SpringBootTest(properties = {"fleetflow.outbox.enabled=false", "spring.kafka.admin.auto-create=false",
+        "spring.kafka.listener.auto-startup=false"})
 @ActiveProfiles("local")
 class OpenApiDocsTests extends ProfileTestDatabase {
     @Autowired WebApplicationContext context;
@@ -84,7 +85,7 @@ class OpenApiDocsTests extends ProfileTestDatabase {
                 }
             }
         });
-        assertThat(actual).hasSize(47).containsExactlyInAnyOrderElementsOf(registered);
+        assertThat(actual).hasSize(49).containsExactlyInAnyOrderElementsOf(registered);
         assertThat(document.path("paths").has("/actuator/health")).isFalse();
         assertThat(document.path("components").path("securitySchemes").path("bearerAuth")
                 .path("scheme").asText()).isEqualTo("bearer");

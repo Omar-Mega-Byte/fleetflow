@@ -30,6 +30,8 @@ public class SecurityConfiguration {
                 .authorizeHttpRequests(auth -> {
                     auth.requestMatchers("/actuator/health", "/actuator/health/**", "/actuator/info", "/error")
                             .permitAll();
+                    auth.requestMatchers(HttpMethod.GET, "/actuator/metrics", "/actuator/metrics/*")
+                            .hasRole("DISPATCHER");
                     if (localFixtures) {
                         auth.requestMatchers("/v3/api-docs", "/v3/api-docs/**",
                                 "/swagger-ui.html", "/swagger-ui/**").permitAll();
@@ -54,6 +56,10 @@ public class SecurityConfiguration {
                             "/api/v1/dispatch/orders/*/incidents/*/resolve").hasRole("DISPATCHER");
                     auth.requestMatchers(HttpMethod.GET, "/api/v1/dispatch/orders/*/incidents")
                             .hasRole("DISPATCHER");
+                    auth.requestMatchers(HttpMethod.GET, "/api/v1/dispatch/analytics/daily")
+                            .hasRole("DISPATCHER");
+                    auth.requestMatchers(HttpMethod.GET, "/api/v1/notifications/me")
+                            .hasAnyRole("CUSTOMER", "DRIVER");
                     auth.requestMatchers(HttpMethod.GET, "/api/v1/drivers/me/offers").hasRole("DRIVER");
                     auth.requestMatchers(HttpMethod.GET, "/api/v1/drivers/me/deliveries").hasRole("DRIVER");
                     auth.requestMatchers(HttpMethod.POST, "/api/v1/drivers/me/offers/*/accept",
