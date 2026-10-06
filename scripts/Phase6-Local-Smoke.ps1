@@ -1,6 +1,7 @@
 param(
     [switch]$IncludePhase7,
     [switch]$IncludePhase8,
+    [switch]$IncludePhase9,
     [switch]$ExerciseBrokerOutage,
     [string]$EnvironmentFile,
     [string]$ComposeProject = 'fleetflow'
@@ -185,7 +186,88 @@ try {
         throw 'Assigned customer order response was incorrect or exposed dispatch detail.'
     }
     Write-Host 'customer/order -> 200 DRIVER_ASSIGNED without candidate detail'
-    if ($IncludePhase7 -or $IncludePhase8) {
+    if ($IncludePhase9) {
+        $trackingPath = "/api/v1/orders/$orderId/tracking"
+        $snapshotResponse = Send-Request 'Get' $trackingPath $customer.token
+        $snapshot = $snapshotResponse.Content | ConvertFrom-Json
+        if ($snapshotResponse.StatusCode -ne 200 -or $snapshot.orderStatus -ne 'DRIVER_ASSIGNED' -or
+            $snapshot.position.latitude -ne 30.001 -or $snapshotResponse.Content -match 'driverId|assignmentId') {
+            throw 'Owner tracking snapshot was missing the accepted fresh position or exposed internal IDs.'
+        }
+        $otherCustomer = New-Actor 'CUSTOMER' $adminToken
+        $foreign = Send-Request 'Get' $trackingPath $otherCustomer.token
+        if ($foreign.StatusCode -ne 404) { throw 'Foreign customer could access tracking.' }
+
+        $streamJob = Start-ThreadJob -ArgumentList $app, $orderId, $customer.token -ScriptBlock {
+            param($base, $order, $token)
+            $client = [System.Net.Http.HttpClient]::new()
+            $request = [System.Net.Http.HttpRequestMessage]::new(
+                [System.Net.Http.HttpMethod]::Get, "$base/api/v1/orders/$order/tracking/stream")
+            $request.Headers.Authorization =
+                [System.Net.Http.Headers.AuthenticationHeaderValue]::new('Bearer', $token)
+            $request.Headers.Accept.ParseAdd('text/event-stream')
+            try {
+                $response = $client.SendAsync($request,
+                    [System.Net.Http.HttpCompletionOption]::ResponseHeadersRead).GetAwaiter().GetResult()
+                if (-not $response.IsSuccessStatusCode) { throw 'Tracking stream rejected the owner.' }
+                $reader = [System.IO.StreamReader]::new(
+                    $response.Content.ReadAsStreamAsync().GetAwaiter().GetResult())
+                $event = ''
+                while ($true) {
+                    $line = $reader.ReadLineAsync().WaitAsync(
+                        [TimeSpan]::FromSeconds(20)).GetAwaiter().GetResult()
+                    if ($null -eq $line) { break }
+                    if ($line.StartsWith('event:')) { $event = $line.Substring(6).Trim() }
+                    if ($line.StartsWith('data:') -and $event -eq 'snapshot') { Write-Output 'SNAPSHOT' }
+                    if ($line.StartsWith('data:') -and $event -eq 'tracking' -and
+                        $line.Contains('"latitude":30.002')) { Write-Output 'MOVED'; break }
+                }
+            }
+            finally {
+                if ($reader) { $reader.Dispose() }
+                if ($response) { $response.Dispose() }
+                $request.Dispose()
+                $client.Dispose()
+            }
+        }
+        try {
+            $streamDeadline = [DateTimeOffset]::UtcNow.AddSeconds(10)
+            do {
+                $seen = @(Receive-Job -Job $streamJob -Keep)
+                if ($seen -contains 'SNAPSHOT') { break }
+                Start-Sleep -Milliseconds 100
+            } while ([DateTimeOffset]::UtcNow -lt $streamDeadline)
+            if ($seen -notcontains 'SNAPSHOT') { throw 'SSE did not start with a snapshot.' }
+            $nextFix = @{ latitude = 30.002; longitude = 31.002
+                reportedAt = [DateTimeOffset]::UtcNow.ToString('o') } | ConvertTo-Json -Compress
+            $moved = Send-Request 'Post' '/api/v1/drivers/me/location' $driverActor.token $nextFix
+            if ($moved.StatusCode -ne 204) { throw 'Driver movement was rejected.' }
+            $null = Wait-Job -Job $streamJob -Timeout 20
+            $seen = @(Receive-Job -Job $streamJob -Keep)
+            if ($streamJob.State -ne 'Completed' -or $seen -notcontains 'MOVED') {
+                throw 'SSE did not deliver accepted driver movement.'
+            }
+        }
+        finally {
+            if ($streamJob.State -eq 'Running') { Stop-Job -Job $streamJob }
+            Remove-Job -Job $streamJob -Force
+        }
+        $previousDriverToken = $env:FLEETFLOW_DRIVER_TOKEN
+        try {
+            $env:FLEETFLOW_DRIVER_TOKEN = $driverActor.token
+            & (Join-Path $PSScriptRoot 'Simulate-Driver-Route.ps1') -BaseUrl $app `
+                -StartLatitude 30.003 -StartLongitude 31.003 -Points 2 -IntervalSeconds 1
+            if (-not $?) { throw 'Driver simulator failed.' }
+        }
+        finally { $env:FLEETFLOW_DRIVER_TOKEN = $previousDriverToken }
+        $afterRoute = Send-Request 'Get' $trackingPath $customer.token
+        if ($afterRoute.StatusCode -ne 200 -or
+            ($afterRoute.Content | ConvertFrom-Json).position.latitude -ne 30.0032) {
+            throw 'Simulator movement was not visible in customer tracking.'
+        }
+        Write-Host 'phase9 -> signed owner snapshot, foreign 404, SSE movement and simulator verified'
+    }
+    if ($IncludePhase7 -or $IncludePhase8 -or $IncludePhase9) {
         $deliveries = Send-Request 'Get' '/api/v1/drivers/me/deliveries' $driverActor.token
         if ($deliveries.StatusCode -ne 200) { throw "Delivery read returned $($deliveries.StatusCode)." }
         $delivery = @((($deliveries.Content | ConvertFrom-Json).content) |
@@ -208,6 +290,13 @@ try {
             throw "Final durable delivery tuple was invalid: $finalTuple"
         }
         Write-Host 'postgres -> COMPLETED|AVAILABLE|DELIVERED|DELIVERED'
+        if ($IncludePhase9) {
+            $terminalTracking = Send-Request 'Get' "/api/v1/orders/$orderId/tracking" $customer.token
+            $finalSnapshot = $terminalTracking.Content | ConvertFrom-Json
+            if ($terminalTracking.StatusCode -ne 200 -or -not $finalSnapshot.terminal -or
+                $null -ne $finalSnapshot.position) { throw 'Terminal tracking retained a live position.' }
+            Write-Host 'phase9 -> terminal snapshot hides coordinates'
+        }
     }
     if ($IncludePhase8) {
         $eventDeadline = [DateTimeOffset]::UtcNow.AddSeconds(60)
@@ -296,7 +385,8 @@ try {
             Write-Host 'phase8 -> broker restored, event PUBLISHED with two processed markers'
         }
     }
-    if ($IncludePhase8) { Write-Host "Phase 8 local signed-token smoke passed for order $orderId." }
+    if ($IncludePhase9) { Write-Host "Phase 9 local signed-token smoke passed for order $orderId." }
+    elseif ($IncludePhase8) { Write-Host "Phase 8 local signed-token smoke passed for order $orderId." }
     elseif ($IncludePhase7) { Write-Host "Phase 7 local signed-token smoke passed for order $orderId." }
     else { Write-Host "Phase 6 local signed-token smoke passed for order $orderId." }
 }
