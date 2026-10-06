@@ -21,6 +21,26 @@ spring:
       timeout: 2s
       repositories:
         enabled: false
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:127.0.0.1:9094}
+    admin:
+      fail-fast: false
+      auto-create: false
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.apache.kafka.common.serialization.StringSerializer
+      acks: all
+      properties:
+        enable.idempotence: true
+        max.block.ms: 5000
+    consumer:
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      auto-offset-reset: earliest
+      enable-auto-commit: false
+    listener:
+      ack-mode: record
+      auto-startup: false
   jpa:
     open-in-view: false
     hibernate:
@@ -44,7 +64,7 @@ management:
   endpoints:
     web:
       exposure:
-        include: health,info
+        include: health,info,metrics
   endpoint:
     health:
       show-details: never
@@ -61,6 +81,18 @@ logging:
   level:
     org.hibernate.orm.jdbc.error: OFF
 fleetflow:
+  events:
+    topic: ${EVENTS_TOPIC:fleetflow.domain-events.v1}
+  outbox:
+    enabled: ${OUTBOX_ENABLED:false}
+    batch-size: ${OUTBOX_BATCH_SIZE:50}
+    sweep-interval-ms: ${OUTBOX_SWEEP_INTERVAL_MS:5000}
+    lease-duration: ${OUTBOX_LEASE_DURATION:30s}
+    send-timeout: ${OUTBOX_SEND_TIMEOUT:5s}
+    max-attempts: ${OUTBOX_MAX_ATTEMPTS:20}
+    published-retention: ${OUTBOX_PUBLISHED_RETENTION:30d}
+    prune-batch-size: ${OUTBOX_PRUNE_BATCH_SIZE:500}
+    prune-interval-ms: ${OUTBOX_PRUNE_INTERVAL_MS:3600000}
   security:
     audience: ${OIDC_AUDIENCE:}
   location:
