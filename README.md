@@ -1,24 +1,24 @@
 # FleetFlow
 
-FleetFlow is a Java/Spring learning backend for delivery orchestration. Phases 0–7 provide guarded order and driver lifecycles, Redis-backed live location, immutable dispatch matching evidence, atomic assignment offers, recovery, and delivery progress. [The roadmap](docs/ROADMAP.md) records each phase's evidence and remaining work. Payments and trusted pricing are not implemented.
+FleetFlow is a Java/Spring learning backend for delivery orchestration. Phases 0–8 provide guarded order and driver lifecycles, Redis-backed live location, immutable dispatch matching evidence, atomic assignment offers, recovery, delivery progress, and a PostgreSQL outbox with Kafka delivery to in-app notifications and transition counts. [Phase 8](docs/phases/PHASE_8.md) records its acceptance evidence, and [the roadmap](docs/ROADMAP.md) tracks remaining work. Payments and trusted pricing are not implemented.
 
 **Order prices are still submitted by the caller.** `POST /api/v1/orders` is available only with the `local` or `test` profile on a loopback server. Authentication does not make that write suitable for public production use. The `default` and `prod` profiles register secured reads and lifecycle commands, but not intake or fixture administration.
 
 ## Prerequisites and verification
 
 - Java 21 and the pinned Maven Wrapper 3.9.16.
-- Docker Engine and Compose for the app, PostgreSQL, Redis, and local Keycloak. The images are pinned in `compose.yaml` and the app's `Dockerfile`.
-- `./mvnw.cmd clean verify --no-transfer-progress` on Windows, or `./mvnw clean verify --no-transfer-progress` on Linux/macOS. Tests start disposable PostgreSQL, Redis, and Keycloak containers. Check the pinned images before pulling an absent image.
+- Docker Engine and Compose for the app, PostgreSQL, Redis, Kafka, and local Keycloak. The images are pinned in `compose.yaml` and the app's `Dockerfile`.
+- `./mvnw.cmd clean verify --no-transfer-progress` on Windows, or `./mvnw clean verify --no-transfer-progress` on Linux/macOS. Tests start disposable PostgreSQL, Redis, Kafka, and Keycloak containers. Check the pinned images before pulling an absent image.
 
-Flyway owns schema changes. V1–V3 remain immutable; V3 adds canonical lifecycle state and history. V4 adds dispatch status history, V5–V7 add matching snapshots and constraints, and V8 adds atomic assignment and extends the existing delivery table. Hibernate uses `ddl-auto=validate` in every profile.
+Flyway owns schema changes. V1–V3 remain immutable; V3 adds canonical lifecycle state and history. V4 adds dispatch status history, V5–V7 add matching snapshots and constraints, V8 adds atomic assignment, V9–V10 add recovery and delivery state, and V11 adds asynchronous event tables. Hibernate uses `ddl-auto=validate` in every profile.
 
 ## Local OIDC setup
 
 1. Copy `.env.example` to `.env`. Set random local `DB_PASSWORD` and `KC_ADMIN_PASSWORD`; choose a local `KC_ADMIN_USER`. Keep `.env` private. Keep the default `OIDC_PORT=8081`, issuer, and JWKS URI aligned unless you change all three together.
-2. Start the stack with `docker compose --env-file .env -p fleetflow up -d --build --pull never` when the pinned images are cached. Pull only an absent image first. One Compose project manages the app, PostgreSQL, Redis, and Keycloak on loopback. Keycloak imports the versioned realm configuration without users or secrets.
+2. Start the stack with `docker compose --env-file .env -p fleetflow up -d --build --pull never` when the pinned images are cached. Pull only an absent image first. One Compose project manages the app, PostgreSQL, Redis, Kafka, and Keycloak on loopback. Keycloak imports the versioned realm configuration without users or secrets.
 3. Check `http://127.0.0.1:8081/realms/fleetflow/.well-known/openid-configuration`. Its `issuer` must equal `OIDC_ISSUER` exactly. The client `fleetflow-cli` puts `fleetflow-api` in access-token `aud`; `OIDC_AUDIENCE` must match exactly.
 4. Sign in to the local Keycloak Admin Console with the private bootstrap credentials. In realm `fleetflow`, create an enabled development user with username, email, first and last names, a permanent password, and no outstanding required actions. Copy its Keycloak user ID (`sub`), which is a UUID. For the first application administrator run `./scripts/Bootstrap-LocalAdmin.ps1 -Subject <Keycloak-user-id>`. The script inserts an active actor and ADMIN role into local PostgreSQL in one transaction. It does not expose an anonymous bootstrap endpoint. The Keycloak bootstrap administrator is distinct from a FleetFlow ADMIN actor.
-5. Use the Compose app at `127.0.0.1:8080`. For local/test fixture APIs and Swagger, stop only the Compose app service and run `./scripts/Run-Local.ps1`; it loads database, Redis, and OIDC values from `.env`, selects `local`, and binds to loopback. Health liveness and readiness are at `/actuator/health/liveness` and `/actuator/health/readiness`.
+5. Use the Compose app at `127.0.0.1:8080`. For local/test fixture APIs and Swagger, stop only the Compose app service and run `./scripts/Run-Local.ps1`; it loads database, Redis, Kafka, and OIDC values from `.env`, selects `local`, and binds to loopback. Health liveness and readiness are at `/actuator/health/liveness` and `/actuator/health/readiness`.
 6. Obtain a development access token from Keycloak's `fleetflow-cli` client. For example, in PowerShell, set `$username`, read `$password = Read-Host -AsSecureString`, then call `Invoke-RestMethod -Method Post -Uri "$env:OIDC_ISSUER/protocol/openid-connect/token" -Body @{grant_type='password';client_id='fleetflow-cli';username=$username;password=($password | ConvertFrom-SecureString -AsPlainText)}`. Set `$env:OIDC_ISSUER` from `.env` first or use its literal loopback URL. Keep the returned access token in a temporary shell variable and send `Authorization: Bearer <token>` to the API. The password grant exists only in this local learning realm.
 7. Open [local Swagger UI](http://127.0.0.1:8080/swagger-ui/index.html). Select **Authorize** and paste the access token value; Swagger UI adds the `Bearer` prefix. The token must map to an active FleetFlow actor with the role listed for that operation.
 
@@ -26,7 +26,7 @@ Use `docker compose --env-file .env -p fleetflow down` to stop the stack. The da
 
 ### Swagger and OpenAPI
 
-With the `local` or `test` profile on loopback, Swagger UI at `/swagger-ui/index.html` shows all **36 registered `/api/v1` operations**. The machine-readable contract is at `/v3/api-docs` (JSON) or `/v3/api-docs.yaml`. Operations are grouped by customer, merchant, driver, dispatch and fixture purpose. Each lists its required role and profile, request and response schema, supported filters, and safe error responses.
+With the `local` or `test` profile on loopback, Swagger UI at `/swagger-ui/index.html` shows all **49 registered `/api/v1` operations**. The machine-readable contract is at `/v3/api-docs` (JSON) or `/v3/api-docs.yaml`. Operations are grouped by customer, merchant, driver, dispatch and fixture purpose. Each lists its required role and profile, request and response schema, supported filters, and safe error responses.
 
 The local/test page includes fixture ADMIN routes and `POST /api/v1/orders`. Those routes are absent from default/prod, where the OpenAPI and Swagger endpoints are disabled. Submitted order prices remain untrusted, so the create route is only for loopback learning. The Actuator health probes are operational endpoints documented above; they are intentionally outside the business API contract.
 
@@ -56,6 +56,9 @@ The allowlist is CUSTOMER, MERCHANT, DRIVER, SUPPORT, DISPATCHER, ADMIN. Role ch
 | `OIDC_PORT` | Local Keycloak loopback host port, default 8081. |
 | `KC_ADMIN_USER`, `KC_ADMIN_PASSWORD` | Private local Keycloak bootstrap credentials; required when starting the OIDC Compose profile. |
 | `REDIS_HOST`, `REDIS_PORT` | Redis connection for location, heartbeat, and matching. |
+| `KAFKA_BOOTSTRAP_SERVERS`, `KAFKA_PORT` | Kafka bootstrap address for a host-run app and loopback broker port in Compose. |
+| `OUTBOX_ENABLED`, `OUTBOX_BATCH_SIZE`, `OUTBOX_SWEEP_INTERVAL_MS`, `OUTBOX_LEASE_DURATION`, `OUTBOX_SEND_TIMEOUT`, `OUTBOX_MAX_ATTEMPTS` | Publisher controls; see the [Phase 8 runbook](docs/phases/PHASE_8.md). |
+| `OUTBOX_PUBLISHED_RETENTION`, `OUTBOX_PRUNE_BATCH_SIZE`, `OUTBOX_PRUNE_INTERVAL_MS` | Cleanup of old published events only after both consumers have processed them. |
 | `SPRING_PROFILES_ACTIVE`, `SERVER_PORT` | Active profile and HTTP port; local script sets `local`, default HTTP port 8080. |
 
 Missing issuer, JWKS URI, or audience fails application startup. Signed tokens must have a trusted signature, exact issuer and audience, subject, expiry, and valid not-before time. The application reads roles only from PostgreSQL, not token role, email, or username claims. Business routes use stateless bearer authentication with no session, form login, basic auth, or trusted development header.
@@ -75,6 +78,8 @@ Missing issuer, JWKS URI, or audience fails application startup. Signed tokens m
 | `POST /api/v1/dispatch/orders/{id}/match`, `GET /api/v1/dispatch/orders/{id}/attempts` | local/test/default/prod | DISPATCHER; immutable ranked candidate evidence and bounded read. |
 | `POST /api/v1/dispatch/orders/{id}/offers`, `GET /api/v1/dispatch/orders/{id}/assignments` | local/test/default/prod | DISPATCHER; current Redis and PostgreSQL eligibility recheck, atomic reservation, and bounded assignment read. |
 | `GET /api/v1/drivers/me/offers`, `POST /api/v1/drivers/me/offers/{offerId}/accept`, `/reject` | local/test/default/prod | DRIVER; exact offer ownership, server deadline, and atomic state changes. |
+| `GET /api/v1/notifications/me` | local/test/default/prod | CUSTOMER or DRIVER; returns only the signed actor's newest 1–20 notifications. |
+| `GET /api/v1/dispatch/analytics/daily` | local/test/default/prod | DISPATCHER; UTC transition counts for an inclusive range of at most 31 days. |
 | `POST /api/v1/orders` | local/test, loopback | CUSTOMER; caller-derived customer and existing validation, snapshots, and rollback. Submitted prices are untrusted. No default/prod handler. |
 | Fixture actor/customer/merchant/branch/membership/driver/vehicle create/read routes | local/test, loopback | Explicitly provisioned ADMIN only; no production fixture controllers. |
 | `/actuator/health/**`, `/actuator/info` | Health in all profiles; info except prod | Anonymous probes, hidden health details. Other routes do not inherit this permit rule. |
@@ -85,4 +90,4 @@ API and security errors include a stable code, safe message, path, timestamp, co
 
 ## Delivery status
 
-The [execution roadmap](docs/ROADMAP.md) tracks phase status. [Phase 6](docs/phases/PHASE_6.md) records assignment and concurrency evidence. [Phase 7](docs/phases/PHASE_7.md) records timeout recovery, candidate retries, reassignment, delivery progress, incidents, and their acceptance evidence. No production readiness claim follows from these slices alone.
+The [execution roadmap](docs/ROADMAP.md) tracks phase status. [Phase 6](docs/phases/PHASE_6.md) records assignment and concurrency evidence. [Phase 7](docs/phases/PHASE_7.md) records timeout recovery, candidate retries, reassignment, delivery progress, incidents, and their acceptance evidence. [Phase 8](docs/phases/PHASE_8.md) records event transport and its local and CI proof. No production readiness claim follows from these slices alone.

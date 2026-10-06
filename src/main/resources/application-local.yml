@@ -1,5 +1,14 @@
 server:
   address: 127.0.0.1
+spring:
+  kafka:
+    admin:
+      auto-create: true
+    listener:
+      auto-startup: true
+fleetflow:
+  outbox:
+    enabled: ${OUTBOX_ENABLED:true}
 springdoc:
   api-docs:
     enabled: true

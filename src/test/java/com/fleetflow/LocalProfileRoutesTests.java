@@ -18,7 +18,8 @@ import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.web.context.WebApplicationContext;
 import org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandlerMapping;
 
-@SpringBootTest
+@SpringBootTest(properties = {"fleetflow.outbox.enabled=false", "spring.kafka.admin.auto-create=false",
+        "spring.kafka.listener.auto-startup=false"})
 @ActiveProfiles("local")
 class LocalProfileRoutesTests extends ProfileTestDatabase {
     @Autowired @Qualifier("requestMappingHandlerMapping") RequestMappingHandlerMapping mappings;

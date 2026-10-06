@@ -1,5 +1,7 @@
 param(
     [switch]$IncludePhase7,
+    [switch]$IncludePhase8,
+    [switch]$ExerciseBrokerOutage,
     [string]$EnvironmentFile,
     [string]$ComposeProject = 'fleetflow'
 )
@@ -11,6 +13,9 @@ $envPath = if ($EnvironmentFile) { (Resolve-Path -LiteralPath $EnvironmentFile).
 if (-not (Test-Path -LiteralPath $envPath)) { throw 'Local .env is required.' }
 if ($ComposeProject -notmatch '^[a-z][a-z0-9-]{1,40}$') {
     throw 'ComposeProject must be a lowercase Compose project name.'
+}
+if ($ExerciseBrokerOutage -and -not $IncludePhase8) {
+    throw 'ExerciseBrokerOutage requires IncludePhase8.'
 }
 
 $settings = @{}
@@ -180,7 +185,7 @@ try {
         throw 'Assigned customer order response was incorrect or exposed dispatch detail.'
     }
     Write-Host 'customer/order -> 200 DRIVER_ASSIGNED without candidate detail'
-    if ($IncludePhase7) {
+    if ($IncludePhase7 -or $IncludePhase8) {
         $deliveries = Send-Request 'Get' '/api/v1/drivers/me/deliveries' $driverActor.token
         if ($deliveries.StatusCode -ne 200) { throw "Delivery read returned $($deliveries.StatusCode)." }
         $delivery = @((($deliveries.Content | ConvertFrom-Json).content) |
@@ -204,7 +209,95 @@ try {
         }
         Write-Host 'postgres -> COMPLETED|AVAILABLE|DELIVERED|DELIVERED'
     }
-    if ($IncludePhase7) { Write-Host "Phase 7 local signed-token smoke passed for order $orderId." }
+    if ($IncludePhase8) {
+        $eventDeadline = [DateTimeOffset]::UtcNow.AddSeconds(60)
+        do {
+            $pending = "select count(*) from outbox_events where aggregate_id = '$orderId' and status <> 'PUBLISHED';" |
+                & docker compose --env-file $envPath -p $ComposeProject exec -T postgres psql -At `
+                    -v ON_ERROR_STOP=1 -U $settings['DB_USER'] -d $settings['DB_NAME']
+            if ($LASTEXITCODE -ne 0) { throw 'Outbox query failed.' }
+            if ($pending.Trim() -eq '0') { break }
+            Start-Sleep -Milliseconds 500
+        } while ([DateTimeOffset]::UtcNow -lt $eventDeadline)
+        if ($pending.Trim() -ne '0') { throw "Outbox did not drain for order $orderId." }
+        $expectedStates = @('CONFIRMED', 'READY_FOR_PICKUP', 'DRIVER_ASSIGNED',
+            'PICKED_UP', 'IN_TRANSIT', 'DELIVERED')
+        $projectionDeadline = [DateTimeOffset]::UtcNow.AddSeconds(30)
+        do {
+            $customerNotices = Send-Request 'Get' '/api/v1/notifications/me?limit=20' $customer.token
+            $driverNotices = Send-Request 'Get' '/api/v1/notifications/me?limit=20' $driverActor.token
+            $notices = @((($customerNotices.Content | ConvertFrom-Json).content) |
+                Where-Object { $_.orderId -eq "$orderId" })
+            $offers = @((($driverNotices.Content | ConvertFrom-Json).content) |
+                Where-Object { $_.orderId -eq "$orderId" -and $_.kind -eq 'ASSIGNMENT_OFFERED' })
+            if ($customerNotices.StatusCode -eq 200 -and $driverNotices.StatusCode -eq 200 -and
+                $offers.Count -eq 1 -and @($expectedStates | Where-Object { $_ -notin $notices.state }).Count -eq 0) {
+                break
+            }
+            Start-Sleep -Milliseconds 500
+        } while ([DateTimeOffset]::UtcNow -lt $projectionDeadline)
+        if ($offers.Count -ne 1 -or @($expectedStates | Where-Object { $_ -notin $notices.state }).Count -ne 0) {
+            throw 'Phase 8 notification projections did not contain the expected order and offer events.'
+        }
+        if (@($notices | Where-Object { $_.kind -eq 'ASSIGNMENT_OFFERED' }).Count -ne 0 -or
+            @((($driverNotices.Content | ConvertFrom-Json).content) |
+                Where-Object { $_.orderId -eq "$orderId" -and $_.kind -eq 'ORDER_STATUS_CHANGED' }).Count -ne 0) {
+            throw 'Notification recipient scopes were mixed.'
+        }
+        $today = [DateTime]::UtcNow.ToString('yyyy-MM-dd')
+        $report = Send-Request 'Get' "/api/v1/dispatch/analytics/daily?from=$today&to=$today" $dispatcher.token
+        if ($report.StatusCode -ne 200 -or
+            @((($report.Content | ConvertFrom-Json).content) |
+                Where-Object { $_.status -eq 'DELIVERED' -and $_.total -ge 1 }).Count -ne 1) {
+            throw 'Dispatcher analytics report did not contain the delivered transition.'
+        }
+        $deniedReport = Send-Request 'Get' "/api/v1/dispatch/analytics/daily?from=$today&to=$today" $customer.token
+        if ($deniedReport.StatusCode -ne 403) { throw 'Customer could read dispatch analytics.' }
+        $backlog = Send-Request 'Get' '/actuator/metrics/fleetflow.outbox.pending' $dispatcher.token
+        if ($backlog.StatusCode -ne 200) {
+            throw "Dispatcher metric read returned $($backlog.StatusCode): $($backlog.Content)"
+        }
+        Write-Host 'phase8 -> outbox drained, signed notification scopes and UTC report verified'
+        if ($ExerciseBrokerOutage) {
+            $outageOrder = $null
+            try {
+                & docker compose --env-file $envPath -p $ComposeProject stop kafka | Out-Null
+                if ($LASTEXITCODE -ne 0) { throw 'Stopping the isolated Kafka broker failed.' }
+                $outageOrder = New-SmokeOrder $customerId $branchId 30.000000 31.000000
+                $duringOutage = Send-Request 'Post' "/api/v1/merchant-branches/$branchId/orders/$outageOrder/confirm" `
+                    $merchant.token
+                if ($duringOutage.StatusCode -ne 200) {
+                    throw "Order confirmation during broker outage returned $($duringOutage.StatusCode)."
+                }
+                $duringSql = "select o.status || '|' || e.status from orders o join outbox_events e on e.aggregate_id = o.id where o.id = '$outageOrder';" |
+                    & docker compose --env-file $envPath -p $ComposeProject exec -T postgres psql -At `
+                        -v ON_ERROR_STOP=1 -U $settings['DB_USER'] -d $settings['DB_NAME']
+                if ($LASTEXITCODE -ne 0 -or $duringSql.Trim() -ne 'CONFIRMED|PENDING') {
+                    throw "Broker outage did not leave a committed order and pending event: $duringSql"
+                }
+                Write-Host 'phase8 -> broker down, order CONFIRMED with durable PENDING event'
+            }
+            finally {
+                & docker compose --env-file $envPath -p $ComposeProject start kafka | Out-Null
+                if ($LASTEXITCODE -ne 0) { throw 'Restarting the isolated Kafka broker failed.' }
+            }
+            $recoveryDeadline = [DateTimeOffset]::UtcNow.AddSeconds(120)
+            do {
+                $recovered = "select e.status || '|' || count(p.event_id) from outbox_events e left join processed_events p on p.event_id = e.id where e.aggregate_id = '$outageOrder' group by e.status;" |
+                    & docker compose --env-file $envPath -p $ComposeProject exec -T postgres psql -At `
+                        -v ON_ERROR_STOP=1 -U $settings['DB_USER'] -d $settings['DB_NAME']
+                if ($LASTEXITCODE -ne 0) { throw 'Broker recovery query failed.' }
+                if ($recovered.Trim() -eq 'PUBLISHED|2') { break }
+                Start-Sleep -Seconds 1
+            } while ([DateTimeOffset]::UtcNow -lt $recoveryDeadline)
+            if ($recovered.Trim() -ne 'PUBLISHED|2') {
+                throw "Broker recovery did not drain and project the event: $recovered"
+            }
+            Write-Host 'phase8 -> broker restored, event PUBLISHED with two processed markers'
+        }
+    }
+    if ($IncludePhase8) { Write-Host "Phase 8 local signed-token smoke passed for order $orderId." }
+    elseif ($IncludePhase7) { Write-Host "Phase 7 local signed-token smoke passed for order $orderId." }
     else { Write-Host "Phase 6 local signed-token smoke passed for order $orderId." }
 }
 finally { Pop-Location }

@@ -3,6 +3,14 @@ server:
 fleetflow:
   recovery:
     enabled: false
+  outbox:
+    enabled: false
+spring:
+  kafka:
+    admin:
+      auto-create: false
+    listener:
+      auto-startup: false
 springdoc:
   api-docs:
     enabled: true

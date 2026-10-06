@@ -33,7 +33,8 @@ public class ActorAuthenticationFilter extends OncePerRequestFilter {
         if (path == null || path.isEmpty()) {
             path = request.getRequestURI().substring(request.getContextPath().length());
         }
-        return !path.startsWith("/api/v1/");
+        return !(path.startsWith("/api/v1/") || path.equals("/actuator/metrics")
+                || path.startsWith("/actuator/metrics/"));
     }
 
     @Override

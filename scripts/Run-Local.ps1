@@ -9,19 +9,22 @@ $values = @{}
 $previous = @{}
 foreach ($line in Get-Content -LiteralPath $envPath) {
     if ($line -match '^\s*(#|$)') { continue }
-    if ($line -notmatch '^(DB_NAME|DB_USER|DB_PASSWORD|DB_PORT|DB_URL|APP_PORT|OIDC_PORT|OIDC_ISSUER|OIDC_JWKS_URI|OIDC_AUDIENCE|KC_ADMIN_USER|KC_ADMIN_PASSWORD|REDIS_HOST|REDIS_PORT)=(.*)$') {
+    if ($line -notmatch '^(DB_NAME|DB_USER|DB_PASSWORD|DB_PORT|DB_URL|APP_PORT|OIDC_PORT|OIDC_ISSUER|OIDC_JWKS_URI|OIDC_AUDIENCE|KC_ADMIN_USER|KC_ADMIN_PASSWORD|REDIS_HOST|REDIS_PORT|KAFKA_BOOTSTRAP_SERVERS|KAFKA_PORT|OUTBOX_ENABLED|OUTBOX_BATCH_SIZE|OUTBOX_SWEEP_INTERVAL_MS|OUTBOX_LEASE_DURATION|OUTBOX_SEND_TIMEOUT|OUTBOX_MAX_ATTEMPTS|OUTBOX_PUBLISHED_RETENTION|OUTBOX_PRUNE_BATCH_SIZE|OUTBOX_PRUNE_INTERVAL_MS|RECOVERY_ENABLED|RECOVERY_BATCH_SIZE|RECOVERY_SWEEP_INTERVAL_MS)=(.*)$') {
         throw 'Unsupported .env line. Use the keys shown in .env.example.'
     }
     $values[$Matches[1]] = $Matches[2]
 }
 $values['REDIS_HOST'] = if ($values['REDIS_HOST']) { $values['REDIS_HOST'] } else { '127.0.0.1' }
 $values['REDIS_PORT'] = if ($values['REDIS_PORT']) { $values['REDIS_PORT'] } else { '6379' }
-foreach ($key in @('DB_USER', 'DB_PASSWORD', 'DB_URL', 'OIDC_ISSUER', 'OIDC_JWKS_URI', 'OIDC_AUDIENCE', 'REDIS_HOST', 'REDIS_PORT')) {
+$values['KAFKA_BOOTSTRAP_SERVERS'] = if ($values['KAFKA_BOOTSTRAP_SERVERS']) {
+    $values['KAFKA_BOOTSTRAP_SERVERS']
+} else { '127.0.0.1:9094' }
+foreach ($key in @('DB_USER', 'DB_PASSWORD', 'DB_URL', 'OIDC_ISSUER', 'OIDC_JWKS_URI', 'OIDC_AUDIENCE', 'REDIS_HOST', 'REDIS_PORT', 'KAFKA_BOOTSTRAP_SERVERS')) {
     if ([string]::IsNullOrWhiteSpace($values[$key]) -or $values[$key] -like 'replace-*') {
         throw "Set $key in .env before starting FleetFlow."
     }
 }
-foreach ($key in @('DB_USER', 'DB_PASSWORD', 'DB_URL', 'OIDC_ISSUER', 'OIDC_JWKS_URI', 'OIDC_AUDIENCE', 'REDIS_HOST', 'REDIS_PORT')) {
+foreach ($key in @('DB_USER', 'DB_PASSWORD', 'DB_URL', 'OIDC_ISSUER', 'OIDC_JWKS_URI', 'OIDC_AUDIENCE', 'REDIS_HOST', 'REDIS_PORT', 'KAFKA_BOOTSTRAP_SERVERS', 'OUTBOX_ENABLED', 'OUTBOX_BATCH_SIZE', 'OUTBOX_SWEEP_INTERVAL_MS', 'OUTBOX_LEASE_DURATION', 'OUTBOX_SEND_TIMEOUT', 'OUTBOX_MAX_ATTEMPTS', 'OUTBOX_PUBLISHED_RETENTION', 'OUTBOX_PRUNE_BATCH_SIZE', 'OUTBOX_PRUNE_INTERVAL_MS', 'RECOVERY_ENABLED', 'RECOVERY_BATCH_SIZE', 'RECOVERY_SWEEP_INTERVAL_MS')) {
     $previous[$key] = [Environment]::GetEnvironmentVariable($key, 'Process')
     [Environment]::SetEnvironmentVariable($key, $values[$key], 'Process')
 }

@@ -2,4 +2,13 @@ management:
   endpoints:
     web:
       exposure:
-        include: health
+        include: health,metrics
+spring:
+  kafka:
+    admin:
+      auto-create: true
+    listener:
+      auto-startup: true
+fleetflow:
+  outbox:
+    enabled: ${OUTBOX_ENABLED:true}
