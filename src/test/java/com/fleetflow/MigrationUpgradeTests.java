@@ -50,7 +50,7 @@ class MigrationUpgradeTests {
                     """, order, customer, branch);
 
             Flyway upgraded = Flyway.configure().dataSource(source).locations("classpath:db/migration").load();
-            assertThat(upgraded.migrate().migrationsExecuted).isEqualTo(1);
+            assertThat(upgraded.migrate().migrationsExecuted).isEqualTo(8);
             assertThat(upgraded.migrate().migrationsExecuted).isZero();
             assertThat(jdbc.queryForObject("select version from orders where id = ?", Long.class, order)).isZero();
             assertThat(jdbc.queryForObject("select operational_status from drivers where id = ?", String.class, driver))
@@ -63,7 +63,7 @@ class MigrationUpgradeTests {
                     .isNull();
             assertThatThrownBy(() -> jdbc.update("update order_lifecycle_history set action = 'FAKE' where order_id = ?", order))
                     .hasMessageContaining("Lifecycle history is append-only");
-            assertThatThrownBy(() -> jdbc.update("update orders set status = 'DELIVERED' where id = ?", order))
+            assertThatThrownBy(() -> jdbc.update("update orders set status = 'TELEPORTED' where id = ?", order))
                     .hasMessageContaining("ck_orders_status");
             assertThat(jdbc.queryForObject("select count(*) from deliveries", Integer.class)).isZero();
         }
@@ -84,7 +84,7 @@ class MigrationUpgradeTests {
 
             Flyway upgraded = Flyway.configure().dataSource(db.getJdbcUrl(), db.getUsername(), db.getPassword())
                     .locations("classpath:db/migration").load();
-            assertThat(upgraded.migrate().migrationsExecuted).isEqualTo(2);
+            assertThat(upgraded.migrate().migrationsExecuted).isEqualTo(9);
             assertThat(upgraded.migrate().migrationsExecuted).isZero();
             assertThat(jdbc.queryForObject("select count(*) from actors where id = ?", Integer.class, actor))
                     .isEqualTo(1);

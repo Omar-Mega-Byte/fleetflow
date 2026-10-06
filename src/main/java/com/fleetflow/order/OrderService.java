@@ -103,7 +103,8 @@ public class OrderService {
             throw invalid("from must be before to");
         }
         if (status != null && !java.util.Set.of("CREATED", "CONFIRMED", "PREPARING",
-                "READY_FOR_PICKUP", "CANCELLED").contains(status)) {
+                "READY_FOR_PICKUP", "CANCELLED", "DISPATCHING", "DISPATCH_FAILED",
+                "DRIVER_ASSIGNED").contains(status)) {
             throw invalid("Unsupported status");
         }
         Sort requestedSort = sortOrder(sort);
@@ -157,9 +158,9 @@ public class OrderService {
                 item.description, item.quantity, item.unitAmount, item.lineAmount)).toList();
         return new OrderView(order.id, order.customerId, order.branchId, order.status, order.version,
                 order.customerName, order.merchantName, order.branchName,
-                new Address(order.pickupLine1, order.pickupCity, order.pickupLatitude, order.pickupLongitude),
-                new Address(order.deliveryLine1, order.deliveryCity, order.deliveryLatitude,
-                        order.deliveryLongitude), order.currency, order.totalAmount, order.createdAt, items);
+                new PublicAddress(order.pickupLine1, order.pickupCity),
+                new PublicAddress(order.deliveryLine1, order.deliveryCity),
+                order.currency, order.totalAmount, order.createdAt, items);
     }
 
     private Summary summary(OrderEntity order) {
@@ -194,10 +195,11 @@ public class OrderService {
                                 @NotEmpty List<@Valid ItemInput> items) { }
     public record ItemView(int lineNumber, String description, int quantity,
                            BigDecimal unitAmount, BigDecimal lineAmount) { }
+    public record PublicAddress(String line1, String city) { }
     @Schema(description = "Owned order with saved names, addresses, prices, and items.")
     public record OrderView(UUID id, UUID customerId, UUID branchId, String status, long version,
                             String customerName, String merchantName, String branchName,
-                            Address pickup, Address delivery, String currency, BigDecimal totalAmount,
+                            PublicAddress pickup, PublicAddress delivery, String currency, BigDecimal totalAmount,
                             Instant createdAt, List<ItemView> items) { }
     @Schema(name = "CustomerOrderSummary", description = "Customer-owned order summary without item details.")
     public record Summary(UUID id, UUID branchId, String status, String branchName,

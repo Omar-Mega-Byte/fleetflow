@@ -1,6 +1,6 @@
 # FleetFlow execution roadmap
 
-[PROJECT_CONTEXT.md](../PROJECT_CONTEXT.md) is the primary living context. This roadmap tracks implementation status; the later phases remain plans. Status vocabulary: `NOT_STARTED` means planned only, `IN_PROGRESS` means implementation under way, `BLOCKED` means an identified prerequisite prevents completion, and `COMPLETE` means the phase acceptance gate passed with recorded evidence. As of 2026-10-05 Phases 0–3 are complete; Phase 3 evidence is in its phase document.
+[PROJECT_CONTEXT.md](../PROJECT_CONTEXT.md) is the primary living context. This roadmap tracks implementation status; the later phases remain plans. Status vocabulary: `NOT_STARTED` means planned only, `IN_PROGRESS` means implementation under way, `BLOCKED` means an identified prerequisite prevents completion, and `COMPLETE` means the phase acceptance gate passed with recorded evidence. As of 2026-10-06 Phases 0–6 are implemented; their integration with the current Phase 3 baseline is under final CI review.
 
 | Phase | Status | Purpose |
 | --- | --- | --- |
@@ -8,10 +8,10 @@
 | [1](phases/PHASE_1.md) Core model | COMPLETE | Durable actors, branches, drivers and order intake with REST/JPA fundamentals |
 | [2](phases/PHASE_2.md) Security | COMPLETE | OIDC authentication and object-level authorization before exposed business actions |
 | [3](phases/PHASE_3.md) Lifecycles | COMPLETE | Explicit order/driver commands, durable history and delivery persistence skeleton |
-| 4 Live location | NOT_STARTED | Redis heartbeat, latest GPS, GEO and stale-driver exclusion |
-| 5 Matching | NOT_STARTED | Deterministic candidate eligibility and ranking, without assignment offers |
-| 6 Assignment | NOT_STARTED | Atomic reservation, offer, acceptance and 100-contender proof |
-| 7 Recovery | NOT_STARTED | Rejection, timeout, reassignment, cancellation and delivery incidents |
+| [4](phases/PHASE_4.md) Live location | IN_PROGRESS | Redis heartbeat, latest GPS, GEO and durable eligibility recheck; integration CI pending |
+| [5](phases/PHASE_5.md) Matching | IN_PROGRESS | Deterministic candidate eligibility and ranking; integration CI pending |
+| [6](phases/PHASE_6.md) Assignment | IN_PROGRESS | Atomic reservation, offer, acceptance and repeated 100-contender PostgreSQL proof; integration CI pending |
+| [7](phases/PHASE_7.md) Recovery | COMPLETE | Timeout and rejection recovery, bounded retry, pre-pickup reassignment/cancellation, delivery and incidents; draft integration PR pending review |
 | 8 Async events | NOT_STARTED | Kafka, transactional outbox, idempotent notification and analytics |
 | 9 Live tracking | NOT_STARTED | Authorized SSE tracking and driver simulator |
 | 10 Zones | NOT_STARTED | PostGIS serviceability and geofencing after basic dispatch |
