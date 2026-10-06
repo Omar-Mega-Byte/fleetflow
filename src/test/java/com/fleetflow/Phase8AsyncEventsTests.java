@@ -15,6 +15,7 @@ import java.util.Map;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.Callable;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.CyclicBarrier;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
@@ -35,6 +36,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.kafka.config.KafkaListenerEndpointRegistry;
 import org.springframework.kafka.core.DefaultKafkaProducerFactory;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.kafka.support.ProducerListener;
@@ -69,12 +71,22 @@ class Phase8AsyncEventsTests extends ProfileTestDatabase {
     @Autowired LifecycleHistory history;
     @Autowired PlatformTransactionManager transactions;
     @Autowired KafkaTemplate<String, String> kafka;
+    @Autowired KafkaListenerEndpointRegistry listeners;
     MockMvc mvc;
 
     @BeforeEach
-    void setup() {
-        jdbc.execute("truncate notifications, processed_events, quarantined_events, "
-                + "analytics_daily_order_transitions, outbox_events");
+    void setup() throws InterruptedException {
+        // The listeners write several of these tables in one transaction. Wait for them to
+        // finish before TRUNCATE takes exclusive locks, then resume for the next test.
+        CountDownLatch stopped = new CountDownLatch(1);
+        listeners.stop(stopped::countDown);
+        assertThat(stopped.await(20, TimeUnit.SECONDS)).isTrue();
+        try {
+            jdbc.execute("truncate notifications, processed_events, quarantined_events, "
+                    + "analytics_daily_order_transitions, outbox_events");
+        } finally {
+            listeners.start();
+        }
         mvc = MockMvcBuilders.webAppContextSetup(context)
                 .addFilters(new CorrelationIdFilter(), context.getBean("springSecurityFilterChain", Filter.class))
                 .build();
