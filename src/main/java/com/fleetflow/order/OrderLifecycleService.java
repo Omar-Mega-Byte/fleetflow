@@ -2,16 +2,19 @@ package com.fleetflow.order;
 
 import java.time.Clock;
 import java.time.Instant;
+import java.sql.Timestamp;
 import java.util.UUID;
 
 import com.fleetflow.api.ApiFailure;
 import com.fleetflow.customer.CustomerService;
+import com.fleetflow.dispatch.RecoveryCommandService;
 import com.fleetflow.identity.Role;
 import com.fleetflow.lifecycle.LifecycleHistory;
 import com.fleetflow.lifecycle.OrderTransition;
 import com.fleetflow.merchant.MerchantService;
 import com.fleetflow.security.ActorAccess;
 import org.springframework.http.HttpStatus;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -23,15 +26,20 @@ public class OrderLifecycleService {
     private final ActorAccess access;
     private final LifecycleHistory history;
     private final Clock clock;
+    private final JdbcTemplate jdbc;
+    private final RecoveryCommandService recovery;
 
     OrderLifecycleService(OrderRepository orders, CustomerService customers, MerchantService merchants,
-                          ActorAccess access, LifecycleHistory history, Clock clock) {
+                          ActorAccess access, LifecycleHistory history, Clock clock, JdbcTemplate jdbc,
+                          RecoveryCommandService recovery) {
         this.orders = orders;
         this.customers = customers;
         this.merchants = merchants;
         this.access = access;
         this.history = history;
         this.clock = clock;
+        this.jdbc = jdbc;
+        this.recovery = recovery;
     }
 
     @Transactional
@@ -52,6 +60,13 @@ public class OrderLifecycleService {
     @Transactional
     public StateView cancelMerchant(UUID branchId, UUID orderId, String reason) {
         String validated = reason(reason);
+        var states = jdbc.query("select status from orders where id = ? and merchant_branch_id = ?",
+                (rs, row) -> rs.getString("status"), orderId, branchId);
+        if (!states.isEmpty() && ("DISPATCHING".equals(states.getFirst())
+                || "DISPATCH_FAILED".equals(states.getFirst())
+                || "DRIVER_ASSIGNED".equals(states.getFirst()))) {
+            return recovery.cancelMerchant(branchId, orderId, validated);
+        }
         return merchant(branchId, orderId, OrderTransition.CANCEL_MERCHANT, validated);
     }
 
@@ -86,6 +101,13 @@ public class OrderLifecycleService {
             case CANCEL_CUSTOMER, CANCEL_MERCHANT -> order.cancelledAt = now;
         }
         history.order(order.id, order.version, previous, order.status, command.name(), now, actorId, reason);
+        if (command == OrderTransition.CONFIRM || command == OrderTransition.START_PREPARATION
+                || command == OrderTransition.READY_FOR_PICKUP) {
+            jdbc.update("""
+                    insert into order_status_history (id, order_id, actor_id, from_status, to_status, changed_at)
+                    values (?, ?, ?, ?, ?, ?)
+                    """, UUID.randomUUID(), order.id, actorId, previous, order.status, Timestamp.from(now));
+        }
         return new StateView(order.id, order.status, order.version, order.confirmedAt,
                 order.preparingAt, order.readyAt, order.cancelledAt);
     }

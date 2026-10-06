@@ -28,6 +28,16 @@ public class LifecycleHistory {
                 """, id, version, previous, next, action, Timestamp.from(when), actorId, reason, correlationId());
     }
 
+    public void orderSystem(UUID id, long version, String previous, String next, String action,
+                            Instant when, String reason) {
+        jdbc.update("""
+                insert into order_lifecycle_history
+                (order_id, version, previous_state, new_state, action, occurred_at,
+                 actor_id, source, reason, correlation_id)
+                values (?, ?, ?, ?, ?, ?, NULL, 'SYSTEM', ?, ?)
+                """, id, version, previous, next, action, Timestamp.from(when), reason, correlationId());
+    }
+
     public void driver(UUID id, long version, String previous, String next, String action,
                        Instant when, UUID actorId) {
         jdbc.update("""
@@ -36,6 +46,36 @@ public class LifecycleHistory {
                  actor_id, source, correlation_id)
                 values (?, ?, ?, ?, ?, ?, ?, 'ACTOR', ?)
                 """, id, version, previous, next, action, Timestamp.from(when), actorId, correlationId());
+    }
+
+    public void driverSystem(UUID id, long version, String previous, String next, String action,
+                             Instant when) {
+        jdbc.update("""
+                insert into driver_lifecycle_history
+                (driver_id, version, previous_state, new_state, action, occurred_at,
+                 actor_id, source, correlation_id)
+                values (?, ?, ?, ?, ?, ?, NULL, 'SYSTEM', ?)
+                """, id, version, previous, next, action, Timestamp.from(when), correlationId());
+    }
+
+    public void delivery(UUID id, long version, String previous, String next, String action,
+                         Instant when, UUID actorId) {
+        jdbc.update("""
+                insert into delivery_lifecycle_history
+                (delivery_id, version, previous_state, new_state, action, occurred_at,
+                 actor_id, source, correlation_id)
+                values (?, ?, ?, ?, ?, ?, ?, 'ACTOR', ?)
+                """, id, version, previous, next, action, Timestamp.from(when), actorId, correlationId());
+    }
+
+    public void deliverySystem(UUID id, long version, String previous, String next, String action,
+                               Instant when) {
+        jdbc.update("""
+                insert into delivery_lifecycle_history
+                (delivery_id, version, previous_state, new_state, action, occurred_at,
+                 actor_id, source, correlation_id)
+                values (?, ?, ?, ?, ?, ?, NULL, 'SYSTEM', ?)
+                """, id, version, previous, next, action, Timestamp.from(when), correlationId());
     }
 
     private String correlationId() {

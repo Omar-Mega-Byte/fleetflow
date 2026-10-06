@@ -38,6 +38,31 @@ public class SecurityConfiguration {
                             .hasRole("CUSTOMER");
                     auth.requestMatchers(HttpMethod.GET, "/api/v1/merchant-branches/*/orders")
                             .hasRole("MERCHANT");
+                    auth.requestMatchers(HttpMethod.POST, "/api/v1/dispatch/orders/*/match")
+                            .hasRole("DISPATCHER");
+                    auth.requestMatchers(HttpMethod.GET, "/api/v1/dispatch/orders/*/attempts")
+                            .hasRole("DISPATCHER");
+                    auth.requestMatchers(HttpMethod.POST, "/api/v1/dispatch/orders/*/offers")
+                            .hasRole("DISPATCHER");
+                    auth.requestMatchers(HttpMethod.GET, "/api/v1/dispatch/orders/*/assignments")
+                            .hasRole("DISPATCHER");
+                    auth.requestMatchers(HttpMethod.POST,
+                            "/api/v1/dispatch/orders/*/retry",
+                            "/api/v1/dispatch/orders/*/reassign",
+                            "/api/v1/dispatch/orders/*/cancel",
+                            "/api/v1/dispatch/orders/*/incidents/fail",
+                            "/api/v1/dispatch/orders/*/incidents/*/resolve").hasRole("DISPATCHER");
+                    auth.requestMatchers(HttpMethod.GET, "/api/v1/dispatch/orders/*/incidents")
+                            .hasRole("DISPATCHER");
+                    auth.requestMatchers(HttpMethod.GET, "/api/v1/drivers/me/offers").hasRole("DRIVER");
+                    auth.requestMatchers(HttpMethod.GET, "/api/v1/drivers/me/deliveries").hasRole("DRIVER");
+                    auth.requestMatchers(HttpMethod.POST, "/api/v1/drivers/me/offers/*/accept",
+                            "/api/v1/drivers/me/offers/*/reject").hasRole("DRIVER");
+                    auth.requestMatchers(HttpMethod.POST,
+                            "/api/v1/drivers/me/deliveries/*/pickup",
+                            "/api/v1/drivers/me/deliveries/*/start-transit",
+                            "/api/v1/drivers/me/deliveries/*/complete",
+                            "/api/v1/drivers/me/deliveries/*/fail").hasRole("DRIVER");
                     auth.requestMatchers(HttpMethod.GET, "/api/v1/drivers/me").hasRole("DRIVER");
                     auth.requestMatchers(HttpMethod.POST, "/api/v1/orders/*/cancel")
                             .hasRole("CUSTOMER");
@@ -49,7 +74,8 @@ public class SecurityConfiguration {
                             .hasRole("MERCHANT");
                     auth.requestMatchers(HttpMethod.POST, "/api/v1/drivers/me/online",
                             "/api/v1/drivers/me/available", "/api/v1/drivers/me/pause",
-                            "/api/v1/drivers/me/offline").hasRole("DRIVER");
+                            "/api/v1/drivers/me/offline", "/api/v1/drivers/me/location",
+                            "/api/v1/drivers/me/heartbeat").hasRole("DRIVER");
                     if (localFixtures) {
                         auth.requestMatchers(HttpMethod.POST, "/api/v1/orders").hasRole("CUSTOMER");
                         auth.requestMatchers(HttpMethod.POST, "/api/v1/actors", "/api/v1/customers",

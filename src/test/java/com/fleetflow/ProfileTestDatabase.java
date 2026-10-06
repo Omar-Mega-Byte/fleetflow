@@ -17,5 +17,6 @@ abstract class ProfileTestDatabase {
         registry.add("OIDC_ISSUER", () -> TestOidc.ISSUER);
         registry.add("OIDC_JWKS_URI", TestOidc::jwksUri);
         registry.add("OIDC_AUDIENCE", () -> TestOidc.AUDIENCE);
+        registry.add("fleetflow.recovery.enabled", () -> false);
     }
 }

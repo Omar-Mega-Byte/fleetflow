@@ -2,6 +2,7 @@ package com.fleetflow;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -12,11 +13,13 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
+import java.time.Instant;
 import java.util.UUID;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import com.nimbusds.jwt.SignedJWT;
+import com.fleetflow.location.LocationService;
 import jakarta.servlet.Filter;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -41,6 +44,9 @@ class KeycloakProviderTests {
     private static final String ADMIN_USER = "bootstrap-" + UUID.randomUUID();
     private static final String ADMIN_PASSWORD = UUID.randomUUID() + "-" + UUID.randomUUID();
     private static final PostgreSQLContainer postgres = new PostgreSQLContainer("postgres:17.11-alpine3.24");
+    private static final GenericContainer<?> redis = new GenericContainer<>("redis:7.4.7-alpine")
+            .withExposedPorts(6379).withCommand("redis-server", "--save", "", "--appendonly", "no")
+            .waitingFor(Wait.forListeningPort());
     private static final GenericContainer<?> keycloak = new GenericContainer<>(DockerImageName.parse(
             "quay.io/keycloak/keycloak:26.7.4@sha256:82a77884f3af238beab1e7afd63b5f530e1b5c0590bd7aa60b40a40463e29b2c"))
             .withExposedPorts(8080)
@@ -54,6 +60,7 @@ class KeycloakProviderTests {
 
     static {
         postgres.start();
+        redis.start();
         keycloak.start();
     }
 
@@ -65,10 +72,57 @@ class KeycloakProviderTests {
         registry.add("OIDC_ISSUER", () -> ISSUER);
         registry.add("OIDC_JWKS_URI", () -> base() + "/realms/fleetflow/protocol/openid-connect/certs");
         registry.add("OIDC_AUDIENCE", () -> "fleetflow-api");
+        registry.add("REDIS_HOST", redis::getHost);
+        registry.add("REDIS_PORT", () -> redis.getMappedPort(6379));
     }
 
     @Autowired WebApplicationContext context;
     @Autowired JdbcTemplate jdbc;
+    @Autowired LocationService locations;
+
+    @Test
+    void keycloakSignedDriverCanReachAvailableAndPublishOwnLocation() throws Exception {
+        String adminToken = token("master", "admin-cli", ADMIN_USER, ADMIN_PASSWORD);
+        String username = "driver-" + UUID.randomUUID();
+        String password = UUID.randomUUID() + "-" + UUID.randomUUID();
+        String userBody = """
+                {"username":"%s","email":"%s@example.invalid","emailVerified":true,
+                 "firstName":"Test","lastName":"Driver","enabled":true,"requiredActions":[],
+                 "credentials":[{"type":"password","value":"%s","temporary":false}]}
+                """.formatted(username, username, password);
+        HttpResponse<String> created = HttpClient.newHttpClient().send(HttpRequest.newBuilder(
+                        URI.create(base() + "/admin/realms/fleetflow/users"))
+                        .header("Authorization", "Bearer " + adminToken)
+                        .header("Content-Type", MediaType.APPLICATION_JSON_VALUE)
+                        .POST(HttpRequest.BodyPublishers.ofString(userBody)).build(),
+                HttpResponse.BodyHandlers.ofString());
+        assertThat(created.statusCode()).isEqualTo(201);
+        String signedToken = token("fleetflow", "fleetflow-cli", username, password);
+        String subject = SignedJWT.parse(signedToken).getJWTClaimsSet().getSubject();
+        UUID actor = UUID.randomUUID();
+        UUID driver = UUID.randomUUID();
+        jdbc.update("insert into actors (id, issuer, subject, active, created_at, updated_at) "
+                + "values (?, ?, ?, true, now(), now())", actor, ISSUER, subject);
+        jdbc.update("insert into actor_roles (actor_id, role) values (?, 'DRIVER')", actor);
+        jdbc.update("insert into drivers (id, actor_id, active, suspended, created_at, updated_at) "
+                + "values (?, ?, true, false, now(), now())", driver, actor);
+        jdbc.update("insert into vehicles (id, driver_id, type, capacity, active, created_at, updated_at) "
+                + "values (?, ?, 'BIKE', 1, true, now(), now())", UUID.randomUUID(), driver);
+        var mvc = MockMvcBuilders.webAppContextSetup(context)
+                .addFilters(new CorrelationIdFilter(), context.getBean("springSecurityFilterChain", Filter.class))
+                .build();
+        String bearer = "Bearer " + signedToken;
+        mvc.perform(post("/api/v1/drivers/me/online").header("Authorization", bearer))
+                .andExpect(status().isOk());
+        mvc.perform(post("/api/v1/drivers/me/available").header("Authorization", bearer))
+                .andExpect(status().isOk());
+        String body = "{\"latitude\":30.0,\"longitude\":31.0,\"reportedAt\":\"" + Instant.now() + "\"}";
+        mvc.perform(post("/api/v1/drivers/me/location").header("Authorization", bearer)
+                .contentType(MediaType.APPLICATION_JSON).content(body))
+                .andExpect(status().isNoContent());
+        assertThat(locations.nearby(30, 31, 500, 1)).extracting(LocationService.NearbyDriver::driverId)
+                .containsExactly(driver);
+    }
 
     @Test
     void keycloakIssuedAccessTokenPassesResourceServerOnlyAfterExplicitProvisioning() throws Exception {

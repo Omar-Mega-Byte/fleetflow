@@ -1,5 +1,8 @@
 server:
   address: 127.0.0.1
+fleetflow:
+  recovery:
+    enabled: false
 springdoc:
   api-docs:
     enabled: true

@@ -2,6 +2,7 @@ package com.fleetflow.driver;
 
 import java.time.Clock;
 import java.time.Instant;
+import java.sql.Timestamp;
 import java.util.UUID;
 
 import com.fleetflow.api.ApiFailure;
@@ -9,7 +10,9 @@ import com.fleetflow.identity.Role;
 import com.fleetflow.lifecycle.LifecycleHistory;
 import com.fleetflow.lifecycle.DriverTransition;
 import com.fleetflow.security.ActorAccess;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.http.HttpStatus;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -20,14 +23,19 @@ public class DriverLifecycleService {
     private final ActorAccess access;
     private final LifecycleHistory history;
     private final Clock clock;
+    private final JdbcTemplate jdbc;
+    private final ApplicationEventPublisher events;
 
     DriverLifecycleService(DriverRepository drivers, VehicleRepository vehicles, ActorAccess access,
-                           LifecycleHistory history, Clock clock) {
+                           LifecycleHistory history, Clock clock, JdbcTemplate jdbc,
+                           ApplicationEventPublisher events) {
         this.drivers = drivers;
         this.vehicles = vehicles;
         this.access = access;
         this.history = history;
         this.clock = clock;
+        this.jdbc = jdbc;
+        this.events = events;
     }
 
     @Transactional
@@ -64,8 +72,16 @@ public class DriverLifecycleService {
         driver.version++;
         driver.updatedAt = now;
         history.driver(driver.id, driver.version, previous, command.next(), command.name(), now, actorId);
+        jdbc.update("""
+                insert into driver_status_history (id, driver_id, actor_id, from_status, to_status, changed_at)
+                values (?, ?, ?, ?, ?, ?)
+                """, UUID.randomUUID(), driver.id, actorId, previous, command.next(), Timestamp.from(now));
+        if (command == DriverTransition.PAUSE || command == DriverTransition.OFFLINE) {
+            events.publishEvent(new DriverBecameIneligible(driver.id));
+        }
         return new StateView(driver.id, driver.operationalStatus, driver.version);
     }
 
     public record StateView(UUID id, String operationalStatus, long version) { }
+    public record DriverBecameIneligible(UUID driverId) { }
 }

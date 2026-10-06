@@ -9,17 +9,19 @@ $values = @{}
 $previous = @{}
 foreach ($line in Get-Content -LiteralPath $envPath) {
     if ($line -match '^\s*(#|$)') { continue }
-    if ($line -notmatch '^(DB_NAME|DB_USER|DB_PASSWORD|DB_PORT|DB_URL|OIDC_PORT|OIDC_ISSUER|OIDC_JWKS_URI|OIDC_AUDIENCE|KC_ADMIN_USER|KC_ADMIN_PASSWORD)=(.*)$') {
+    if ($line -notmatch '^(DB_NAME|DB_USER|DB_PASSWORD|DB_PORT|DB_URL|APP_PORT|OIDC_PORT|OIDC_ISSUER|OIDC_JWKS_URI|OIDC_AUDIENCE|KC_ADMIN_USER|KC_ADMIN_PASSWORD|REDIS_HOST|REDIS_PORT)=(.*)$') {
         throw 'Unsupported .env line. Use the keys shown in .env.example.'
     }
     $values[$Matches[1]] = $Matches[2]
 }
-foreach ($key in @('DB_USER', 'DB_PASSWORD', 'DB_URL', 'OIDC_ISSUER', 'OIDC_JWKS_URI', 'OIDC_AUDIENCE')) {
+$values['REDIS_HOST'] = if ($values['REDIS_HOST']) { $values['REDIS_HOST'] } else { '127.0.0.1' }
+$values['REDIS_PORT'] = if ($values['REDIS_PORT']) { $values['REDIS_PORT'] } else { '6379' }
+foreach ($key in @('DB_USER', 'DB_PASSWORD', 'DB_URL', 'OIDC_ISSUER', 'OIDC_JWKS_URI', 'OIDC_AUDIENCE', 'REDIS_HOST', 'REDIS_PORT')) {
     if ([string]::IsNullOrWhiteSpace($values[$key]) -or $values[$key] -like 'replace-*') {
         throw "Set $key in .env before starting FleetFlow."
     }
 }
-foreach ($key in @('DB_USER', 'DB_PASSWORD', 'DB_URL', 'OIDC_ISSUER', 'OIDC_JWKS_URI', 'OIDC_AUDIENCE')) {
+foreach ($key in @('DB_USER', 'DB_PASSWORD', 'DB_URL', 'OIDC_ISSUER', 'OIDC_JWKS_URI', 'OIDC_AUDIENCE', 'REDIS_HOST', 'REDIS_PORT')) {
     $previous[$key] = [Environment]::GetEnvironmentVariable($key, 'Process')
     [Environment]::SetEnvironmentVariable($key, $values[$key], 'Process')
 }

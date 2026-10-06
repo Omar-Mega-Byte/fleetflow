@@ -45,17 +45,22 @@ class OpenApiDocsTests extends ProfileTestDatabase {
                     assertThat(operation.path("tags").isEmpty()).isFalse();
                     boolean lifecycle = path.contains("/orders/{orderId}/")
                             || path.startsWith("/api/v1/drivers/me/");
-                    String success = method.equals("post") && !lifecycle ? "201" : "200";
-                    assertThat(operation.path("responses").path(success).path("content")
-                            .path("application/json").path("schema").path("$ref").asText())
-                            .withFailMessage("Missing success schema for %s %s: %s", method, path,
-                                    operation.path("responses").path(success))
-                            .isNotBlank();
+                    String success = method.equals("get") ? "200"
+                            : operation.path("responses").has("204") ? "204"
+                            : operation.path("responses").has("201") ? "201" : "200";
+                    assertThat(operation.path("responses").has(success)).isTrue();
+                    if (!success.equals("204")) {
+                        assertThat(operation.path("responses").path(success).path("content")
+                                .path("application/json").path("schema").path("$ref").asText())
+                                .withFailMessage("Missing success schema for %s %s: %s", method, path,
+                                        operation.path("responses").path(success))
+                                .isNotBlank();
+                    }
                     if (method.equals("post") && (!lifecycle || path.endsWith("/cancel"))) {
                         assertThat(operation.path("requestBody").path("content")
                                 .path("application/json").path("schema").path("$ref").asText()).isNotBlank();
                     }
-                    if (lifecycle) {
+                    if (lifecycle && method.equals("post")) {
                         assertThat(operation.path("responses").has("409")).isTrue();
                     }
                     for (String status : Set.of("401", "403", "503")) {
@@ -79,7 +84,7 @@ class OpenApiDocsTests extends ProfileTestDatabase {
                 }
             }
         });
-        assertThat(actual).hasSize(27).containsExactlyInAnyOrderElementsOf(registered);
+        assertThat(actual).hasSize(47).containsExactlyInAnyOrderElementsOf(registered);
         assertThat(document.path("paths").has("/actuator/health")).isFalse();
         assertThat(document.path("components").path("securitySchemes").path("bearerAuth")
                 .path("scheme").asText()).isEqualTo("bearer");
