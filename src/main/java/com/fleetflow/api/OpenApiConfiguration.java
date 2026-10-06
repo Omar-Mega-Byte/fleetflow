@@ -29,7 +29,7 @@ class OpenApiConfiguration {
                 .info(new Info().title("FleetFlow API").version("v1")
                         .description("Current business routes. Local/test includes loopback-only ADMIN fixtures "
                                 + "and order creation with caller-submitted prices; default/prod register "
-                                + "scoped reads, lifecycle, location, matching and assignment commands. "
+                                + "scoped reads, lifecycle, location, matching, assignment and tracking. "
                                 + "Use a Keycloak access token with audience fleetflow-api. "
                                 + "FleetFlow roles are provisioned in PostgreSQL, not inferred from token claims."))
                 .addSecurityItem(new SecurityRequirement().addList("bearerAuth"))
@@ -67,6 +67,9 @@ class OpenApiConfiguration {
                             || path.equals("/api/v1/drivers/me/heartbeat")) {
                         responses.addApiResponse("429", problem("Driver update rate exceeded."));
                     }
+                }
+                if (method == PathItem.HttpMethod.GET && path.endsWith("/tracking/stream")) {
+                    responses.addApiResponse("429", problem("Too many active tracking streams."));
                 }
             }));
         };

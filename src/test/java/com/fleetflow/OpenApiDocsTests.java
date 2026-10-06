@@ -50,7 +50,11 @@ class OpenApiDocsTests extends ProfileTestDatabase {
                             : operation.path("responses").has("204") ? "204"
                             : operation.path("responses").has("201") ? "201" : "200";
                     assertThat(operation.path("responses").has(success)).isTrue();
-                    if (!success.equals("204")) {
+                    if (path.endsWith("/tracking/stream")) {
+                        assertThat(operation.path("responses").path("200").path("content")
+                                .path("text/event-stream").path("schema").path("$ref").asText())
+                                .isNotBlank();
+                    } else if (!success.equals("204")) {
                         assertThat(operation.path("responses").path(success).path("content")
                                 .path("application/json").path("schema").path("$ref").asText())
                                 .withFailMessage("Missing success schema for %s %s: %s", method, path,
@@ -85,7 +89,7 @@ class OpenApiDocsTests extends ProfileTestDatabase {
                 }
             }
         });
-        assertThat(actual).hasSize(49).containsExactlyInAnyOrderElementsOf(registered);
+        assertThat(actual).hasSize(51).containsExactlyInAnyOrderElementsOf(registered);
         assertThat(document.path("paths").has("/actuator/health")).isFalse();
         assertThat(document.path("components").path("securitySchemes").path("bearerAuth")
                 .path("scheme").asText()).isEqualTo("bearer");

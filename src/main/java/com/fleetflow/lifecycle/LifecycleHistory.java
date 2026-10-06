@@ -5,6 +5,7 @@ import java.sql.Timestamp;
 import java.util.UUID;
 
 import com.fleetflow.events.OutboxEvents;
+import com.fleetflow.tracking.TrackingHub;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Component;
 import org.springframework.web.context.request.RequestContextHolder;
@@ -15,10 +16,12 @@ import org.springframework.web.context.request.ServletRequestAttributes;
 public class LifecycleHistory {
     private final JdbcTemplate jdbc;
     private final OutboxEvents outbox;
+    private final TrackingHub tracking;
 
-    public LifecycleHistory(JdbcTemplate jdbc, OutboxEvents outbox) {
+    public LifecycleHistory(JdbcTemplate jdbc, OutboxEvents outbox, TrackingHub tracking) {
         this.jdbc = jdbc;
         this.outbox = outbox;
+        this.tracking = tracking;
     }
 
     public void order(UUID id, long version, String previous, String next, String action,
@@ -30,6 +33,7 @@ public class LifecycleHistory {
                 values (?, ?, ?, ?, ?, ?, ?, 'ACTOR', ?, ?)
                 """, id, version, previous, next, action, Timestamp.from(when), actorId, reason, correlationId());
         if (previous != null) outbox.orderStatusChanged(id, version, previous, next, when);
+        tracking.orderChangedAfterCommit(id);
     }
 
     public void orderSystem(UUID id, long version, String previous, String next, String action,
@@ -41,6 +45,7 @@ public class LifecycleHistory {
                 values (?, ?, ?, ?, ?, ?, NULL, 'SYSTEM', ?, ?)
                 """, id, version, previous, next, action, Timestamp.from(when), reason, correlationId());
         if (previous != null) outbox.orderStatusChanged(id, version, previous, next, when);
+        tracking.orderChangedAfterCommit(id);
     }
 
     public void driver(UUID id, long version, String previous, String next, String action,
