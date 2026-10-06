@@ -11,7 +11,7 @@
 | [4](phases/PHASE_4.md) Live location | IN_PROGRESS | Redis heartbeat, latest GPS, GEO and durable eligibility recheck; integration CI pending |
 | [5](phases/PHASE_5.md) Matching | IN_PROGRESS | Deterministic candidate eligibility and ranking; integration CI pending |
 | [6](phases/PHASE_6.md) Assignment | IN_PROGRESS | Atomic reservation, offer, acceptance and repeated 100-contender PostgreSQL proof; integration CI pending |
-| [7](phases/PHASE_7.md) Recovery | IN_PROGRESS | Rejection recovery, timeout, reassignment, active-offer cancellation and delivery incidents |
+| [7](phases/PHASE_7.md) Recovery | COMPLETE | Timeout and rejection recovery, bounded retry, pre-pickup reassignment/cancellation, delivery and incidents; draft integration PR pending review |
 | 8 Async events | NOT_STARTED | Kafka, transactional outbox, idempotent notification and analytics |
 | 9 Live tracking | NOT_STARTED | Authorized SSE tracking and driver simulator |
 | 10 Zones | NOT_STARTED | PostGIS serviceability and geofencing after basic dispatch |

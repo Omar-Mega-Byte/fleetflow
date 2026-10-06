@@ -116,6 +116,24 @@ class Phase7RecoveryTests extends ProfileTestDatabase {
     }
 
     @Test
+    void expiredWorkerLeaseIsReclaimedAfterAProcessStops() throws Exception {
+        Fixture f = fixture();
+        Order o = order(f);
+        offer(o, f, f.firstDriver());
+        mvc.perform(post("/api/v1/drivers/me/offers/{id}/reject", offerId(o, f.firstDriver()))
+                .header("Authorization", bearer(f.firstActor()))).andExpect(status().isOk());
+        jdbc.update("""
+                update dispatch_recovery set lease_token = ?,
+                    lease_until = clock_timestamp() - interval '1 second'
+                where order_id = ? and status = 'PENDING'
+                """, UUID.randomUUID(), o.id());
+        assertThat(recovery.sweep()).isEqualTo(1);
+        assertThat(assignment(o, f.secondDriver())).isEqualTo("OFFERED");
+        assertThat(jdbc.queryForObject("select count(*) from driver_assignments where order_id = ?",
+                Integer.class, o.id())).isEqualTo(2);
+    }
+
+    @Test
     void staleNextCandidateIsSkippedAndExhaustionIsVisible() throws Exception {
         Fixture f = fixture();
         Order o = order(f);
