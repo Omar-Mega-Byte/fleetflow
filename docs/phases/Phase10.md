@@ -1,6 +1,6 @@
 # Phase 10 — PostGIS zones and geofencing
 
-**Status: IN_PROGRESS.** The [roadmap](../ROADMAP.md) schedules durable branch serviceability after basic dispatch. Implementation and acceptance evidence are tracked below; this phase is complete only when the verification gate passes on the delivered commit.
+**Status: COMPLETE on the Phase 10 review branch.** The [roadmap](../ROADMAP.md) schedules durable branch serviceability after basic dispatch. The implementation and acceptance evidence below passed on the delivered code head; [PR #12](https://github.com/Omar-Mega-Byte/fleetflow/pull/12) remains open against the Phase 9 branch, so this status does not claim a merge to `main`.
 
 ## Objective and current boundary
 
@@ -68,9 +68,9 @@ The geometry input is a WGS84 GeoJSON `Polygon` or `MultiPolygon` with longitude
 - [x] Signed OIDC tests cover own versus foreign branch/zone, missing/invalid token, wrong role, revoked membership and a multi-role actor. No cross-merchant geometry or zone metadata leaks.
 - [x] Order tests prove unsupported destinations leave no order/items/history. Dispatch and offer tests prove zone changes, retries and concurrent edits leave no stale offer or leaked driver reservation; previously accepted work remains valid.
 - [x] Spatial query plan is recorded against representative data, with the actual index and timing. Redis GEO and stale-location behavior still pass.
-- [ ] Pinned Compose/Testcontainers image compatibility, upgrade of existing data, backup/restore rehearsal, full clean Maven verify, signed local smoke, GitHub CI and security checks pass on the delivered commit. Record exact commands, test counts, commit and CI links before changing this document or the roadmap to `COMPLETE`.
+- [x] Pinned Compose/Testcontainers image compatibility, upgrade of existing data, backup/restore rehearsal, full clean Maven verify, signed local smoke, GitHub CI and security checks pass on the delivered code head. Exact commands, test counts, commit and CI links are recorded below.
 
-## Acceptance evidence in progress
+## Acceptance evidence
 
 The local `./mvnw.cmd clean verify --no-transfer-progress` passed **120 tests, 0 failures, 0 errors, 0 skipped**. This run includes 4 zone integration tests on an isolated real PostGIS database, V11 data migration and restore tests, existing Redis matching and stale-location tests, and the signed test-token security suites. The populated backup rehearsal uses `pg_dump --data-only --inserts` on plain PostgreSQL 17.11, restores into a PostGIS-backed V11 schema, applies V12, and checks that the order and branch remain linked with `UNRESTRICTED` mode. No existing user volume was modified.
 
@@ -78,7 +78,7 @@ The isolated `fleetflow-phase10-smoke` Compose project used the pinned PostGIS i
 
 `scripts/Phase10-Spatial-Plan.sql` creates 50 branches with 100 active zones each in a disposable transaction, analyzes the table, and runs the branch-scoped `ST_Covers` query. The observed plan used `idx_delivery_zone_boundary_gist` as an Index Scan, examined 50 spatial hits, discarded 49 from other branches, and returned one zone. `EXPLAIN (ANALYZE, BUFFERS)` reported **0.237 ms** execution, 54 shared buffer hits, and no reads for this warm local synthetic fixture; this is query-plan evidence, not a production latency guarantee. The fixture transaction rolled back and left the one smoke zone intact.
 
-GitHub CI, security checks, and the final delivered commit are pending; keep this phase `IN_PROGRESS` until their exact results are recorded.
+The delivered code head is `18d4aeb6c3d895f4c374b5596b2cca7c1e1f4844`, comprising `ec2f33c`, `6b448eb`, and `18d4aeb`. Both [push verify](https://github.com/Omar-Mega-Byte/fleetflow/actions/runs/37552391676) and [PR verify](https://github.com/Omar-Mega-Byte/fleetflow/actions/runs/37552407216) passed on that head; [GitGuardian Security Checks](https://github.com/Omar-Mega-Byte/fleetflow/pull/12/checks) passed. [PR #12](https://github.com/Omar-Mega-Byte/fleetflow/pull/12) carries the reviewable work. This acceptance is for the Phase 10 slice on its review branch, not a production-readiness assessment or a merge to `main`.
 
 **Out of scope:** route optimization, paid maps, global arbitrary geofencing, full GPS history, production order intake/pricing changes and Phase 11 hardening.
 
