@@ -43,7 +43,7 @@ class KeycloakProviderTests {
     private static final String ISSUER = "http://localhost:8080/realms/fleetflow";
     private static final String ADMIN_USER = "bootstrap-" + UUID.randomUUID();
     private static final String ADMIN_PASSWORD = UUID.randomUUID() + "-" + UUID.randomUUID();
-    private static final PostgreSQLContainer postgres = new PostgreSQLContainer("postgres:17.11-alpine3.24");
+    private static final PostgreSQLContainer postgres = PostgisTestDatabase.create();
     private static final GenericContainer<?> redis = new GenericContainer<>("redis:7.4.7-alpine")
             .withExposedPorts(6379).withCommand("redis-server", "--save", "", "--appendonly", "no")
             .waitingFor(Wait.forListeningPort());

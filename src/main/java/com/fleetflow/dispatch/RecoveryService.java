@@ -95,7 +95,9 @@ public class RecoveryService {
                     offered.expiresAt().getEpochSecond() - Instant.now().getEpochSecond()));
             queue.rescheduleClaim(orderId, token, "OFFERED", delay);
         } catch (ApiFailure failure) {
-            if (failure.status().is5xxServerError()) {
+            if ("ZONE_UNSERVICEABLE".equals(failure.code())) {
+                // AssignmentService has already committed the zone block and exhausted this work item.
+            } else if (failure.status().is5xxServerError()) {
                 queue.rescheduleClaim(orderId, token, failure.code(), 30);
             } else if (activeOfferExists(orderId)) {
                 queue.rescheduleClaim(orderId, token, "OFFER_ACTIVE", 5);

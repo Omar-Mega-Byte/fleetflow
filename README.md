@@ -1,6 +1,6 @@
 # FleetFlow
 
-FleetFlow is a Java/Spring learning backend for delivery orchestration. Phases 0–9 provide guarded order and driver lifecycles, Redis-backed live location, immutable dispatch matching evidence, atomic assignment offers, recovery, delivery progress, a PostgreSQL outbox with Kafka delivery, and owner-scoped live tracking. [Phase 9](docs/phases/Phase9.md) records its acceptance evidence, and [the roadmap](docs/ROADMAP.md) tracks remaining work. Payments and trusted pricing are not implemented.
+FleetFlow is a Java/Spring learning backend for delivery orchestration. Phases 0–9 provide guarded order and driver lifecycles, Redis-backed live location, immutable dispatch matching evidence, atomic assignment offers, recovery, delivery progress, a PostgreSQL outbox with Kafka delivery, and owner-scoped live tracking. Phase 10 adds branch delivery zones. [Phase 9](docs/phases/Phase9.md) and [Phase 10](docs/phases/Phase10.md) record acceptance evidence on their open review branches, and [the roadmap](docs/ROADMAP.md) tracks remaining work. Payments and trusted pricing are not implemented.
 
 **Order prices are still submitted by the caller.** `POST /api/v1/orders` is available only with the `local` or `test` profile on a loopback server. Authentication does not make that write suitable for public production use. The `default` and `prod` profiles register secured reads and lifecycle commands, but not intake or fixture administration.
 
@@ -10,7 +10,7 @@ FleetFlow is a Java/Spring learning backend for delivery orchestration. Phases 0
 - Docker Engine and Compose for the app, PostgreSQL, Redis, Kafka, and local Keycloak. The images are pinned in `compose.yaml` and the app's `Dockerfile`.
 - `./mvnw.cmd clean verify --no-transfer-progress` on Windows, or `./mvnw clean verify --no-transfer-progress` on Linux/macOS. Tests start disposable PostgreSQL, Redis, Kafka, and Keycloak containers. Check the pinned images before pulling an absent image.
 
-Flyway owns schema changes. V1–V3 remain immutable; V3 adds canonical lifecycle state and history. V4 adds dispatch status history, V5–V7 add matching snapshots and constraints, V8 adds atomic assignment, V9–V10 add recovery and delivery state, and V11 adds asynchronous event tables. Hibernate uses `ddl-auto=validate` in every profile.
+Flyway owns schema changes. V1–V3 remain immutable; V3 adds canonical lifecycle state and history. V4 adds dispatch status history, V5–V7 add matching snapshots and constraints, V8 adds atomic assignment, V9–V10 add recovery and delivery state, V11 adds asynchronous event tables, and V12 adds PostGIS delivery zones. Hibernate uses `ddl-auto=validate` in every profile. The pinned Compose PostgreSQL image includes PostGIS; use a backup and restore rehearsal before changing an existing database volume.
 
 ## Local OIDC setup
 
@@ -26,7 +26,7 @@ Use `docker compose --env-file .env -p fleetflow down` to stop the stack. The da
 
 ### Swagger and OpenAPI
 
-With the `local` or `test` profile on loopback, Swagger UI at `/swagger-ui/index.html` shows all **49 registered `/api/v1` operations**. The machine-readable contract is at `/v3/api-docs` (JSON) or `/v3/api-docs.yaml`. Operations are grouped by customer, merchant, driver, dispatch and fixture purpose. Each lists its required role and profile, request and response schema, supported filters, and safe error responses.
+With the `local` or `test` profile on loopback, Swagger UI at `/swagger-ui/index.html` shows all **57 registered `/api/v1` operations**. The machine-readable contract is at `/v3/api-docs` (JSON) or `/v3/api-docs.yaml`. Operations are grouped by customer, merchant, driver, dispatch, delivery zones and fixture purpose. Each lists its required role and profile, request and response schema, supported filters, and safe error responses.
 
 The local/test page includes fixture ADMIN routes and `POST /api/v1/orders`. Those routes are absent from default/prod, where the OpenAPI and Swagger endpoints are disabled. Submitted order prices remain untrusted, so the create route is only for loopback learning. The Actuator health probes are operational endpoints documented above; they are intentionally outside the business API contract.
 
@@ -70,6 +70,7 @@ Missing issuer, JWKS URI, or audience fails application startup. Signed tokens m
 | `GET /api/v1/orders/{id}` | local/test/default/prod | CUSTOMER; query includes order ID and the caller's customer ID. Foreign and absent orders both return `404 RESOURCE_NOT_FOUND`. |
 | `GET /api/v1/orders` | local/test/default/prod | CUSTOMER; customer scope is in the SQL query, with bounded Phase 1 filters, sort, and pagination. No owner parameter. |
 | `GET /api/v1/merchant-branches/{branchId}/orders` | local/test/default/prod | MERCHANT plus current active membership for that exact active branch; narrow summaries, branch-scoped SQL. Inaccessible branch returns `404 RESOURCE_NOT_FOUND`. |
+| `GET`, `POST /api/v1/merchant-branches/{branchId}/zones`; `PUT /zones/{zoneId}`; `GET`, `PUT /zone-policy`; `POST /serviceability` | local/test/default/prod | MERCHANT plus current active membership for the exact active branch; bounded GeoJSON zones, explicit enforcement mode, and PostGIS destination preview. See [Phase 10](docs/phases/Phase10.md). |
 | `GET /api/v1/drivers/me` | local/test/default/prod | DRIVER; resolves only the caller's profile and reports durable operational state/version. A suspended/inactive driver may read self status. |
 | `POST /api/v1/orders/{orderId}/cancel` | local/test/default/prod | Owning CUSTOMER; CREATED or CONFIRMED only, with a required reason. |
 | `POST /api/v1/merchant-branches/{branchId}/orders/{orderId}/confirm`, `/start-preparation`, `/ready-for-pickup`, `/cancel` | local/test/default/prod | MERCHANT with active exact branch membership; cancellation requires a reason. |
@@ -90,4 +91,4 @@ API and security errors include a stable code, safe message, path, timestamp, co
 
 ## Delivery status
 
-The [execution roadmap](docs/ROADMAP.md) tracks phase status. [Phase 6](docs/phases/PHASE_6.md) records assignment and concurrency evidence. [Phase 7](docs/phases/PHASE_7.md) records recovery and delivery evidence. [Phase 8](docs/phases/PHASE_8.md) records event transport proof. [Phase 9](docs/phases/Phase9.md) records tracking and simulator proof. No production readiness claim follows from these slices alone.
+The [execution roadmap](docs/ROADMAP.md) tracks phase status. [Phase 6](docs/phases/PHASE_6.md) records assignment and concurrency evidence. [Phase 7](docs/phases/PHASE_7.md) records recovery and delivery evidence. [Phase 8](docs/phases/PHASE_8.md) records event transport proof. [Phase 9](docs/phases/Phase9.md) records tracking and simulator proof. [Phase 10](docs/phases/Phase10.md) tracks current zone acceptance. No production readiness claim follows from these slices alone.

@@ -2,6 +2,7 @@ param(
     [switch]$IncludePhase7,
     [switch]$IncludePhase8,
     [switch]$IncludePhase9,
+    [switch]$IncludePhase10,
     [switch]$ExerciseBrokerOutage,
     [string]$EnvironmentFile,
     [string]$ComposeProject = 'fleetflow'
@@ -114,6 +115,28 @@ try {
     $customerId = [guid]::NewGuid(); $merchantId = [guid]::NewGuid()
     $branchId = [guid]::NewGuid(); $driverId = [guid]::NewGuid()
     Invoke-Sql "INSERT INTO customers (id, actor_id, display_name, created_at, updated_at) VALUES ('$customerId', '$($customer.id)', 'Phase6 Customer', now(), now()); INSERT INTO merchants (id, name, active, created_at, updated_at) VALUES ('$merchantId', 'Phase6 Merchant', true, now(), now()); INSERT INTO merchant_branches (id, merchant_id, name, pickup_line1, pickup_city, pickup_latitude, pickup_longitude, active, created_at, updated_at) VALUES ('$branchId', '$merchantId', 'Smoke Branch', '12 Market Street', 'Cairo', 30.000000, 31.000000, true, now(), now()); INSERT INTO merchant_staff_memberships (id, actor_id, branch_id, active, created_at) VALUES ('$([guid]::NewGuid())', '$($merchant.id)', '$branchId', true, now()); INSERT INTO drivers (id, actor_id, active, suspended, operational_status, created_at, updated_at) VALUES ('$driverId', '$($driverActor.id)', true, false, 'OFFLINE', now(), now()); INSERT INTO vehicles (id, driver_id, type, capacity, active, created_at, updated_at) VALUES ('$([guid]::NewGuid())', '$driverId', 'BIKE', 1, true, now(), now());"
+    if ($IncludePhase10) {
+        $coreGeometry = '{"type":"Polygon","coordinates":[[[30.9,29.9],[31.1,29.9],[31.1,30.1],[30.9,30.1],[30.9,29.9]]]}' | ConvertFrom-Json
+        $zoneBody = @{ name = 'Smoke area'; geometry = $coreGeometry; active = $true } |
+            ConvertTo-Json -Depth 10 -Compress
+        $createdZone = Send-Request 'Post' "/api/v1/merchant-branches/$branchId/zones" $merchant.token $zoneBody
+        if ($createdZone.StatusCode -ne 201) { throw "Zone create returned $($createdZone.StatusCode): $($createdZone.Content)" }
+        $zoneId = ($createdZone.Content | ConvertFrom-Json).id
+        $policy = Send-Request 'Put' "/api/v1/merchant-branches/$branchId/zone-policy" `
+            $merchant.token '{"mode":"ENFORCED","expectedVersion":1}'
+        if ($policy.StatusCode -ne 200 -or ($policy.Content | ConvertFrom-Json).version -ne 2) {
+            throw "Zone enforcement returned $($policy.StatusCode): $($policy.Content)"
+        }
+        $inside = Send-Request 'Post' "/api/v1/merchant-branches/$branchId/serviceability" `
+            $merchant.token '{"latitude":30,"longitude":31}'
+        $outside = Send-Request 'Post' "/api/v1/merchant-branches/$branchId/serviceability" `
+            $merchant.token '{"latitude":31,"longitude":31}'
+        $deniedZone = Send-Request 'Get' "/api/v1/merchant-branches/$branchId/zones" $customer.token
+        if ($inside.StatusCode -ne 200 -or -not ($inside.Content | ConvertFrom-Json).supported -or
+            $outside.StatusCode -ne 200 -or ($outside.Content | ConvertFrom-Json).supported -or
+            $deniedZone.StatusCode -ne 403) { throw 'Signed serviceability or role scope failed.' }
+        Write-Host 'phase10 -> signed zone create, enforce, inside/outside and wrong-role checks passed'
+    }
     $orderId = New-SmokeOrder $customerId $branchId 30.000000 31.000000
 
     foreach ($action in @('confirm', 'prepare', 'ready')) {
@@ -179,6 +202,35 @@ try {
         throw "Durable assignment tuple was invalid: $tuple"
     }
     Write-Host 'postgres -> ACCEPTED|DELIVERING|DRIVER_ASSIGNED|ASSIGNED'
+    if ($IncludePhase10) {
+        $farGeometry = '{"type":"Polygon","coordinates":[[[33,30],[34,30],[34,31],[33,31],[33,30]]]}' | ConvertFrom-Json
+        $replaceBody = @{ name = 'Far'; geometry = $farGeometry; active = $true; expectedVersion = 0 } |
+            ConvertTo-Json -Depth 10 -Compress
+        $updatedZone = Send-Request 'Put' "/api/v1/merchant-branches/$branchId/zones/$zoneId" `
+            $merchant.token $replaceBody
+        if ($updatedZone.StatusCode -ne 200) { throw "Zone update returned $($updatedZone.StatusCode): $($updatedZone.Content)" }
+        $blockedOrder = New-SmokeOrder $customerId $branchId 30.000000 31.000000
+        foreach ($action in @('confirm', 'start-preparation', 'ready-for-pickup')) {
+            $response = Send-Request 'Post' "/api/v1/merchant-branches/$branchId/orders/$blockedOrder/$action" $merchant.token
+            if ($response.StatusCode -ne 200) { throw "Blocked order $action returned $($response.StatusCode)." }
+        }
+        $blockedMatch = Send-Request 'Post' "/api/v1/dispatch/orders/$blockedOrder/match" $dispatcher.token
+        if ($blockedMatch.StatusCode -ne 201 -or
+            ($blockedMatch.Content | ConvertFrom-Json).outcome -ne 'ZONE_UNSERVICEABLE') {
+            throw "Zone-blocked dispatch returned $($blockedMatch.StatusCode): $($blockedMatch.Content)"
+        }
+        $incident = Send-Request 'Get' "/api/v1/dispatch/orders/$blockedOrder/incidents" $dispatcher.token
+        if ($incident.StatusCode -ne 200 -or
+            ($incident.Content | ConvertFrom-Json).content[0].code -ne 'ZONE_UNSERVICEABLE') {
+            throw 'Zone-blocked dispatch had no durable incident.'
+        }
+        $acceptedAfterEdit = Send-Request 'Get' "/api/v1/orders/$orderId" $customer.token
+        if ($acceptedAfterEdit.StatusCode -ne 200 -or
+            ($acceptedAfterEdit.Content | ConvertFrom-Json).status -ne 'DRIVER_ASSIGNED') {
+            throw 'Accepted assignment changed after a zone edit.'
+        }
+        Write-Host 'phase10 -> changed zone blocked dispatch; incident persisted; accepted work retained'
+    }
     $assignedOrder = Send-Request 'Get' "/api/v1/orders/$orderId" $customer.token
     if ($assignedOrder.StatusCode -ne 200 -or
         ($assignedOrder.Content | ConvertFrom-Json).status -ne 'DRIVER_ASSIGNED' -or
@@ -385,7 +437,8 @@ try {
             Write-Host 'phase8 -> broker restored, event PUBLISHED with two processed markers'
         }
     }
-    if ($IncludePhase9) { Write-Host "Phase 9 local signed-token smoke passed for order $orderId." }
+    if ($IncludePhase10) { Write-Host "Phase 10 local signed-token smoke passed for order $orderId." }
+    elseif ($IncludePhase9) { Write-Host "Phase 9 local signed-token smoke passed for order $orderId." }
     elseif ($IncludePhase8) { Write-Host "Phase 8 local signed-token smoke passed for order $orderId." }
     elseif ($IncludePhase7) { Write-Host "Phase 7 local signed-token smoke passed for order $orderId." }
     else { Write-Host "Phase 6 local signed-token smoke passed for order $orderId." }

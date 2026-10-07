@@ -14,7 +14,7 @@
 | [7](phases/PHASE_7.md) Recovery | COMPLETE | Timeout and rejection recovery, bounded retry, pre-pickup reassignment/cancellation, delivery and incidents; draft integration PR pending review |
 | [8](phases/PHASE_8.md) Async events | COMPLETE | Kafka, transactional outbox, idempotent notification and analytics; local and PR CI evidence recorded |
 | [9](phases/Phase9.md) Live tracking | COMPLETE | Authorized SSE snapshot/stream and local driver simulator; local and PR CI evidence recorded |
-| 10 Zones | NOT_STARTED | PostGIS serviceability and geofencing after basic dispatch |
+| 10 Zones | COMPLETE | PostGIS serviceability and geofencing after basic dispatch; [Phase 10](phases/Phase10.md) records local and CI acceptance on its open review branch |
 | 11 Hardening | NOT_STARTED | Operations, resilience, backup/restore, security and demo proof |
 
 ## Why this order differs from the source outline

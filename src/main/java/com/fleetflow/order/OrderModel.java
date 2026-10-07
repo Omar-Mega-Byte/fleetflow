@@ -47,6 +47,9 @@ class OrderEntity {
     @Column(name = "delivery_city", nullable = false, length = 120) String deliveryCity;
     @Column(name = "delivery_latitude", nullable = false, precision = 9, scale = 6) BigDecimal deliveryLatitude;
     @Column(name = "delivery_longitude", nullable = false, precision = 9, scale = 6) BigDecimal deliveryLongitude;
+    @Column(name = "zone_mode_at_create", length = 16) String zoneModeAtCreate;
+    @Column(name = "zone_policy_version_at_create") Long zonePolicyVersionAtCreate;
+    @Column(name = "zone_id_at_create") UUID zoneIdAtCreate;
     @Column(nullable = false, length = 3) String currency;
     @Column(name = "total_amount", nullable = false, precision = 18, scale = 2) BigDecimal totalAmount;
     @Column(name = "created_at", nullable = false) Instant createdAt;
@@ -61,7 +64,8 @@ class OrderEntity {
                 String merchantName, String branchName, String pickupLine1, String pickupCity,
                 BigDecimal pickupLatitude, BigDecimal pickupLongitude, String deliveryLine1,
                 String deliveryCity, BigDecimal deliveryLatitude, BigDecimal deliveryLongitude,
-                String currency, BigDecimal totalAmount, Instant now) {
+                String currency, BigDecimal totalAmount, Instant now,
+                String zoneModeAtCreate, long zonePolicyVersionAtCreate, UUID zoneIdAtCreate) {
         this.id = id; this.customerId = customerId; this.branchId = branchId; this.status = "CREATED";
         this.version = 0;
         this.customerName = customerName; this.merchantName = merchantName; this.branchName = branchName;
@@ -69,6 +73,9 @@ class OrderEntity {
         this.pickupLatitude = pickupLatitude; this.pickupLongitude = pickupLongitude;
         this.deliveryLine1 = deliveryLine1; this.deliveryCity = deliveryCity;
         this.deliveryLatitude = deliveryLatitude; this.deliveryLongitude = deliveryLongitude;
+        this.zoneModeAtCreate = zoneModeAtCreate;
+        this.zonePolicyVersionAtCreate = zonePolicyVersionAtCreate;
+        this.zoneIdAtCreate = zoneIdAtCreate;
         this.currency = currency; this.totalAmount = totalAmount;
         this.createdAt = now; this.updatedAt = now;
     }

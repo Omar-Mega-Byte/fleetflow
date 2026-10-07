@@ -7,6 +7,7 @@ import java.util.UUID;
 
 import com.fleetflow.lifecycle.LifecycleHistory;
 import com.fleetflow.location.LocationProperties;
+import com.fleetflow.zone.ZoneService;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -16,11 +17,14 @@ class DispatchCommit {
     private final JdbcTemplate jdbc;
     private final LifecycleHistory lifecycle;
     private final RecoveryQueue recovery;
+    private final ZoneService zones;
 
-    DispatchCommit(JdbcTemplate jdbc, LifecycleHistory lifecycle, RecoveryQueue recovery) {
+    DispatchCommit(JdbcTemplate jdbc, LifecycleHistory lifecycle, RecoveryQueue recovery,
+                   ZoneService zones) {
         this.jdbc = jdbc;
         this.lifecycle = lifecycle;
         this.recovery = recovery;
+        this.zones = zones;
     }
 
     @Transactional
@@ -28,6 +32,13 @@ class DispatchCommit {
             String reason, Instant startedAt,
             Instant decisionAt, Instant completedAt, String outcome, List<DispatchService.Candidate> candidates,
             MatchingProperties config, LocationProperties location, int geoCap) {
+        jdbc.execute("set local lock_timeout = '2s'");
+        var states = jdbc.query("select status from orders where id = ? for update",
+                (rs, row) -> rs.getString(1), orderId);
+        if (states.isEmpty() || !fromStatus.equals(states.getFirst())) throw DispatchService.conflict();
+        ZoneService.Decision coverage = zones.forLockedOrder(orderId);
+        String finalOutcome = coverage.supported() ? outcome : "ZONE_UNSERVICEABLE";
+        List<DispatchService.Candidate> finalCandidates = coverage.supported() ? candidates : List.of();
         var claimed = jdbc.query("""
                 update orders set status = 'DISPATCHING', version = version + 1, updated_at = ?
                 where id = ? and status = ? returning version
@@ -42,6 +53,13 @@ class DispatchCommit {
                         resolved_by_actor_id = ?, resolution = ?
                     where order_id = ? and code = 'NO_DRIVER' and status = 'OPEN'
                     """, actorId, reason, orderId);
+            if (coverage.supported()) {
+                jdbc.update("""
+                        update dispatch_incidents set status = 'RESOLVED', resolved_at = clock_timestamp(),
+                            resolved_by_actor_id = ?, resolution = ?
+                        where order_id = ? and code = 'ZONE_UNSERVICEABLE' and status = 'OPEN'
+                        """, actorId, reason, orderId);
+            }
         }
         UUID attemptId = UUID.randomUUID();
         int sequence = jdbc.queryForObject("select coalesce(max(sequence), 0) + 1 from dispatch_attempts where order_id = ?",
@@ -49,13 +67,15 @@ class DispatchCommit {
         jdbc.update("""
                 insert into dispatch_attempts (id, order_id, sequence, started_at, completed_at, decision_at,
                   outcome, config_version, radius_meters, candidate_limit, geo_cap, max_gps_age_millis,
-                  heartbeat_age_millis, distance_weight, freshness_weight, estimate_metres_per_second)
-                values (?, ?, ?, ?, ?, ?, ?, 'v1', ?, ?, ?, ?, ?, ?, ?, ?)
+                  heartbeat_age_millis, distance_weight, freshness_weight, estimate_metres_per_second,
+                  zone_mode, zone_policy_version, zone_id)
+                values (?, ?, ?, ?, ?, ?, ?, 'v1', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """, attemptId, orderId, sequence, Timestamp.from(startedAt), Timestamp.from(completedAt),
-                Timestamp.from(decisionAt), outcome, config.radiusMeters(), config.candidateLimit(), geoCap,
+                Timestamp.from(decisionAt), finalOutcome, config.radiusMeters(), config.candidateLimit(), geoCap,
                 location.maxGpsAge().toMillis(), location.heartbeatTtl().toMillis(), config.distanceWeight(),
-                config.freshnessWeight(), config.metresPerSecond());
-        for (var candidate : candidates) {
+                config.freshnessWeight(), config.metresPerSecond(), coverage.mode(),
+                coverage.policyVersion(), coverage.zoneId());
+        for (var candidate : finalCandidates) {
             jdbc.update("""
                     insert into dispatch_candidates (id, attempt_id, driver_id, reason, distance_meters,
                       gps_age_millis, distance_factor, freshness_factor, score, rank, straight_line_seconds)
@@ -64,20 +84,28 @@ class DispatchCommit {
                     candidate.distanceMeters(), candidate.gpsAgeMillis(), candidate.distanceFactor(),
                     candidate.freshnessFactor(), candidate.score(), candidate.rank(), candidate.straightLineSeconds());
         }
-        if (!"RANKED".equals(outcome)) {
+        if (!"RANKED".equals(finalOutcome)) {
             var failed = jdbc.query("""
                     update orders set status = 'DISPATCH_FAILED', version = version + 1, updated_at = ?
                     where id = ? and status = 'DISPATCHING' returning version
                     """, (rs, row) -> rs.getLong("version"), Timestamp.from(completedAt), orderId);
             if (failed.size() != 1) throw DispatchService.conflict();
             history(orderId, actorId, "DISPATCHING", "DISPATCH_FAILED", completedAt,
-                    failed.getFirst(), "MATCH_FAILED", outcome);
-            if (sequence >= 3) recovery.schedule(orderId, "MATCH_EXHAUSTED", 0);
-            else recovery.schedule(orderId, outcome, sequence * 30);
+                    failed.getFirst(), "MATCH_FAILED", finalOutcome);
+            if ("ZONE_UNSERVICEABLE".equals(finalOutcome)) {
+                recovery.schedule(orderId, finalOutcome, 0);
+                recovery.exhaust(orderId, finalOutcome);
+                jdbc.update("""
+                        insert into dispatch_incidents (id, order_id, code, reason, status, opened_at)
+                        values (?, ?, 'ZONE_UNSERVICEABLE', 'Destination outside current branch zone',
+                                'OPEN', clock_timestamp()) on conflict do nothing
+                        """, UUID.randomUUID(), orderId);
+            } else if (sequence >= 3) recovery.schedule(orderId, "MATCH_EXHAUSTED", 0);
+            else recovery.schedule(orderId, finalOutcome, sequence * 30);
         } else if (!"READY_FOR_PICKUP".equals(fromStatus)) {
             recovery.schedule(orderId, "RANKED_RETRY", 0);
         }
-        return new DispatchService.StartResult(attemptId, outcome);
+        return new DispatchService.StartResult(attemptId, finalOutcome);
     }
 
     private void history(UUID orderId, UUID actorId, String from, String to, Instant when,
