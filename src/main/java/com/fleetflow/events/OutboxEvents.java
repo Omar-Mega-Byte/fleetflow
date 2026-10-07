@@ -5,13 +5,18 @@ import java.time.Instant;
 import java.util.Map;
 import java.util.UUID;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 import tools.jackson.databind.ObjectMapper;
 
 /** Called only inside the owning business transaction. Never contacts Kafka. */
 @Component
 public class OutboxEvents {
+    private static final Logger log = LoggerFactory.getLogger(OutboxEvents.class);
     private final JdbcTemplate jdbc;
     private final ObjectMapper mapper;
 
@@ -43,5 +48,19 @@ public class OutboxEvents {
                         ? Long.valueOf(event.payload().get("orderVersion")) : null,
                 event.eventType(), event.schemaVersion(), mapper.writeValueAsString(event),
                 Timestamp.from(event.occurredAt()));
+        if (TransactionSynchronizationManager.isActualTransactionActive()
+                && TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override public void afterCommit() { committed(event); }
+            });
+        }
+    }
+
+    private static void committed(EventEnvelope event) {
+        log.atInfo().addKeyValue("event", "outbox.committed")
+                .addKeyValue("eventId", event.eventId())
+                .addKeyValue("orderId", event.aggregateId())
+                .addKeyValue("eventType", event.eventType())
+                .log("Outbox event committed");
     }
 }

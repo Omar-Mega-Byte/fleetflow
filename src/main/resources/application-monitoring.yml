@@ -1,0 +1,12 @@
+# Enable only with compose.monitoring.yaml on an isolated local Compose network.
+management:
+  server:
+    port: 9095
+  endpoints:
+    web:
+      exposure:
+        include: health,metrics,prometheus
+  metrics:
+    distribution:
+      percentiles-histogram:
+        http.server.requests: true

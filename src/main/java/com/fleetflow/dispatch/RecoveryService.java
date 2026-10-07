@@ -38,7 +38,10 @@ public class RecoveryService {
             try {
                 process(orderId, token);
             } catch (RuntimeException failure) {
-                log.warn("Dispatch recovery failed for order {}; it remains retryable", orderId, failure);
+                log.atWarn().addKeyValue("event", "dispatch.recovery_failed")
+                        .addKeyValue("orderId", orderId)
+                        .addKeyValue("failureType", failure.getClass().getSimpleName())
+                        .log("Dispatch recovery failed; it remains retryable");
                 queue.rescheduleClaim(orderId, token, "RECOVERY_ERROR", 30);
             }
         }
