@@ -120,7 +120,8 @@ public class DispatchService {
         var headers = jdbc.query("""
                 select id, sequence, started_at, completed_at, decision_at, outcome, config_version,
                        radius_meters, candidate_limit, geo_cap, max_gps_age_millis,
-                       heartbeat_age_millis, distance_weight, freshness_weight, estimate_metres_per_second
+                       heartbeat_age_millis, distance_weight, freshness_weight, estimate_metres_per_second,
+                       zone_mode, zone_policy_version, zone_id
                 from dispatch_attempts where order_id = ? order by sequence desc limit ?
                 """, (rs, row) -> new Header((UUID) rs.getObject("id"), rs.getInt("sequence"),
                 rs.getTimestamp("started_at").toInstant(), rs.getTimestamp("completed_at").toInstant(),
@@ -128,7 +129,9 @@ public class DispatchService {
                 rs.getString("config_version"), rs.getInt("radius_meters"), rs.getInt("candidate_limit"),
                 rs.getInt("geo_cap"), rs.getLong("max_gps_age_millis"),
                 rs.getLong("heartbeat_age_millis"), rs.getBigDecimal("distance_weight"),
-                rs.getBigDecimal("freshness_weight"), rs.getBigDecimal("estimate_metres_per_second")),
+                rs.getBigDecimal("freshness_weight"), rs.getBigDecimal("estimate_metres_per_second"),
+                rs.getString("zone_mode"), (Long) rs.getObject("zone_policy_version"),
+                (UUID) rs.getObject("zone_id")),
                 orderId, limit);
         if (headers.isEmpty()) return new AttemptPage(List.of());
         var named = new org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate(jdbc);
@@ -151,7 +154,8 @@ public class DispatchService {
         return new AttemptPage(headers.stream().map(h -> new Attempt(h.id(), h.sequence(), h.startedAt(), h.completedAt(),
                 h.decisionAt(), h.outcome(), h.configVersion(), h.radiusMeters(), h.candidateLimit(),
                 h.geoCap(), h.maxGpsAgeMillis(), h.heartbeatAgeMillis(), h.distanceWeight(),
-                h.freshnessWeight(), h.estimateMetresPerSecond(),
+                h.freshnessWeight(), h.estimateMetresPerSecond(), h.zoneMode(),
+                h.zonePolicyVersion(), h.zoneId(),
                 List.copyOf(byAttempt.getOrDefault(h.id(), List.of())))).toList());
     }
 
@@ -166,7 +170,8 @@ public class DispatchService {
     private record Header(UUID id, int sequence, Instant startedAt, Instant completedAt, Instant decisionAt,
                           String outcome, String configVersion, int radiusMeters, int candidateLimit, int geoCap,
                           long maxGpsAgeMillis, long heartbeatAgeMillis, BigDecimal distanceWeight,
-                          BigDecimal freshnessWeight, BigDecimal estimateMetresPerSecond) { }
+                          BigDecimal freshnessWeight, BigDecimal estimateMetresPerSecond,
+                          String zoneMode, Long zonePolicyVersion, UUID zoneId) { }
     public record Candidate(UUID driverId, String reason, BigDecimal distanceMeters, Long gpsAgeMillis,
                             BigDecimal distanceFactor, BigDecimal freshnessFactor, BigDecimal score,
                             Integer rank, Integer straightLineSeconds) { }
@@ -174,6 +179,7 @@ public class DispatchService {
                           String outcome, String configVersion, int radiusMeters, int candidateLimit, int geoCap,
                           long maxGpsAgeMillis, long heartbeatAgeMillis, BigDecimal distanceWeight,
                           BigDecimal freshnessWeight, BigDecimal estimateMetresPerSecond,
+                          String zoneMode, Long zonePolicyVersion, UUID zoneId,
                           List<Candidate> candidates) { }
     public record StartResult(UUID attemptId, String outcome) { }
     public record AttemptPage(List<Attempt> content) { }

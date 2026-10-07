@@ -22,12 +22,15 @@ public class AssignmentService {
     private final ActorAccess access;
     private final LocationService locations;
     private final AssignmentCommit commit;
+    private final RecoveryCommit recovery;
 
-    AssignmentService(JdbcTemplate jdbc, ActorAccess access, LocationService locations, AssignmentCommit commit) {
+    AssignmentService(JdbcTemplate jdbc, ActorAccess access, LocationService locations,
+                      AssignmentCommit commit, RecoveryCommit recovery) {
         this.jdbc = jdbc;
         this.access = access;
         this.locations = locations;
         this.commit = commit;
+        this.recovery = recovery;
     }
 
     public OfferReceipt offer(UUID orderId, UUID attemptId, UUID driverId) {
@@ -58,6 +61,9 @@ public class AssignmentService {
                 point.radiusMeters());
         try {
             return commit.offer(orderId, attemptId, driverId, dispatcherId, checkedAt);
+        } catch (ApiFailure failure) {
+            if ("ZONE_UNSERVICEABLE".equals(failure.code())) recovery.zoneBlocked(orderId);
+            throw failure;
         } catch (DataAccessException failure) {
             if (contention(failure)) throw conflict();
             throw failure;
