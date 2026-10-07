@@ -48,7 +48,9 @@ function Invoke-Sql([string]$sql) {
     if ($LASTEXITCODE -ne 0) { throw 'PostgreSQL fixture command failed.' }
 }
 
-function New-Actor([string]$role, [string]$adminToken) {
+function New-Actor([string]$role) {
+    # Keycloak's admin token can expire during a slow multi-phase smoke run.
+    $adminToken = Get-AccessToken 'master' 'admin-cli' $settings['KC_ADMIN_USER'] $settings['KC_ADMIN_PASSWORD']
     $username = "phase6-$($role.ToLowerInvariant())-$([guid]::NewGuid())"
     $password = "$([guid]::NewGuid())-$([guid]::NewGuid())"
     $body = @{
@@ -106,11 +108,10 @@ try {
         Start-Sleep -Milliseconds 500
     } while ([DateTimeOffset]::UtcNow -lt $identityDeadline)
     if ($identity.StatusCode -ne 200) { throw 'Keycloak realm readiness did not reach HTTP 200.' }
-    $adminToken = Get-AccessToken 'master' 'admin-cli' $settings['KC_ADMIN_USER'] $settings['KC_ADMIN_PASSWORD']
-    $customer = New-Actor 'CUSTOMER' $adminToken
-    $merchant = New-Actor 'MERCHANT' $adminToken
-    $dispatcher = New-Actor 'DISPATCHER' $adminToken
-    $driverActor = New-Actor 'DRIVER' $adminToken
+    $customer = New-Actor 'CUSTOMER'
+    $merchant = New-Actor 'MERCHANT'
+    $dispatcher = New-Actor 'DISPATCHER'
+    $driverActor = New-Actor 'DRIVER'
 
     $customerId = [guid]::NewGuid(); $merchantId = [guid]::NewGuid()
     $branchId = [guid]::NewGuid(); $driverId = [guid]::NewGuid()
@@ -246,7 +247,7 @@ try {
             $snapshot.position.latitude -ne 30.001 -or $snapshotResponse.Content -match 'driverId|assignmentId') {
             throw 'Owner tracking snapshot was missing the accepted fresh position or exposed internal IDs.'
         }
-        $otherCustomer = New-Actor 'CUSTOMER' $adminToken
+        $otherCustomer = New-Actor 'CUSTOMER'
         $foreign = Send-Request 'Get' $trackingPath $otherCustomer.token
         if ($foreign.StatusCode -ne 404) { throw 'Foreign customer could access tracking.' }
 

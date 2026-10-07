@@ -215,6 +215,26 @@ class Phase4LocationTests extends ProfileTestDatabase {
     }
 
     @Test
+    void sharedRouteBudgetReturnsRetryAfterAfterRoleCheck() throws Exception {
+        Fixture driver = fixture("DRIVER", true, true);
+        redisTemplate.opsForValue().set("fleetflow:rate:route:read:" + driver.actorId,
+                "60", Duration.ofSeconds(10));
+        mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders
+                        .get("/api/v1/drivers/me").header("Authorization", bearer(driver)))
+                .andExpect(status().isTooManyRequests())
+                .andExpect(jsonPath("$.code").value("RATE_LIMITED"))
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers
+                        .header().exists("Retry-After"));
+
+        Fixture customer = fixture("CUSTOMER", false, false);
+        redisTemplate.opsForValue().set("fleetflow:rate:route:read:" + customer.actorId,
+                "60", Duration.ofSeconds(10));
+        mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders
+                        .get("/api/v1/drivers/me").header("Authorization", bearer(customer)))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
     void nearbyRechecksRedisAndPostgresFacts() throws Exception {
         Fixture near = fixture("DRIVER", true, true);
         Fixture far = fixture("DRIVER", true, true);
@@ -324,6 +344,9 @@ class Phase4LocationTests extends ProfileTestDatabase {
                     .andExpect(status().isServiceUnavailable())
                     .andExpect(jsonPath("$.code").value("REDIS_UNAVAILABLE"))
                     .andExpect(jsonPath("$.correlationId").value("redis-outage"));
+            mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders
+                            .get("/api/v1/drivers/me").header("Authorization", bearer(driver)))
+                    .andExpect(status().isOk());
             org.assertj.core.api.Assertions.assertThatThrownBy(() -> locations.nearby(30, 31, 500, 1))
                     .isInstanceOf(com.fleetflow.api.ApiFailure.class);
             assertThat(jdbc.queryForObject("select operational_status from drivers where id = ?", String.class, driver.driverId))
