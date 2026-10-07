@@ -1,0 +1,97 @@
+# Phase 11 — production hardening and demo proof
+
+**Status: IN_PROGRESS.** This is the implementation and acceptance plan for the [Phase 11 roadmap entry](../ROADMAP.md). The [baseline](../operations/PHASE11_BASELINE.md), [observability exercise](../operations/PHASE11_OBSERVABILITY_EVIDENCE.md), [resilience policy](../operations/RESILIENCE.md), and [backup/restore exercise](../operations/BACKUP_RESTORE.md) record partial evidence. None is a claim that FleetFlow is ready for public production traffic. Complete the gates below only after exercising the delivered code and recording the results.
+
+## Objective and starting boundary
+
+Make the existing delivery slice operable, recoverable, secure, and demonstrable. Prove normal and failed workflows from a reproducible setup. Preserve PostgreSQL as durable business and recovery truth, Redis as ephemeral location/GEO state, Kafka as at-least-once event transport, and SSE as a current-state stream without durable replay.
+
+At planning time, the repository had Actuator health/metrics, correlation IDs, some Micrometer meters (including outbox backlog), bounded location and heartbeat updates, a loopback Compose stack, signed OIDC tests, and a local driver simulator. The [Phase 11 baseline and target](../operations/PHASE11_BASELINE.md) reconciles the stale Phase 4–6 roadmap entries with their recorded acceptance and the local integration history. The Phase 10 document records acceptance on its review branch; its merge and any later changes need checking before final delivery. A local monitoring overlay, resilience controls, backup/restore runbook and partial signed exercise now exist; representative load, complete demo, final CI/security checks, off-host recovery, and measured RPO/RTO remain open.
+
+The current Compose stack is a local exercise environment: Keycloak runs in development mode, the broker uses plaintext listeners, and services publish loopback host ports. A green Compose smoke does not certify an internet-facing deployment. `POST /api/v1/orders` and fixture administration remain local/test-only because submitted prices and onboarding are not production-safe; hardening must not quietly expose them.
+
+## Scope and decisions to record before implementation
+
+| Area | Phase 11 contract |
+| --- | --- |
+| Deployment target | Identify the environment actually being hardened (local demo, isolated staging, or a proposed production deployment), its trust boundaries, operator, and data classification. Claims and controls must match that target. |
+| Service targets | Define a representative request/driver/stream workload, latency and error objectives, concurrent connection limits, backup frequency, retention, recovery point objective (RPO), and recovery time objective (RTO) before load or restore tests. Record why each target is realistic; do not invent a scale claim from a synthetic run. |
+| Baseline | Inspect current `main`/review branches, migrations, security routes, Compose, configuration, CI, and phase evidence. Resolve open prerequisite gates or list them explicitly as release blockers. |
+| Routing provider | Optional. Add an adapter only if a demonstrated workflow needs road-route estimates. If added, bound calls by timeout/concurrency, define a tested fallback to the existing deterministic distance policy, and prevent a provider outage from bypassing eligibility or assignment safety. |
+| Data changes | Prefer instrumentation and configuration. Add a forward migration, index, or retention job only for a measured query or storage problem, with upgrade and restore proof. Never rewrite historical Flyway migrations or prune pending outbox rows. |
+
+## Operations and observability
+
+- Use structured application logs with UTC time, severity, service/version, stable event name, correlation ID, and safe identifiers needed to trace one request through a command, durable state change, outbox publication, and consumer effect. Keep bearer tokens, secrets, addresses, raw GPS, zone polygons, and free-text incident details out of logs. Define retention and access for logs and metrics.
+- Inventory existing meters before adding new ones. Cover HTTP error and latency bands, database pool and readiness, Redis location freshness/unavailability, dispatch and offer outcomes, recovery sweeps/incidents, outbox pending/failed/oldest age, consumer progress/poison events, and SSE active/evicted connections. Use low-cardinality labels; never label by order, actor, token, coordinates, or exception message.
+- Build a dashboard around operator questions: Is intake/dispatch functioning? Are offers expiring or drivers stale? Is the outbox draining? Are consumers caught up? Are SSE clients bounded? Can the database and identity service answer requests? Every panel must name its source meter/query and be checked during a corresponding exercise.
+- Define actionable alerts with an owner, threshold, observation window, and runbook link. Calibrate them against the selected workload and deliberately trigger at least the backlog, dependency outage, and readiness cases. Avoid alerts that merely mirror a noisy health check.
+- Keep liveness/readiness separate. A required dependency outage should affect readiness or operation results according to a documented policy; liveness must not cause a needless restart loop. Expose a metrics scrape path only through a private, least-privilege route. Recheck Actuator authorization and health detail disclosure for the chosen deployment target.
+
+## Resilience and limits
+
+- Set explicit request, connection, database, Redis, Kafka, SSE, and optional provider timeouts and concurrency bounds. Verify that a slow dependency does not exhaust request threads, DB connections, or SSE buffers. Preserve the PostgreSQL transaction boundaries for offers and recovery.
+- Specify route-class rate limits for expensive reads, mutating commands, location/heartbeat, and SSE connection attempts. Define the caller key, shared-instance behavior, burst/window, `429` response (including `Retry-After` where applicable), and dependency-outage behavior. Do not treat Redis limits as authorization; prove object checks still run and rate pressure does not corrupt business state.
+- Exercise PostgreSQL unavailable, Redis unavailable/recovered, Kafka unavailable/recovered, a stuck outbox item, duplicate/poison events, slow optional provider, expired OIDC token, lost SSE client, and app restart. For each, record customer/driver/dispatcher-visible behavior, durable invariants, metric/log signal, operator action, and recovery result. Do not claim exactly-once Kafka delivery or durable SSE replay.
+- Check retry, lease, and retention settings against the workload. Prove bounded growth or an operator-visible stop condition. Any retention cleanup must preserve the supported replay/deduplication window and never delete unpublished events.
+
+## Backup and restore
+
+- Define the durable backup set: PostgreSQL/PostGIS data and Flyway history, required configuration and secrets stored in the approved secret system, and identity state needed to resolve existing actor subjects. Treat the versioned Keycloak realm import as configuration, not a backup of users or credentials. Document Kafka replay assumptions and the fact that Redis latest locations/heartbeats are disposable and must be refreshed after restore.
+- Implement a scheduled, access-controlled PostgreSQL backup with encryption, off-host copy, retention, integrity check, and failure alert appropriate to the chosen target. Record the exact tool/version and whether the procedure supports a consistent online snapshot. Do not store backup credentials or archives in Git.
+- Rehearse restore into a fresh isolated environment with a compatible PostGIS image. Verify backup integrity, restore database and identity prerequisites, validate Flyway without checksum suppression, start the app, check representative actors/branch memberships/orders/zones/assignments/incidents/outbox rows, and exercise a signed business read and command. Reconcile Kafka consumer offsets and outbox replay so duplicate effects cannot appear; document any recovery window that cannot be guaranteed.
+- Record backup timestamp, restore start/end, actual data-loss window, measured RPO/RTO, checks performed, and failure/correction notes. Do not mark the gate complete from a successful `pg_dump` alone or from the Phase 10 migration rehearsal. Protect the current Compose volume; use an isolated project and never run `down --volumes` against user data during the exercise.
+
+## Security and API review
+
+- Produce an endpoint matrix from registered routes and OpenAPI: profile, method/path, required role, object-scope rule, expected `401`/`403`/non-enumerating `404`, rate class, and audit needs. Test active/revoked membership, multi-role actors, foreign IDs, disabled accounts, and expired/invalid tokens with signed OIDC. Keep local/test fixture and order-intake routes absent from default/prod.
+- Review OIDC issuer/audience/JWKS validation, secret injection and rotation, TLS and network boundaries, Compose/deployment credentials, dependencies, image provenance, and CI secret scanning. Do not replace production authentication with fixture headers or a custom issuer. Review error bodies and OpenAPI for sensitive detail leaks.
+- Review location, tracking, zones, notifications, analytics, logs, metrics, and backups for privacy. Check that stale or reassigned driver coordinates cannot leak, cross-tenant views stay scoped, and audit records capture sensitive administrative changes without logging secrets or raw position histories.
+- Stabilize the documented error contract for throttling and dependency failures. Verify that an error reveals no foreign resource existence and does not report a successful command when its transaction rolled back.
+
+## Demo and measured proof
+
+From a clean documented local setup, use real Keycloak-signed actors and the supported local/test fixture path to demonstrate: a serviceable order; fresh eligible driver ranking; atomic offer and acceptance; live customer tracking; completion; driver rejection and next candidate; offer timeout/recovery; stale-driver exclusion; zone denial; concurrent attempts with one winner; and failed delivery with an operator-visible incident. Include Kafka outage and recovery to show committed business state and eventual derived notifications/analytics. Show a Redis outage hiding stale location and a reconnect obtaining a fresh tracking snapshot. Use disposable data and redact tokens from all captured evidence.
+
+For load proof, publish the workload definition, duration, concurrency, environment resources, data size, command and result summaries, latency/error distributions, saturation signals, and any query plans for measured bottlenecks. Repeat the relevant correctness checks after load. A single local run proves only that workload on that environment; record limits and failures rather than extrapolating.
+
+The release/demo guide must give exact startup and teardown commands, required environment variables without values, actor provisioning steps, token acquisition, scenario sequence, expected API/status evidence, dashboard panels, and cleanup that preserves user volumes. Keep the README and architecture notes aligned with what was actually exercised. Label incomplete features, local-only routes, and deployment assumptions clearly.
+
+## Reviewable slices
+
+| Slice | Deliverable | Acceptance question |
+| --- | --- | --- |
+| 1. Baseline and targets | Reconciled phase/branch status, deployment boundary, workload and recovery objectives | Are the claims being tested against a defined target and an integrated code head? |
+| 2. Observability | Safe structured logs, bounded metrics, dashboard and actionable alerts | Can an operator trace a failed command and detect backlog/dependency failure without sensitive data leakage? |
+| 3. Resilience | Limits, rate policy, failure drills, optional provider decision | Do outages and pressure preserve durable state, authorization, and bounded resources? |
+| 4. Recovery | Backup job/runbook and fresh-environment restore | Can independent restored data and identity support a signed workflow within measured objectives? |
+| 5. Security | Route/object matrix, privacy/secrets review and negative tests | Do every exposed route and operational endpoint enforce the intended scope and profile? |
+| 6. Demo and release | Reproducible scenarios, load report, CI/smoke results and truthful release notes | Can another operator reproduce the claims from a clean setup on the delivered commit? |
+
+## Completion gate — all unchecked until evidence exists
+
+- [ ] Prerequisite phase statuses and integration/merge state are reconciled; target, workload, RPO/RTO, and release blockers are recorded.
+- [ ] Dashboard panels and alerts are exercised against real events; safe logs trace one command through PostgreSQL, outbox, Kafka, and the derived view.
+- [ ] Limits and outage drills demonstrate bounded resources, truthful errors, correct recovery, and unchanged database invariants.
+- [ ] Independent encrypted backup and fresh restore work, including identity linkage, PostGIS/Flyway validation, and replay/deduplication checks; measured RPO/RTO are recorded.
+- [ ] Full endpoint/object authorization matrix, local/test-only boundaries, Actuator exposure, secret handling, dependency checks, and privacy review pass.
+- [ ] Clean-start signed demo covers success, rejection, timeout, stale driver, zone denial, concurrency, failed delivery, live tracking, and Kafka/Redis failure behavior.
+- [ ] Representative load results, full clean Maven verification, relevant Testcontainers tests, signed Compose smoke, CI, and security checks pass on the same delivered code head. Exact commands, test counts, artifacts, commit, and check links are recorded.
+- [ ] README, runbooks, dashboards, demo guide, and architecture notes state verified capabilities and remaining limits. Only then change the roadmap status to `COMPLETE`.
+
+## Evidence record to fill during implementation
+
+For each gate, capture **date/time, commit, environment and image versions, command/scenario, expected result, observed result, artifact location, and limitations**. Link CI and security check runs for the delivered commit. Record test counts, backup/restore timings, workload and measurements, and any unresolved incident. A proposed design or earlier phase's evidence is not a Phase 11 pass.
+
+### Partial exercise record, 2026-10-07
+
+- The isolated monitoring overlay scraped private metrics, loaded its provisioned Grafana dashboard, and exercised Redis dependency and app scrape-loss alerts through firing and recovery. The [observability record](../operations/PHASE11_OBSERVABILITY_EVIDENCE.md) lists the exact limits: browser panel rendering, outbox backlog alert, and command-to-consumer trace remain open.
+- A populated, encrypted PostgreSQL and Keycloak backup was restored into an isolated project. Representative table counts, PostGIS, Flyway validation, restored actor/Keycloak subject linkage, a Keycloak-signed order read, and a signed cancellation passed. The [restore record](../operations/BACKUP_RESTORE.md) documents two script corrections, one manual recovery step, and the unverified unattended run, off-host copy, pending-event replay, RPO, and RTO.
+- The signed local smoke command `./scripts/Phase6-Local-Smoke.ps1 -IncludePhase7 -IncludePhase8 -IncludePhase9 -IncludePhase10 -ExerciseBrokerOutage -EnvironmentFile .env.phase11-monitoring -ComposeProject fleetflow-phase11-monitoring` passed with synthetic actors. It exercised zone denial, eligible driver ranking, offer acceptance, customer-scoped snapshot/SSE tracking, completion, durable outbox publication, notifications/analytics, and broker outage/recovery. Rejection, timeout, stale-driver, concurrency, failed-delivery, and Redis reconnect remain separate demo requirements; the integrated smoke is not a full clean-start Phase 11 acceptance.
+- A focused signed tracking test passed after a rate-budget change to preserve freshness semantics during a Redis pause. The final local `clean verify` passed 121 tests with zero failures, errors, or skips in 5 minutes 38 seconds. Delivered-commit CI and security checks remain to be recorded.
+
+**Out of scope by default:** Kubernetes, multi-region recovery, a microservice split, ML matching, route optimization as a feature family, paid maps, public production order intake/pricing, and unmeasured hyperscale claims.
+
+## Prompt to use when I say start Phase 11
+
+> Implement FleetFlow Phase 11 from `docs/phases/phase11.md` and `docs/ROADMAP.md`. First inspect the current code, Git/PR state, migrations, Compose, security routes, tests, CI, and any applicable `AGENTS.md`; reconcile earlier phase statuses and define the actual deployment target, workload, and recovery objectives. Work in small reviewable slices. Add only operational controls justified by the target; prove them with real PostgreSQL/PostGIS, Redis, Kafka, and signed OIDC exercises. Rehearse an independent backup/restore, failure drills, the clean-start demo, and representative load. Run full clean verification and signed smoke, check CI/security results, and record exact evidence and limits before marking the phase complete. Preserve local/test-only intake and fixture boundaries. Do not claim production readiness from plans or a local Compose smoke.

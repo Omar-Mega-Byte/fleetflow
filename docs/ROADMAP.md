@@ -1,6 +1,6 @@
 # FleetFlow execution roadmap
 
-[PROJECT_CONTEXT.md](../PROJECT_CONTEXT.md) is the primary living context. This roadmap tracks implementation status; the later phases remain plans. Status vocabulary: `NOT_STARTED` means planned only, `IN_PROGRESS` means implementation under way, `BLOCKED` means an identified prerequisite prevents completion, and `COMPLETE` means the phase acceptance gate passed with recorded evidence. As of 2026-10-06 Phases 7, 8 and 9 are accepted; the statuses below preserve each phase's recorded CI boundary.
+[PROJECT_CONTEXT.md](../PROJECT_CONTEXT.md) is the primary living context. This roadmap tracks implementation status; the later phases remain plans. Status vocabulary: `NOT_STARTED` means planned only, `IN_PROGRESS` means implementation under way, `BLOCKED` means an identified prerequisite prevents completion, and `COMPLETE` means the phase acceptance gate passed with recorded evidence. As reconciled in the [Phase 11 baseline](operations/PHASE11_BASELINE.md), Phases 4–8 have recorded acceptance and are included in the last fetched `origin/main`; Phases 9–10 have recorded acceptance on review branches, while their current merge state requires a live check.
 
 | Phase | Status | Purpose |
 | --- | --- | --- |
@@ -8,14 +8,14 @@
 | [1](phases/PHASE_1.md) Core model | COMPLETE | Durable actors, branches, drivers and order intake with REST/JPA fundamentals |
 | [2](phases/PHASE_2.md) Security | COMPLETE | OIDC authentication and object-level authorization before exposed business actions |
 | [3](phases/PHASE_3.md) Lifecycles | COMPLETE | Explicit order/driver commands, durable history and delivery persistence skeleton |
-| [4](phases/PHASE_4.md) Live location | IN_PROGRESS | Redis heartbeat, latest GPS, GEO and durable eligibility recheck; integration CI pending |
-| [5](phases/PHASE_5.md) Matching | IN_PROGRESS | Deterministic candidate eligibility and ranking; integration CI pending |
-| [6](phases/PHASE_6.md) Assignment | IN_PROGRESS | Atomic reservation, offer, acceptance and repeated 100-contender PostgreSQL proof; integration CI pending |
-| [7](phases/PHASE_7.md) Recovery | COMPLETE | Timeout and rejection recovery, bounded retry, pre-pickup reassignment/cancellation, delivery and incidents; draft integration PR pending review |
+| [4](phases/PHASE_4.md) Live location | COMPLETE | Redis heartbeat, latest GPS, GEO and durable eligibility recheck; accepted slice included in Phase 7 integration merge |
+| [5](phases/PHASE_5.md) Matching | COMPLETE | Deterministic candidate eligibility and ranking; accepted slice included in Phase 7 integration merge |
+| [6](phases/PHASE_6.md) Assignment | COMPLETE | Atomic reservation, offer, acceptance and repeated 100-contender PostgreSQL proof; accepted slice included in Phase 7 integration merge |
+| [7](phases/PHASE_7.md) Recovery | COMPLETE | Timeout and rejection recovery, bounded retry, pre-pickup reassignment/cancellation, delivery and incidents; merged in local `main` as PR #9 |
 | [8](phases/PHASE_8.md) Async events | COMPLETE | Kafka, transactional outbox, idempotent notification and analytics; local and PR CI evidence recorded |
 | [9](phases/Phase9.md) Live tracking | COMPLETE | Authorized SSE snapshot/stream and local driver simulator; local and PR CI evidence recorded |
-| 10 Zones | COMPLETE | PostGIS serviceability and geofencing after basic dispatch; [Phase 10](phases/Phase10.md) records local and CI acceptance on its open review branch |
-| 11 Hardening | NOT_STARTED | Operations, resilience, backup/restore, security and demo proof |
+| 10 Zones | COMPLETE | PostGIS serviceability and geofencing after basic dispatch; [Phase 10](phases/Phase10.md) records local and CI acceptance and PR #12 was merged into the Phase 9 review branch |
+| [11](phases/phase11.md) Hardening | IN_PROGRESS | Operations, resilience, backup/restore, security and demo proof; partial local evidence and remaining gates in the phase document |
 
 ## Why this order differs from the source outline
 
