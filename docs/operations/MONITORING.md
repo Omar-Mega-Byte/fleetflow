@@ -1,6 +1,6 @@
 # Local monitoring and alert runbook
 
-**Scope:** Phase 11 synthetic local demo. The private scrape path, provisioning APIs, and two alert transitions were exercised on 2026-10-07; see [observability evidence](PHASE11_OBSERVABILITY_EVIDENCE.md). A signed business flow and the outbox backlog alert remain unverified. This is not a public production monitoring deployment.
+**Scope:** Phase 11 synthetic local demo. The private scrape path, provisioning APIs, dependency/readiness alerts, and a signed outbox backlog drill were exercised on 2026-10-07; see [observability evidence](PHASE11_OBSERVABILITY_EVIDENCE.md). This is not a public production monitoring deployment.
 
 ## Dashboard design decision
 
@@ -49,4 +49,4 @@ Every rule is owned by the local operator and has a bounded evaluation window. I
 
 ## Known limits
 
-The dashboard does not directly test a Keycloak login or JWKS rotation; a signed OIDC smoke and invalid/expired token tests must provide separate identity evidence. Local Prometheus stores seven days of synthetic metrics in its own disposable volume. Grafana's account store is a local demo volume. Neither is a durable business backup. Dashboard panel rendering and the outbox backlog alert still need a live signed workflow before this slice is accepted.
+The dashboard does not directly test a Keycloak login or JWKS rotation; signed OIDC smoke and invalid/expired token tests provide separate identity evidence. Local Prometheus stores seven days of synthetic metrics in its own disposable volume. Grafana's account store is a local demo volume. Neither is a durable business backup. The signed backlog transition was exercised, but browser rendering of every dashboard panel and an external notification receiver remain unverified.

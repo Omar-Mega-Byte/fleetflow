@@ -59,3 +59,7 @@ These are deliberately modest targets for one app process on a workstation with 
 2. Phase 9 PR #11 remains open against `main`, with Phase 10 merged into that branch through PR #12. Phase 11 cannot be described as integrated into `main` while this stack remains open.
 3. Off-host and scheduled backup, unattended whole-service restore, complete alert/dashboard drills, representative load, full route audit, and clean-start scenario evidence remain to be implemented or exercised.
 4. The local Compose topology, Keycloak dev mode, plaintext broker, and unsafe local/test intake prevent any public-production readiness claim.
+
+## Later exercise update, 2026-10-07
+
+The baseline sections above are the starting snapshot. Later on this branch, two fresh unattended signed restores passed, a controlled local drill measured 87.8-second RPO and 49.5-second RTO, a 600-arrival-second signed workload completed 3,720 requests without unexpected errors, and a clean-start Phase 11 signed scenario run passed. The monitoring overlay also fired and recovered its outbox backlog alert on a real signed command. Exact timestamps, scope, and remaining gaps are in [Phase 11](../phases/phase11.md). The only configured off-host rclone remote still returned `invalid_grant`; no external artifact or installed daily schedule has been verified. The 10-driver/10-SSE breadth target was not exercised by the two-driver load mix. The public-production and review-branch integration boundaries remain unchanged.

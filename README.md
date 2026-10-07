@@ -92,3 +92,5 @@ API and security errors include a stable code, safe message, path, timestamp, co
 ## Delivery status
 
 The [execution roadmap](docs/ROADMAP.md) tracks phase status. [Phase 6](docs/phases/PHASE_6.md) records assignment and concurrency evidence. [Phase 7](docs/phases/PHASE_7.md) records recovery and delivery evidence. [Phase 8](docs/phases/PHASE_8.md) records event transport proof. [Phase 9](docs/phases/Phase9.md) records tracking and simulator proof. [Phase 10](docs/phases/Phase10.md) tracks current zone acceptance. No production readiness claim follows from these slices alone.
+
+[Phase 11's synthetic demo guide](docs/operations/PHASE11_DEMO.md) reproduces the signed end-to-end scenarios, monitoring, load, and local encrypted restore. Its [evidence record](docs/phases/phase11.md) reports the measured local recovery and workload results and the still-open off-host backup, schedule, security, and review gates. Phase 11 remains `IN_PROGRESS`; the local Compose topology is not an internet-facing deployment.
