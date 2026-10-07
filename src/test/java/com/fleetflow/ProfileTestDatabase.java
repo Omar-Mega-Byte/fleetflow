@@ -5,7 +5,7 @@ import org.springframework.test.context.DynamicPropertySource;
 import org.testcontainers.postgresql.PostgreSQLContainer;
 
 abstract class ProfileTestDatabase {
-    private static final PostgreSQLContainer postgres = new PostgreSQLContainer("postgres:17.11-alpine3.24");
+    private static final PostgreSQLContainer postgres = PostgisTestDatabase.create();
 
     static { postgres.start(); }
 
@@ -18,5 +18,7 @@ abstract class ProfileTestDatabase {
         registry.add("OIDC_JWKS_URI", TestOidc::jwksUri);
         registry.add("OIDC_AUDIENCE", () -> TestOidc.AUDIENCE);
         registry.add("fleetflow.recovery.enabled", () -> false);
+        registry.add("spring.datasource.hikari.minimum-idle", () -> 1);
+        registry.add("spring.datasource.hikari.idle-timeout", () -> 10000);
     }
 }
