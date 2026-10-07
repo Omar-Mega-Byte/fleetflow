@@ -19,5 +19,7 @@ jobs:
           distribution: temurin
           java-version: '21'
           cache: maven
+      - name: Tracked credential preflight
+        run: python3 scripts/Phase11-Secret-Audit.py
       - name: Verify
         run: ./mvnw verify --batch-mode --no-transfer-progress

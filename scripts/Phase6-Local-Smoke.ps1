@@ -3,6 +3,7 @@ param(
     [switch]$IncludePhase8,
     [switch]$IncludePhase9,
     [switch]$IncludePhase10,
+    [switch]$IncludePhase11,
     [switch]$ExerciseBrokerOutage,
     [string]$EnvironmentFile,
     [string]$ComposeProject = 'fleetflow'
@@ -18,6 +19,10 @@ if ($ComposeProject -notmatch '^[a-z][a-z0-9-]{1,40}$') {
 }
 if ($ExerciseBrokerOutage -and -not $IncludePhase8) {
     throw 'ExerciseBrokerOutage requires IncludePhase8.'
+}
+if ($IncludePhase11 -and (-not $IncludePhase7 -or -not $IncludePhase8 -or
+        -not $IncludePhase9 -or -not $IncludePhase10 -or -not $ExerciseBrokerOutage)) {
+    throw 'IncludePhase11 requires all Phase 7-10 and broker outage switches.'
 }
 
 $settings = @{}
@@ -48,6 +53,14 @@ function Invoke-Sql([string]$sql) {
     if ($LASTEXITCODE -ne 0) { throw 'PostgreSQL fixture command failed.' }
 }
 
+function Read-Sql([string]$sql) {
+    $result = @($sql | & docker compose --env-file $envPath -p $ComposeProject exec -T postgres psql `
+        -At -v ON_ERROR_STOP=1 -U $settings['DB_USER'] -d $settings['DB_NAME']
+    )
+    if ($LASTEXITCODE -ne 0) { throw 'PostgreSQL verification query failed.' }
+    return ($result -join "`n").Trim()
+}
+
 function New-Actor([string]$role) {
     # Keycloak's admin token can expire during a slow multi-phase smoke run.
     $adminToken = Get-AccessToken 'master' 'admin-cli' $settings['KC_ADMIN_USER'] $settings['KC_ADMIN_PASSWORD']
@@ -69,7 +82,11 @@ function New-Actor([string]$role) {
     if ($subject -notmatch '^[0-9a-fA-F-]{36}$') { throw 'Unexpected Keycloak subject format.' }
     $actor = [guid]::NewGuid()
     Invoke-Sql "INSERT INTO actors (id, issuer, subject, active, created_at, updated_at) VALUES ('$actor', '$issuer', '$subject', true, now(), now()); INSERT INTO actor_roles (actor_id, role) VALUES ('$actor', '$role');"
-    return @{ id = $actor; token = $token }
+    return @{ id = $actor; token = $token; username = $username; password = $password }
+}
+
+function Refresh-ActorToken([hashtable]$actor) {
+    $actor.token = Get-AccessToken 'fleetflow' 'fleetflow-cli' $actor.username $actor.password
 }
 
 function Send-Request([string]$method, [string]$path, [string]$token, [string]$body = '') {
@@ -85,6 +102,47 @@ function New-SmokeOrder([guid]$customerId, [guid]$branchId, [decimal]$latitude, 
     $lon = $longitude.ToString([Globalization.CultureInfo]::InvariantCulture)
     Invoke-Sql "INSERT INTO orders (id, customer_id, merchant_branch_id, status, customer_name_snapshot, merchant_name_snapshot, branch_name_snapshot, pickup_line1, pickup_city, pickup_latitude, pickup_longitude, delivery_line1, delivery_city, delivery_latitude, delivery_longitude, currency, total_amount, created_at, updated_at) VALUES ('$id', '$customerId', '$branchId', 'CREATED', 'Phase6 Customer', 'Phase6 Merchant', 'Smoke Branch', '12 Market Street', 'Cairo', $lat, $lon, '34 Delivery Street', 'Cairo', $lat, $lon, 'EGP', 10.00, now(), now());"
     return $id
+}
+
+function New-ReadyOrder([guid]$customerId, [guid]$branchId, [string]$merchantToken) {
+    $id = New-SmokeOrder $customerId $branchId 30.000000 31.000000
+    foreach ($action in @('confirm', 'start-preparation', 'ready-for-pickup')) {
+        $response = Send-Request 'Post' "/api/v1/merchant-branches/$branchId/orders/$id/$action" $merchantToken
+        if ($response.StatusCode -ne 200) { throw "Preparing demo order returned $($response.StatusCode)." }
+    }
+    return $id
+}
+
+function Send-Fix([string]$token, [double]$latitude, [double]$longitude) {
+    $body = @{ latitude = $latitude; longitude = $longitude;
+        reportedAt = [DateTimeOffset]::UtcNow.ToString('o') } | ConvertTo-Json -Compress
+    $response = Send-Request 'Post' '/api/v1/drivers/me/location' $token $body
+    if ($response.StatusCode -ne 204) { throw "Demo driver fix returned $($response.StatusCode)." }
+}
+
+function New-DemoOffer([guid]$orderId, [guid]$driverId, [string]$dispatcherToken) {
+    $match = Send-Request 'Post' "/api/v1/dispatch/orders/$orderId/match" $dispatcherToken
+    if ($match.StatusCode -ne 201 -or ($match.Content | ConvertFrom-Json).outcome -ne 'RANKED') {
+        throw "Demo match returned $($match.StatusCode): $($match.Content)"
+    }
+    $attempt = ($match.Content | ConvertFrom-Json).attemptId
+    $body = @{ attemptId = $attempt; driverId = "$driverId" } | ConvertTo-Json -Compress
+    $offer = Send-Request 'Post' "/api/v1/dispatch/orders/$orderId/offers" $dispatcherToken $body
+    if ($offer.StatusCode -ne 201) { throw "Demo offer returned $($offer.StatusCode): $($offer.Content)" }
+    return ($offer.Content | ConvertFrom-Json).offerId
+}
+
+function Complete-DemoDelivery([guid]$orderId, [string]$driverToken) {
+    $response = Send-Request 'Get' '/api/v1/drivers/me/deliveries' $driverToken
+    $delivery = @((($response.Content | ConvertFrom-Json).content) |
+        Where-Object { $_.orderId -eq "$orderId" -and $_.status -eq 'ASSIGNED' })
+    if ($response.StatusCode -ne 200 -or $delivery.Count -ne 1) {
+        throw 'Demo assigned delivery was not visible to the driver.'
+    }
+    foreach ($action in @('pickup', 'start-transit', 'complete')) {
+        $result = Send-Request 'Post' "/api/v1/drivers/me/deliveries/$($delivery[0].deliveryId)/$action" $driverToken
+        if ($result.StatusCode -ne 200) { throw "Demo delivery $action returned $($result.StatusCode)." }
+    }
 }
 
 Push-Location $root
@@ -438,7 +496,186 @@ try {
             Write-Host 'phase8 -> broker restored, event PUBLISHED with two processed markers'
         }
     }
-    if ($IncludePhase10) { Write-Host "Phase 10 local signed-token smoke passed for order $orderId." }
+    if ($IncludePhase11) {
+        foreach ($actor in @($customer, $merchant, $dispatcher, $driverActor)) {
+            Refresh-ActorToken $actor
+        }
+        $restoreZone = @{ name = 'Smoke area'; geometry = $coreGeometry; active = $true;
+            expectedVersion = ($updatedZone.Content | ConvertFrom-Json).version } |
+            ConvertTo-Json -Depth 10 -Compress
+        $restoredZone = Send-Request 'Put' "/api/v1/merchant-branches/$branchId/zones/$zoneId" `
+            $merchant.token $restoreZone
+        if ($restoredZone.StatusCode -ne 200) { throw 'Demo zone reset failed.' }
+
+        $driverTwo = New-Actor 'DRIVER'
+        $driverTwoId = [guid]::NewGuid()
+        Invoke-Sql "INSERT INTO drivers (id, actor_id, active, suspended, operational_status, created_at, updated_at) VALUES ('$driverTwoId', '$($driverTwo.id)', true, false, 'OFFLINE', now(), now()); INSERT INTO vehicles (id, driver_id, type, capacity, active, created_at, updated_at) VALUES ('$([guid]::NewGuid())', '$driverTwoId', 'BIKE', 1, true, now(), now());"
+        foreach ($action in @('online', 'available')) {
+            $response = Send-Request 'Post' "/api/v1/drivers/me/$action" $driverTwo.token
+            if ($response.StatusCode -ne 200) { throw "Second driver $action failed." }
+        }
+        Send-Fix $driverActor.token 30.001 31.001
+        Send-Fix $driverTwo.token 30.005 31.005
+
+        $rejectedOrder = New-ReadyOrder $customerId $branchId $merchant.token
+        $firstOffer = New-DemoOffer $rejectedOrder $driverId $dispatcher.token
+        $firstRank = ((Send-Request 'Get' "/api/v1/dispatch/orders/$rejectedOrder/attempts" `
+            $dispatcher.token).Content | ConvertFrom-Json).content[0].candidates[0].driverId
+        if ($firstRank -ne "$driverId") { throw 'The first demo driver did not rank first.' }
+        Send-Fix $driverTwo.token 30.005 31.005
+        $rejection = Send-Request 'Post' "/api/v1/drivers/me/offers/$firstOffer/reject" $driverActor.token
+        if ($rejection.StatusCode -ne 200) { throw 'First driver rejection failed.' }
+        $nextOffer = $null
+        $deadline = [DateTimeOffset]::UtcNow.AddSeconds(45)
+        do {
+            $nextOffer = Read-Sql "select id::text from driver_assignments where order_id = '$rejectedOrder' and driver_id = '$driverTwoId' and status = 'OFFERED' order by offered_at desc limit 1"
+            if ($nextOffer) { break }
+            Start-Sleep -Seconds 1
+        } while ([DateTimeOffset]::UtcNow -lt $deadline)
+        if (-not $nextOffer) { throw 'Rejection did not advance to the next ranked driver.' }
+        $nextAcceptance = Send-Request 'Post' "/api/v1/drivers/me/offers/$nextOffer/accept" $driverTwo.token
+        if ($nextAcceptance.StatusCode -ne 200) { throw 'Next ranked driver could not accept.' }
+        Complete-DemoDelivery $rejectedOrder $driverTwo.token
+        Write-Host 'phase11 -> rejection advanced to next ranked driver and completed'
+
+        Send-Fix $driverActor.token 30.001 31.001
+        Send-Fix $driverTwo.token 30.005 31.005
+        $timeoutOrder = New-ReadyOrder $customerId $branchId $merchant.token
+        $timeoutOffer = New-DemoOffer $timeoutOrder $driverId $dispatcher.token
+        Invoke-Sql "update driver_assignments set offered_at = clock_timestamp() - interval '2 minute', expires_at = clock_timestamp() - interval '1 minute' where id = '$timeoutOffer'"
+        $deadline = [DateTimeOffset]::UtcNow.AddSeconds(45)
+        $timeoutStatus = ''
+        $timeoutNext = ''
+        do {
+            $timeoutStatus = Read-Sql "select status from driver_assignments where id = '$timeoutOffer'"
+            $timeoutNext = Read-Sql "select id::text from driver_assignments where order_id = '$timeoutOrder' and driver_id = '$driverTwoId' and status = 'OFFERED' order by offered_at desc limit 1"
+            if ($timeoutStatus -eq 'TIMED_OUT' -and $timeoutNext) { break }
+            Start-Sleep -Seconds 1
+        } while ([DateTimeOffset]::UtcNow -lt $deadline)
+        if ($timeoutStatus -ne 'TIMED_OUT' -or -not $timeoutNext) {
+            throw 'Timed-out offer did not release and advance to the second driver.'
+        }
+        $timeoutReject = Send-Request 'Post' "/api/v1/drivers/me/offers/$timeoutNext/reject" $driverTwo.token
+        if ($timeoutReject.StatusCode -ne 200) { throw 'Second timeout-scenario driver rejection failed.' }
+        Write-Host 'phase11 -> expired offer timed out and next candidate was offered'
+
+        foreach ($actor in @($customer, $merchant, $dispatcher, $driverActor, $driverTwo)) {
+            Refresh-ActorToken $actor
+        }
+
+        Send-Fix $driverTwo.token 30.005 31.005
+        & docker compose --env-file $envPath -p $ComposeProject exec -T redis redis-cli DEL `
+            "fleetflow:driver:heartbeat:$driverId" | Out-Null
+        if ($LASTEXITCODE -ne 0) { throw 'Could not expire the synthetic driver heartbeat.' }
+        $staleOrder = New-ReadyOrder $customerId $branchId $merchant.token
+        $staleMatch = Send-Request 'Post' "/api/v1/dispatch/orders/$staleOrder/match" $dispatcher.token
+        $staleCandidates = @(((Send-Request 'Get' "/api/v1/dispatch/orders/$staleOrder/attempts" `
+            $dispatcher.token).Content | ConvertFrom-Json).content[0].candidates)
+        $staleEvidence = @($staleCandidates | Where-Object {
+            $_.driverId -eq "$driverId" -and $_.reason -eq 'STALE_HEARTBEAT' -and $null -eq $_.rank
+        })
+        $freshEvidence = @($staleCandidates | Where-Object {
+            $_.driverId -eq "$driverTwoId" -and $_.reason -eq 'ELIGIBLE' -and $_.rank -eq 1
+        })
+        if ($staleMatch.StatusCode -ne 201 -or $staleEvidence.Count -ne 1 -or
+                $freshEvidence.Count -ne 1) {
+            throw 'Stale driver was not excluded from eligible ranking.'
+        }
+        Write-Host 'phase11 -> stale driver excluded from ranking'
+
+        Send-Fix $driverActor.token 30.001 31.001
+        Send-Fix $driverTwo.token 30.005 31.005
+        $raceOrder = New-ReadyOrder $customerId $branchId $merchant.token
+        $raceMatch = Send-Request 'Post' "/api/v1/dispatch/orders/$raceOrder/match" $dispatcher.token
+        if ($raceMatch.StatusCode -ne 201) { throw 'Concurrent demo match failed.' }
+        $raceBody = @{ attemptId = ($raceMatch.Content | ConvertFrom-Json).attemptId;
+            driverId = "$driverId" } | ConvertTo-Json -Compress
+        $jobs = @(1..2 | ForEach-Object {
+            Start-ThreadJob -ArgumentList $app, $raceOrder, $dispatcher.token, $raceBody -ScriptBlock {
+                param($base, $id, $token, $body)
+                Start-Sleep -Milliseconds 500
+                $result = Invoke-WebRequest -Uri "$base/api/v1/dispatch/orders/$id/offers" -Method Post `
+                    -Headers @{ Authorization = "Bearer $token" } -ContentType 'application/json' `
+                    -Body $body -SkipHttpErrorCheck
+                return [int]$result.StatusCode
+            }
+        })
+        try {
+            $null = $jobs | Wait-Job -Timeout 20
+            $statuses = @($jobs | Receive-Job)
+            if (@($statuses | Where-Object { $_ -eq 201 }).Count -ne 1 -or
+                    @($statuses | Where-Object { $_ -eq 409 }).Count -ne 1) {
+                throw "Concurrent offers did not have exactly one winner: $statuses"
+            }
+        } finally { $jobs | Remove-Job -Force }
+        $raceCancelled = Send-Request 'Post' "/api/v1/dispatch/orders/$raceOrder/cancel" `
+            $dispatcher.token '{"reason":"Synthetic race cleanup"}'
+        if ($raceCancelled.StatusCode -ne 200) { throw 'Concurrent demo cleanup failed.' }
+        Write-Host 'phase11 -> concurrent offers had one 201 winner and one 409 conflict'
+
+        Send-Fix $driverActor.token 30.001 31.001
+        $failedOrder = New-ReadyOrder $customerId $branchId $merchant.token
+        $failedOffer = New-DemoOffer $failedOrder $driverId $dispatcher.token
+        $failedAcceptance = Send-Request 'Post' "/api/v1/drivers/me/offers/$failedOffer/accept" $driverActor.token
+        if ($failedAcceptance.StatusCode -ne 200) { throw 'Failed-delivery offer acceptance failed.' }
+        $failedDeliveries = Send-Request 'Get' '/api/v1/drivers/me/deliveries' $driverActor.token
+        $failedDelivery = @((($failedDeliveries.Content | ConvertFrom-Json).content) |
+            Where-Object { $_.orderId -eq "$failedOrder" -and $_.status -eq 'ASSIGNED' })
+        if ($failedDelivery.Count -ne 1) { throw 'Failed delivery was not assigned.' }
+        $pickup = Send-Request 'Post' "/api/v1/drivers/me/deliveries/$($failedDelivery[0].deliveryId)/pickup" $driverActor.token
+        $failure = Send-Request 'Post' "/api/v1/drivers/me/deliveries/$($failedDelivery[0].deliveryId)/fail" `
+            $driverActor.token '{"reason":"Synthetic vehicle failure"}'
+        $incidents = Send-Request 'Get' "/api/v1/dispatch/orders/$failedOrder/incidents" $dispatcher.token
+        if ($pickup.StatusCode -ne 200 -or $failure.StatusCode -ne 200 -or
+                $incidents.StatusCode -ne 200 -or
+                ($incidents.Content | ConvertFrom-Json).content[0].code -ne 'DELIVERY_FAILED') {
+            throw 'Failed delivery did not create a dispatcher-visible incident.'
+        }
+        Write-Host 'phase11 -> failed delivery produced an operator-visible incident'
+
+        Send-Fix $driverActor.token 30.001 31.001
+        $redisOrder = New-ReadyOrder $customerId $branchId $merchant.token
+        $redisOffer = New-DemoOffer $redisOrder $driverId $dispatcher.token
+        $redisAcceptance = Send-Request 'Post' "/api/v1/drivers/me/offers/$redisOffer/accept" $driverActor.token
+        if ($redisAcceptance.StatusCode -ne 200) { throw 'Redis scenario acceptance failed.' }
+        $tracking = "/api/v1/orders/$redisOrder/tracking"
+        $beforeRedis = Send-Request 'Get' $tracking $customer.token
+        if ($beforeRedis.StatusCode -ne 200 -or
+                $null -eq ($beforeRedis.Content | ConvertFrom-Json).position) {
+            throw 'Fresh tracking position was unavailable before Redis outage.'
+        }
+        try {
+            & docker compose --env-file $envPath -p $ComposeProject stop redis | Out-Null
+            if ($LASTEXITCODE -ne 0) { throw 'Stopping synthetic Redis failed.' }
+            $duringRedis = Send-Request 'Get' $tracking $customer.token
+            if ($duringRedis.StatusCode -ne 200 -or
+                    $null -ne ($duringRedis.Content | ConvertFrom-Json).position) {
+                throw 'Tracking exposed a location during Redis outage.'
+            }
+        } finally {
+            & docker compose --env-file $envPath -p $ComposeProject start redis | Out-Null
+            if ($LASTEXITCODE -ne 0) { throw 'Restarting synthetic Redis failed.' }
+        }
+        $redisReady = $false
+        for ($i = 0; $i -lt 30; $i++) {
+            & docker compose --env-file $envPath -p $ComposeProject exec -T redis redis-cli ping | Out-Null
+            if ($LASTEXITCODE -eq 0) { $redisReady = $true; break }
+            Start-Sleep -Seconds 1
+        }
+        if (-not $redisReady) { throw 'Redis did not recover.' }
+        Send-Fix $driverActor.token 30.001 31.001
+        $afterRedis = Send-Request 'Get' $tracking $customer.token
+        if ($afterRedis.StatusCode -ne 200 -or
+                $null -eq ($afterRedis.Content | ConvertFrom-Json).position) {
+            throw 'Fresh tracking position was not restored after Redis restart.'
+        }
+        $redisCancelled = Send-Request 'Post' "/api/v1/dispatch/orders/$redisOrder/cancel" `
+            $dispatcher.token '{"reason":"Synthetic reconnect cleanup"}'
+        if ($redisCancelled.StatusCode -ne 200) { throw 'Redis demo cleanup failed.' }
+        Write-Host 'phase11 -> Redis outage hid location; fresh reconnect restored tracking'
+    }
+    if ($IncludePhase11) { Write-Host "Phase 11 signed demo scenarios passed in $ComposeProject." }
+    elseif ($IncludePhase10) { Write-Host "Phase 10 local signed-token smoke passed for order $orderId." }
     elseif ($IncludePhase9) { Write-Host "Phase 9 local signed-token smoke passed for order $orderId." }
     elseif ($IncludePhase8) { Write-Host "Phase 8 local signed-token smoke passed for order $orderId." }
     elseif ($IncludePhase7) { Write-Host "Phase 7 local signed-token smoke passed for order $orderId." }

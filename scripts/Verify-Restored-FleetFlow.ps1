@@ -22,6 +22,16 @@ if ($settings['DB_USER'] -notmatch '^[A-Za-z_][A-Za-z0-9_]*$' -or
 }
 $composeArgs = @('compose', '--env-file', $envPath, '-p', $Project,
     '-f', (Join-Path $root 'compose.yaml'))
+$appContainer = (& docker @composeArgs ps -q app).Trim()
+if (-not $appContainer) { throw 'App container is missing for signed restore verification.' }
+$appHealthy = $false
+for ($i = 0; $i -lt 90; $i++) {
+    $health = (& docker inspect --format '{{.State.Health.Status}}' $appContainer).Trim()
+    if ($health -eq 'healthy') { $appHealthy = $true; break }
+    if ($health -eq 'unhealthy') { throw 'App container is unhealthy.' }
+    Start-Sleep -Seconds 2
+}
+if (-not $appHealthy) { throw 'App container did not become healthy.' }
 $sql = "select a.subject::text || '|' || o.id::text from actors a join customers c on c.actor_id = a.id join orders o on o.customer_id = c.id where o.status = 'CONFIRMED' order by o.created_at desc limit 1"
 $row = ($sql | & docker @composeArgs exec -T postgres psql -At -v ON_ERROR_STOP=1 `
     -U $settings['DB_USER'] -d $settings['DB_NAME']).Trim()
@@ -40,7 +50,10 @@ $admin = Invoke-RestMethod -Method Post -Uri "$keycloak/realms/master/protocol/o
 $adminHeaders = @{ Authorization = "Bearer $($admin.access_token)" }
 $user = Invoke-RestMethod -Method Get -Uri "$keycloak/admin/realms/fleetflow/users/$subject" `
     -Headers $adminHeaders
-if ($user.id -ne $subject -or -not $user.enabled) { throw 'Restored Keycloak subject is missing or disabled.' }
+if ($user.id -ne $subject -or -not $user.enabled -or
+        $user.email -notmatch '@example\.invalid$') {
+    throw 'Restored synthetic Keycloak subject is missing, disabled, or not a disposable test user.'
+}
 
 # This changes only the disposable restored user's synthetic password; the subject stays the same.
 $password = "$([guid]::NewGuid())-$([guid]::NewGuid())"
@@ -58,7 +71,8 @@ $appPort = if ($settings['APP_PORT']) { $settings['APP_PORT'] } else { '8080' }
 $app = "http://127.0.0.1:$appPort"
 $read = Invoke-WebRequest -Method Get -Uri "$app/api/v1/orders/$orderId" `
     -Headers $headers -SkipHttpErrorCheck
-if ($read.StatusCode -ne 200 -or ($read.Content | ConvertFrom-Json).id -ne $orderId) {
+if ($read.StatusCode -ne 200 -or ($read.Content | ConvertFrom-Json).id -ne $orderId -or
+        ($read.Content | ConvertFrom-Json).status -ne 'CONFIRMED') {
     throw "Signed restored order read returned $($read.StatusCode)."
 }
 $command = Invoke-WebRequest -Method Post -Uri "$app/api/v1/orders/$orderId/cancel" `
@@ -72,5 +86,5 @@ $stored = ($verifySql | & docker @composeArgs exec -T postgres psql -At -v ON_ER
     -U $settings['DB_USER'] -d $settings['DB_NAME']).Trim()
 if ($LASTEXITCODE -ne 0 -or $stored -ne 'CANCELLED') { throw 'Restored command did not persist.' }
 Write-Output 'Keycloak restored user ID matched the PostgreSQL actor subject.'
-Write-Output "Signed read: 200 order $orderId"
+Write-Output "Signed read: 200 CONFIRMED order $orderId"
 Write-Output 'Signed cancel: 200; PostgreSQL status CANCELLED.'

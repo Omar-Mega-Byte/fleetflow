@@ -14,6 +14,18 @@ $root = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
 $archivePath = (Resolve-Path -LiteralPath $Archive).Path
 $keyPath = (Resolve-Path -LiteralPath $KeyFile).Path
 $envPath = (Resolve-Path -LiteralPath $EnvironmentFile).Path
+if (-not (Get-Command docker -ErrorAction SilentlyContinue)) { throw 'Docker is required for restore.' }
+if ([IO.File]::ReadAllBytes($keyPath).Length -ne 32) { throw 'Backup key must contain 32 bytes.' }
+$settings = @{}
+foreach ($line in Get-Content -LiteralPath $envPath) {
+    if ($line -match '^([A-Z_]+)=(.*)$') { $settings[$Matches[1]] = $Matches[2] }
+}
+foreach ($name in @('DB_NAME', 'DB_USER', 'DB_PASSWORD', 'KC_ADMIN_USER', 'KC_ADMIN_PASSWORD', 'OIDC_ISSUER', 'OIDC_AUDIENCE')) {
+    if (-not $settings[$name]) { throw "Missing $name in private environment file." }
+}
+if ($settings['OIDC_ISSUER'] -notmatch '^http://127\.0\.0\.1:\d+/realms/fleetflow$') {
+    throw 'The restore rehearsal requires the local loopback OIDC issuer.'
+}
 Import-Module (Join-Path $PSScriptRoot 'BackupCrypto.psm1') -Force
 $composeArgs = @('compose', '--env-file', $envPath, '-p', $TargetProject,
     '-f', (Join-Path $root 'compose.yaml'))
@@ -40,7 +52,7 @@ try {
     Unprotect-FleetFlowArchive -InputFile $archivePath -OutputFile $zip -KeyFile $keyPath
     $payload = Join-Path $scratch 'payload'
     Expand-Archive -LiteralPath $zip -DestinationPath $payload
-    $manifest = Get-Content -LiteralPath (Join-Path $payload 'manifest.json') -Raw | ConvertFrom-Json
+    $manifest = Get-Content -LiteralPath (Join-Path $payload 'manifest.json') -Raw | ConvertFrom-Json -DateKind String
     if ($manifest.format -ne 'FleetFlow local backup v1' -or $manifest.project -eq $TargetProject) {
         throw 'Archive format invalid or target project equals the source project.'
     }
@@ -49,11 +61,8 @@ try {
         $actual = (Get-FileHash -LiteralPath (Join-Path $payload $item[0]) -Algorithm SHA256).Hash
         if ($actual -ne $item[1]) { throw "Backup payload integrity failed: $($item[0])." }
     }
-    $dbName = $null
-    foreach ($line in Get-Content -LiteralPath $envPath) {
-        if ($line -match '^DB_NAME=([A-Za-z_][A-Za-z0-9_]*)$') { $dbName = $Matches[1] }
-    }
-    if (-not $dbName -or $dbName -ne $manifest.databaseName) {
+    $dbName = $settings['DB_NAME']
+    if ($dbName -notmatch '^[A-Za-z_][A-Za-z0-9_]*$' -or $dbName -ne $manifest.databaseName) {
         throw 'Target DB_NAME must match the backed-up database name.'
     }
 
@@ -108,6 +117,7 @@ try {
         Invoke-Compose -Arguments @('up', '-d', '--build', '--pull', 'never',
             'keycloak', 'redis', 'kafka', 'app')
         $app = (& docker @composeArgs ps -q app).Trim()
+        if (-not $app) { throw 'Restored app container is missing.' }
         $healthy = $false
         for ($i = 0; $i -lt 60; $i++) {
             & docker exec $app wget -q -O /dev/null http://127.0.0.1:8080/actuator/health/readiness
@@ -115,6 +125,20 @@ try {
             Start-Sleep -Seconds 2
         }
         if (-not $healthy) { throw 'Restored app did not become ready; target is retained for inspection.' }
+        $serviceReadyAt = [DateTimeOffset]::UtcNow
+        $issuer = $settings['OIDC_ISSUER'] -replace '/realms/fleetflow$', ''
+        $identityReady = $false
+        for ($i = 0; $i -lt 120; $i++) {
+            try {
+                $identityStatus = Invoke-WebRequest -Uri "$issuer/realms/fleetflow/.well-known/openid-configuration" `
+                    -TimeoutSec 3 -SkipHttpErrorCheck
+                if ($identityStatus.StatusCode -eq 200) { $identityReady = $true; break }
+            } catch { }
+            Start-Sleep -Seconds 2
+        }
+        if (-not $identityReady) { throw 'Restored Keycloak realm did not become ready.' }
+        & (Join-Path $PSScriptRoot 'Verify-Restored-FleetFlow.ps1') -Project $TargetProject -EnvironmentFile $envPath
+        $functionalAt = [DateTimeOffset]::UtcNow
     }
     $finishedAt = [DateTimeOffset]::UtcNow
     Write-Output "Restored project: $TargetProject"
@@ -122,7 +146,13 @@ try {
     Write-Output "Restore started UTC: $($startedAt.ToString('o'))"
     Write-Output "Restore finished UTC: $($finishedAt.ToString('o'))"
     Write-Output "Elapsed seconds: $([math]::Round(($finishedAt - $startedAt).TotalSeconds, 1))"
-    Write-Output 'Signed read, command, Flyway, actor linkage, and replay validation remain operator checks.'
+    if (-not $NoStartApp) {
+        Write-Output "Service ready UTC: $($serviceReadyAt.ToString('o'))"
+        Write-Output "Signed functional verification UTC: $($functionalAt.ToString('o'))"
+        Write-Output "Measured RTO seconds: $([math]::Round(($functionalAt - $startedAt).TotalSeconds, 1))"
+    } else {
+        Write-Output 'Application and signed functional verification skipped by -NoStartApp.'
+    }
 } finally {
     $resolvedScratch = [IO.Path]::GetFullPath($scratch)
     if (-not $resolvedScratch.StartsWith($tempRoot, [StringComparison]::OrdinalIgnoreCase) -or

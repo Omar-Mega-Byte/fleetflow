@@ -4,6 +4,7 @@ param(
     [Parameter(Mandatory)][string]$Destination,
     [Parameter(Mandatory)][string]$KeyFile,
     [string]$CopyDestination,
+    [string]$RemoteDestination,
     [ValidateRange(1, 365)][int]$RetentionDays = 7
 )
 
@@ -28,6 +29,15 @@ if ($CopyDestination) {
     if ($copyPath.Equals($destPath, [StringComparison]::OrdinalIgnoreCase) -or
             $copyPath.StartsWith($root + [IO.Path]::DirectorySeparatorChar, [StringComparison]::OrdinalIgnoreCase)) {
         throw 'Copy destination must differ from the primary destination and be outside the repository.'
+    }
+}
+if ($RemoteDestination) {
+    if ($RemoteDestination -cnotmatch '^[A-Za-z0-9_-]+:[A-Za-z0-9_./-]+$' -or
+            $RemoteDestination.Contains('..')) {
+        throw 'Remote destination must be a named rclone remote and a dedicated folder.'
+    }
+    if (-not (Get-Command rclone -ErrorAction SilentlyContinue)) {
+        throw 'rclone is required for the remote backup copy.'
     }
 }
 Import-Module (Join-Path $PSScriptRoot 'BackupCrypto.psm1') -Force
@@ -118,6 +128,24 @@ try {
             throw 'Second-copy checksum mismatch.'
         }
     }
+    if ($RemoteDestination) {
+        $remoteFile = "$($RemoteDestination.TrimEnd('/'))/$(Split-Path -Leaf $backup)"
+        & rclone copyto $backup $remoteFile --no-traverse --retries 2
+        if ($LASTEXITCODE -ne 0) { throw 'Remote backup upload failed.' }
+        $remoteListing = @(& rclone lsf $RemoteDestination --files-only)
+        if ($LASTEXITCODE -ne 0 -or $remoteListing -notcontains (Split-Path -Leaf $backup)) {
+            throw 'Remote backup artifact is not independently listable.'
+        }
+        $retrieved = Join-Path $scratch 'remote-retrieved.ffbackup'
+        & rclone copyto $remoteFile $retrieved --retries 2
+        if ($LASTEXITCODE -ne 0 -or -not (Test-Path -LiteralPath $retrieved)) {
+            throw 'Remote backup artifact could not be retrieved.'
+        }
+        if ((Get-FileHash -LiteralPath $backup -Algorithm SHA256).Hash -ne
+                (Get-FileHash -LiteralPath $retrieved -Algorithm SHA256).Hash) {
+            throw 'Retrieved remote backup checksum mismatch.'
+        }
+    }
     foreach ($folder in @($destPath, $copyPath)) {
         if (-not $folder) { continue }
         Get-ChildItem -LiteralPath $folder -File -Filter "fleetflow-$Project-*.ffbackup" |
@@ -133,6 +161,7 @@ try {
     Write-Output "Created UTC: $($manifest.createdAtUtc)"
     Write-Output "SHA256: $((Get-FileHash -LiteralPath $backup -Algorithm SHA256).Hash)"
     Write-Output "Second copy verified: $([bool]$CopyDestination)"
+    Write-Output "Remote copy retrieved and verified: $([bool]$RemoteDestination)"
 } finally {
     try {
         if ($identityStopped) { Invoke-Compose -Arguments @('start', 'keycloak') }
