@@ -1,0 +1,14 @@
+route:
+  receiver: fleetflow-discord
+  group_by: [alertname]
+  group_wait: 5s
+  group_interval: 1m
+  repeat_interval: 4h
+
+receivers:
+  - name: fleetflow-discord
+    discord_configs:
+      - webhook_url_file: /run/secrets/discord_webhook_url
+        send_resolved: true
+        title: '{{ .Status | toUpper }}: {{ .CommonLabels.alertname }}'
+        message: '{{ .CommonAnnotations.summary }}'

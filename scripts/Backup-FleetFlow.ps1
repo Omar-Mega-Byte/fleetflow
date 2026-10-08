@@ -41,6 +41,7 @@ if ($RemoteDestination) {
     }
 }
 Import-Module (Join-Path $PSScriptRoot 'BackupCrypto.psm1') -Force
+Import-Module (Join-Path $PSScriptRoot 'BackupRetention.psm1') -Force
 if ([IO.File]::ReadAllBytes($keyPath).Length -ne 32) { throw 'Backup key must contain 32 bytes.' }
 $null = Get-Command docker -ErrorAction Stop
 $composeArgs = @('compose', '--env-file', $envPath, '-p', $Project, '-f', (Join-Path $root 'compose.yaml'))
@@ -144,6 +145,15 @@ try {
         if ((Get-FileHash -LiteralPath $backup -Algorithm SHA256).Hash -ne
                 (Get-FileHash -LiteralPath $retrieved -Algorithm SHA256).Hash) {
             throw 'Retrieved remote backup checksum mismatch.'
+        }
+        # Retain only this project's timestamped archives, after the new copy is verified.
+        $remoteListing = @(& rclone lsf $RemoteDestination --files-only)
+        if ($LASTEXITCODE -ne 0) { throw 'Remote retention listing failed.' }
+        $cutoff = [DateTime]::UtcNow.AddDays(-$RetentionDays)
+        $expired = @(Get-FleetFlowExpiredRemoteArchives -Names $remoteListing -Project $Project -CutoffUtc $cutoff)
+        foreach ($name in $expired) {
+            & rclone deletefile "$($RemoteDestination.TrimEnd('/'))/$name"
+            if ($LASTEXITCODE -ne 0) { throw 'Remote retention deletion failed.' }
         }
     }
     foreach ($folder in @($destPath, $copyPath)) {

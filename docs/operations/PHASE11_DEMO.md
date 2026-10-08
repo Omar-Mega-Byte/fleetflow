@@ -44,7 +44,7 @@ Create a 32-byte key outside the repository as shown in [BACKUP_RESTORE.md](BACK
   -RemoteDestination 'gdrive:FleetFlow-Backups' -RetentionDays 7
 ```
 
-`-RemoteDestination` requires an already authorized remote and fails the command if upload, independent listing, retrieval, or hash verification fails. A local-only backup can omit that argument, but cannot prove off-host recovery. The 2026-10-07 remote attempt failed with `invalid_grant`; see the evidence record before claiming completion.
+`-RemoteDestination` requires an already authorized remote and fails the command if upload, independent listing, retrieval, or hash verification fails. A local-only backup can omit that argument, but cannot prove off-host recovery. The 2026-10-07 remote attempt failed with `invalid_grant`, but the operator reconnected `gdrive:` on 2026-10-08. The later upload, independent download/hash, and fresh signed restore passed; see the recovery record. Ongoing scheduled operation and key custody remain separate gates.
 
 With an app running against populated synthetic data, the bounded workload is:
 

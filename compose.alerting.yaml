@@ -1,0 +1,33 @@
+# Optional Discord delivery overlay. Include after compose.monitoring.yaml.
+services:
+  prometheus:
+    command:
+      - --config.file=/etc/prometheus/prometheus-alerting.yml
+      - --storage.tsdb.path=/prometheus
+      - --storage.tsdb.retention.time=7d
+    volumes:
+      - ./ops/monitoring/prometheus-alerting.yml:/etc/prometheus/prometheus-alerting.yml:ro
+    depends_on:
+      alertmanager:
+        condition: service_started
+
+  alertmanager:
+    image: prom/alertmanager:v0.34.1@sha256:e9733bafb1bdef9b00e25a21f8f99dc26a22224bf16641ad754d1649f4c3357a
+    profiles: [monitoring]
+    command:
+      - --config.file=/etc/alertmanager/alertmanager.yml
+      - --storage.path=/alertmanager
+    volumes:
+      - ./ops/monitoring/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+      - alertmanager_data:/alertmanager
+    networks:
+      - monitoring
+    secrets:
+      - discord_webhook_url
+
+volumes:
+  alertmanager_data:
+
+secrets:
+  discord_webhook_url:
+    file: ${DISCORD_WEBHOOK_FILE:?Set DISCORD_WEBHOOK_FILE to a private local file}

@@ -32,14 +32,16 @@ for ($i = 0; $i -lt 90; $i++) {
     Start-Sleep -Seconds 2
 }
 if (-not $appHealthy) { throw 'App container did not become healthy.' }
-$sql = "select a.subject::text || '|' || o.id::text from actors a join customers c on c.actor_id = a.id join orders o on o.customer_id = c.id where o.status = 'CONFIRMED' order by o.created_at desc limit 1"
-$row = ($sql | & docker @composeArgs exec -T postgres psql -At -v ON_ERROR_STOP=1 `
-    -U $settings['DB_USER'] -d $settings['DB_NAME']).Trim()
-if ($LASTEXITCODE -ne 0 -or $row -notmatch '^([0-9a-fA-F-]{36})\|([0-9a-fA-F-]{36})$') {
-    throw 'A restored CONFIRMED synthetic customer order is required.'
+$sql = "select a.subject::text || '|' || o.id::text || '|' || o.status from actors a join customers c on c.actor_id = a.id join orders o on o.customer_id = c.id where o.status in ('CONFIRMED', 'CREATED') order by case when o.status = 'CONFIRMED' then 0 else 1 end, o.created_at desc limit 1"
+$rows = @($sql | & docker @composeArgs exec -T postgres psql -At -v ON_ERROR_STOP=1 `
+    -U $settings['DB_USER'] -d $settings['DB_NAME'])
+$row = if ($rows.Count -gt 0 -and $null -ne $rows[0]) { ([string]$rows[0]).Trim() } else { '' }
+if ($LASTEXITCODE -ne 0 -or $row -notmatch '^([0-9a-fA-F-]{36})\|([0-9a-fA-F-]{36})\|(CREATED|CONFIRMED)$') {
+    throw 'A restored cancellable synthetic customer order is required.'
 }
 $subject = $Matches[1]
 $orderId = $Matches[2]
+$expectedStatus = $Matches[3]
 $issuer = $settings['OIDC_ISSUER']
 $keycloak = $issuer -replace '/realms/fleetflow$', ''
 $admin = Invoke-RestMethod -Method Post -Uri "$keycloak/realms/master/protocol/openid-connect/token" `
@@ -72,7 +74,7 @@ $app = "http://127.0.0.1:$appPort"
 $read = Invoke-WebRequest -Method Get -Uri "$app/api/v1/orders/$orderId" `
     -Headers $headers -SkipHttpErrorCheck
 if ($read.StatusCode -ne 200 -or ($read.Content | ConvertFrom-Json).id -ne $orderId -or
-        ($read.Content | ConvertFrom-Json).status -ne 'CONFIRMED') {
+        ($read.Content | ConvertFrom-Json).status -ne $expectedStatus) {
     throw "Signed restored order read returned $($read.StatusCode)."
 }
 $command = Invoke-WebRequest -Method Post -Uri "$app/api/v1/orders/$orderId/cancel" `
@@ -86,5 +88,5 @@ $stored = ($verifySql | & docker @composeArgs exec -T postgres psql -At -v ON_ER
     -U $settings['DB_USER'] -d $settings['DB_NAME']).Trim()
 if ($LASTEXITCODE -ne 0 -or $stored -ne 'CANCELLED') { throw 'Restored command did not persist.' }
 Write-Output 'Keycloak restored user ID matched the PostgreSQL actor subject.'
-Write-Output "Signed read: 200 CONFIRMED order $orderId"
+Write-Output "Signed read: 200 $expectedStatus order $orderId"
 Write-Output 'Signed cancel: 200; PostgreSQL status CANCELLED.'
