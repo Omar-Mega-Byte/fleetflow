@@ -54,6 +54,18 @@ python scripts/Phase11-Load.py --project fleetflow-phase11-demo --env-file .env 
 
 The script samples five signed customer/driver reads per second, one signed heartbeat per second, and two signed fixes every ten seconds through at most 12 worker threads. It requires one existing customer order and two enabled synthetic drivers. It exits nonzero on an unexpected error rate of at least 1%, any 5xx, read p95 of at least 1 second, or command p95 of at least 2 seconds. Inspect its JSON output and repeat readiness plus outbox/assignment invariant checks after the run. It does not simulate ten drivers or ten concurrent SSE streams.
 
+To exercise the separate driver and stream breadth target on a **disposable** project that already contains one synthetic template order, run:
+
+```powershell
+python scripts/Phase11-Breadth.py --project fleetflow-phase11-demo --env-file .env --duration-seconds 600
+```
+
+This drill creates ten new synthetic customer identities and orders plus ten driver identities and vehicles in the named local project. It uses Keycloak-signed tokens, opens one SSE stream per customer, samples the private active-stream gauge, and sends five signed reads/s, driver heartbeats, and ten fixes every ten seconds. It fails on an unexpected error rate of at least 1%, any 5xx, p95 read latency of at least 1 second, p95 command latency of at least 2 seconds, or average sampled stream count below 9.5. Its actors and orders are test fixtures retained in the disposable volumes; the script does not delete or alter other projects. It does not simulate sustained business order-transition commands.
+
+On 2026-10-08, the 600-second breadth run on `fleetflow-phase11-replay` passed: 4,600 signed requests in 599.04 s (7.68/s), 3,000 HTTP 200, 1,600 HTTP 204, zero unexpected errors, read p50/p95/p99 19.9/55.8/81.6 ms, and command p50/p95/p99 31.4/84.6/136.0 ms. The private active-stream gauge stayed at ten across 20 samples with zero recorded stream errors. App CPU snapshots were 1.45% and 3.88%; memory snapshots were 516.5 and 565.1 MiB. Readiness was `UP` afterward, with twelve successful migrations and all 66 outbox events `PUBLISHED`. The private JSON log and its SHA-256 `FED1FAF24C51505867D986A7634FD1736D83FC245E0268DD21E1CD4FB2929980` were kept outside Git under `%LOCALAPPDATA%\FleetFlowPhase11\breadth-600-20261008.log`.
+
+The breadth drill requires the app's active-stream gauge to be zero before it creates fixtures. After a client exits, the server may retain its SSE session until a heartbeat detects the disconnect or the five-minute stream lifetime ends. Wait for zero or restart only the disposable app before rerunning; the latter clears in-memory streams without altering PostgreSQL data.
+
 Stop only this project, preserving volumes, then restore the selected encrypted archive into a **different, empty** project. Use a remotely retrieved file if off-host recovery is the gate being tested:
 
 ```powershell
