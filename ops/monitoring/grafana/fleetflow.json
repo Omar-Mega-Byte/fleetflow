@@ -421,7 +421,7 @@
       },
       "targets": [
         {
-          "expr": "sum(rate(http_server_requests_seconds_count{uri=~\"/api/v1/.*\",status=~\"5..\"}[5m]))",
+          "expr": "sum(rate(http_server_requests_seconds_count{uri=~\"/api/v1/.*\",status=~\"5..\"}[5m])) or vector(0)",
           "refId": "A",
           "legendFormat": "5xx/s"
         }

@@ -31,6 +31,8 @@ docker compose --env-file .env -p fleetflow-phase11-demo -f compose.yaml -f comp
 
 Require the app and dependency health checks to pass. Prometheus must show the `fleetflow` scrape target `up`; Grafana at `http://127.0.0.1:${GRAFANA_PORT:-3000}` must contain **FleetFlow / local operations**. Inspect the scrape, database, Redis, HTTP, outbox, consumer, and SSE panels. The monitoring and alert commands and expected transitions are in [MONITORING.md](MONITORING.md). Stop Kafka in this disposable project, commit a signed order transition (the signed verifier can use a synthetic `CONFIRMED` order), wait for `FleetFlowOutboxBacklog` to fire, restart Kafka, and require a published event, one notification effect, analytics effect, and alert recovery. Do not delete the pending event to make the alert clear.
 
+With signed traffic present and the private Grafana credential file configured, run `./scripts/Test-Phase11-Dashboard.ps1 -EnvironmentFile .env -RequireSamples`. It checks every dashboard query through Grafana's datasource API without displaying credentials. Also inspect the panels in a browser where one is available; API query success alone does not establish browser rendering.
+
 ## Backup, load, and recovery
 
 Create a 32-byte key outside the repository as shown in [BACKUP_RESTORE.md](BACKUP_RESTORE.md). While the app and Keycloak are running, take a quiesced encrypted backup:

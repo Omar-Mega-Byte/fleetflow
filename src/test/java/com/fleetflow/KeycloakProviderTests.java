@@ -163,6 +163,53 @@ class KeycloakProviderTests {
                 .andExpect(status().isOk()).andExpect(jsonPath("$.totalElements").value(0));
     }
 
+    @Test
+    void disablingProviderUserRequiresLocalActorDeactivationToRevokeIssuedJwt() throws Exception {
+        String adminToken = token("master", "admin-cli", ADMIN_USER, ADMIN_PASSWORD);
+        String username = "disabled-" + UUID.randomUUID();
+        String password = UUID.randomUUID() + "-" + UUID.randomUUID();
+        String userBody = """
+                {"username":"%s","email":"%s@example.invalid","emailVerified":true,
+                 "firstName":"Test","lastName":"Disabled","enabled":true,"requiredActions":[],
+                 "credentials":[{"type":"password","value":"%s","temporary":false}]}
+                """.formatted(username, username, password);
+        HttpClient client = HttpClient.newHttpClient();
+        HttpResponse<String> created = client.send(HttpRequest.newBuilder(
+                        URI.create(base() + "/admin/realms/fleetflow/users"))
+                        .header("Authorization", "Bearer " + adminToken)
+                        .header("Content-Type", MediaType.APPLICATION_JSON_VALUE)
+                        .POST(HttpRequest.BodyPublishers.ofString(userBody)).build(),
+                HttpResponse.BodyHandlers.ofString());
+        assertThat(created.statusCode()).isEqualTo(201);
+
+        String issuedToken = token("fleetflow", "fleetflow-cli", username, password);
+        String subject = SignedJWT.parse(issuedToken).getJWTClaimsSet().getSubject();
+        UUID actor = UUID.randomUUID();
+        jdbc.update("insert into actors (id, issuer, subject, active, created_at, updated_at) "
+                + "values (?, ?, ?, true, now(), now())", actor, ISSUER, subject);
+        jdbc.update("insert into actor_roles (actor_id, role) values (?, 'CUSTOMER')", actor);
+        jdbc.update("insert into customers (id, actor_id, display_name, created_at, updated_at) "
+                + "values (?, ?, 'Disabled account test', now(), now())", UUID.randomUUID(), actor);
+        var mvc = MockMvcBuilders.webAppContextSetup(context)
+                .addFilters(new CorrelationIdFilter(), context.getBean("springSecurityFilterChain", Filter.class))
+                .build();
+        String bearer = "Bearer " + issuedToken;
+        mvc.perform(get("/api/v1/orders").header("Authorization", bearer)).andExpect(status().isOk());
+
+        HttpResponse<String> disabled = client.send(HttpRequest.newBuilder(
+                        URI.create(base() + "/admin/realms/fleetflow/users/" + subject))
+                        .header("Authorization", "Bearer " + adminToken)
+                        .header("Content-Type", MediaType.APPLICATION_JSON_VALUE)
+                        .PUT(HttpRequest.BodyPublishers.ofString("{\"enabled\":false}"))
+                        .build(), HttpResponse.BodyHandlers.ofString());
+        assertThat(disabled.statusCode()).isEqualTo(204);
+        // JWT validation is local. Disabling the provider account does not revoke a signed,
+        // unexpired token already accepted by this resource server.
+        mvc.perform(get("/api/v1/orders").header("Authorization", bearer)).andExpect(status().isOk());
+        jdbc.update("update actors set active = false, updated_at = now() where id = ?", actor);
+        mvc.perform(get("/api/v1/orders").header("Authorization", bearer)).andExpect(status().isForbidden());
+    }
+
     private static String token(String realm, String client, String username, String password) throws Exception {
         String body = "grant_type=password&client_id=" + encode(client) + "&username=" + encode(username)
                 + "&password=" + encode(password);
