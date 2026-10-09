@@ -50,10 +50,15 @@ function Invoke-Compose([string[]]$Arguments) {
     if ($LASTEXITCODE -ne 0) { throw "Docker Compose $($Arguments[0]) failed." }
 }
 function Require-Running([string]$Service) {
-    $id = (& docker @composeArgs ps -q $Service).Trim()
-    if ($LASTEXITCODE -ne 0 -or -not $id) { throw "$Service container is missing." }
-    $running = (& docker inspect --format '{{.State.Running}}' $id).Trim()
-    if ($LASTEXITCODE -ne 0 -or $running -ne 'true') { throw "$Service must be running." }
+    $idOutput = & docker @composeArgs ps -q $Service
+    if ($LASTEXITCODE -ne 0) { throw "Compose status failed for $Service." }
+    if (-not $idOutput) { throw "$Service container is missing." }
+    $id = ([string]$idOutput).Trim()
+    $runningOutput = & docker inspect --format '{{.State.Running}}' $id
+    if ($LASTEXITCODE -ne 0) { throw "Container inspection failed for $Service." }
+    if (-not $runningOutput) { throw "Container inspection returned no state for $Service." }
+    $running = ([string]$runningOutput).Trim()
+    if ($running -ne 'true') { throw "$Service must be running." }
     return $id
 }
 

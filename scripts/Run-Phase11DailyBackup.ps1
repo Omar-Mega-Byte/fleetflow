@@ -41,7 +41,8 @@ try {
         -Destination (Join-Path $backupHome 'backups') `
         -KeyFile $scheduledKey `
         -RemoteDestination 'gdrive:FleetFlow-Backups' `
-        -DiscordWebhookFile (Join-Path $root '.env.discord-webhook') -RetentionDays 7
+        -DiscordWebhookFile (Join-Path $root '.env.discord-webhook') -RetentionDays 7 `
+        -EnsureProjectRunning
     Write-Output "FleetFlow scheduled backup completed UTC: $([DateTimeOffset]::UtcNow.ToString('o'))"
 } catch {
     $failed = $true
