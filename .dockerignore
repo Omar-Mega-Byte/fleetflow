@@ -1,6 +1,7 @@
-.git
-.env
-target
-*.log
-docs
-scripts
+# The image build only needs application sources and the Maven project model.
+*
+!Dockerfile
+!pom.xml
+!src/
+!src/main/
+!src/main/**

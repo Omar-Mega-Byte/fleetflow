@@ -12,7 +12,7 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U \"$$POSTGRES_USER\" -d \"$$POSTGRES_DB\""]
+      test: ["CMD-SHELL", "test \"$$(psql -U \"$$POSTGRES_USER\" -d \"$$POSTGRES_DB\" -tAc \"select count(*) from pg_extension where extname = 'postgis'\" 2>/dev/null)\" = 1"]
       interval: 5s
       timeout: 3s
       retries: 10
@@ -24,11 +24,18 @@ services:
     environment:
       KC_BOOTSTRAP_ADMIN_USERNAME: ${KC_ADMIN_USER:?Set KC_ADMIN_USER in .env}
       KC_BOOTSTRAP_ADMIN_PASSWORD: ${KC_ADMIN_PASSWORD:?}
+      KC_HEALTH_ENABLED: "true"
     ports:
       - "127.0.0.1:${OIDC_PORT:-8081}:8080"
     volumes:
       - keycloak_data:/opt/keycloak/data
       - ./src/main/resources/oidc/fleetflow-realm.json:/opt/keycloak/data/import/fleetflow-realm.json:ro
+    healthcheck:
+      test: ["CMD", "bash", "-ec", "exec 3<>/dev/tcp/127.0.0.1/9000; printf 'GET /health/ready HTTP/1.0\\r\\n\\r\\n' >&3; IFS= read -r status <&3; [[ $$status == *' 200 '* ]]"]
+      interval: 10s
+      timeout: 5s
+      retries: 18
+      start_period: 30s
 
   redis:
     image: redis:7.4.7-alpine@sha256:02f2cc4882f8bf87c79a220ac958f58c700bdec0dfb9b9ea61b62fb0e8f1bfcf
@@ -73,6 +80,7 @@ services:
       start_period: 20s
 
   app:
+    image: fleetflow-app:${FLEETFLOW_IMAGE_TAG:-local}
     build:
       context: .
       dockerfile: Dockerfile
@@ -111,7 +119,9 @@ services:
       redis:
         condition: service_healthy
       keycloak:
-        condition: service_started
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
     healthcheck:
       test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8080/actuator/health/readiness"]
       interval: 10s
