@@ -104,19 +104,21 @@ public class RouteRateLimits implements HandlerInterceptor {
     }
 
     private long localFallback(String key, ClassPolicy policy) {
-        long now = System.nanoTime();
-        if (fallback.size() > 10_000) {
-            fallback.entrySet().removeIf(entry -> now >= entry.getValue().endsAt);
-            if (fallback.size() > 10_000 && !fallback.containsKey(key)) {
-                throw new ApiFailure(HttpStatus.SERVICE_UNAVAILABLE, "RATE_LIMIT_UNAVAILABLE",
-                        "Request capacity control unavailable");
+        synchronized (fallback) {
+            long now = System.nanoTime();
+            if (fallback.size() >= 10_000) {
+                fallback.entrySet().removeIf(entry -> now >= entry.getValue().endsAt);
+                if (fallback.size() >= 10_000 && !fallback.containsKey(key)) {
+                    throw new ApiFailure(HttpStatus.SERVICE_UNAVAILABLE, "RATE_LIMIT_UNAVAILABLE",
+                            "Request capacity control unavailable");
+                }
             }
+            LocalWindow window = fallback.compute(key, (ignored, previous) ->
+                    previous == null || now >= previous.endsAt
+                            ? new LocalWindow(now + policy.window.toNanos(), 1)
+                            : new LocalWindow(previous.endsAt, previous.count + 1));
+            return window.count > policy.limit ? Math.max(1, (window.endsAt - now) / 1_000_000) : 0;
         }
-        LocalWindow window = fallback.compute(key, (ignored, previous) ->
-                previous == null || now >= previous.endsAt
-                        ? new LocalWindow(now + policy.window.toNanos(), 1)
-                        : new LocalWindow(previous.endsAt, previous.count + 1));
-        return window.count > policy.limit ? Math.max(1, (window.endsAt - now) / 1_000_000) : 0;
     }
 
     private ClassPolicy policy(String method, String path) {

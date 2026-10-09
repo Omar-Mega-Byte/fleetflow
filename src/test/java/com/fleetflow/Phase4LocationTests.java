@@ -1,7 +1,9 @@
 package com.fleetflow;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -232,6 +234,37 @@ class Phase4LocationTests extends ProfileTestDatabase {
         mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders
                         .get("/api/v1/drivers/me").header("Authorization", bearer(customer)))
                 .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void commandExpensiveReadAndStreamBudgetsRejectWithoutChangingDriverState() throws Exception {
+        Fixture driver = fixture("DRIVER", true, true);
+        String before = jdbc.queryForObject("select operational_status from drivers where id = ?",
+                String.class, driver.driverId);
+        redisTemplate.opsForValue().set("fleetflow:rate:route:command:" + driver.actorId,
+                "30", Duration.ofSeconds(10));
+        mvc.perform(post("/api/v1/drivers/me/online").header("Authorization", bearer(driver)))
+                .andExpect(status().isTooManyRequests())
+                .andExpect(jsonPath("$.code").value("RATE_LIMITED"))
+                .andExpect(header().exists("Retry-After"));
+        assertThat(jdbc.queryForObject("select operational_status from drivers where id = ?",
+                String.class, driver.driverId)).isEqualTo(before);
+
+        Fixture dispatcher = fixture("DISPATCHER", false, false);
+        redisTemplate.opsForValue().set("fleetflow:rate:route:expensive_read:" + dispatcher.actorId,
+                "30", Duration.ofSeconds(10));
+        mvc.perform(get("/api/v1/dispatch/analytics/daily")
+                        .header("Authorization", bearer(dispatcher)))
+                .andExpect(status().isTooManyRequests())
+                .andExpect(header().exists("Retry-After"));
+
+        Fixture customer = fixture("CUSTOMER", false, false);
+        redisTemplate.opsForValue().set("fleetflow:rate:route:stream:" + customer.actorId,
+                "6", Duration.ofMinutes(1));
+        mvc.perform(get("/api/v1/orders/{id}/tracking/stream", UUID.randomUUID())
+                        .header("Authorization", bearer(customer)))
+                .andExpect(status().isTooManyRequests())
+                .andExpect(header().exists("Retry-After"));
     }
 
     @Test

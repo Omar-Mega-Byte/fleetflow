@@ -103,6 +103,46 @@ def bootstrap(project, env_file, values, issuer, count):
     return customers, drivers
 
 
+def prepare_business_transitions(project, env_file, values, issuer, count):
+    """Create disposable orders and one real signed merchant for guarded commands."""
+    base = issuer.removesuffix("/realms/fleetflow")
+    admin = form(base + "/realms/master/protocol/openid-connect/token",
+                 {"grant_type": "password", "client_id": "admin-cli",
+                  "username": values["KC_ADMIN_USER"],
+                  "password": values["KC_ADMIN_PASSWORD"]})["access_token"]
+    credentials, token, subject = create_identity("MERCHANT", issuer, admin)
+    actor_id, membership_id = uuid.uuid4(), uuid.uuid4()
+    template = sql(project, env_file, values,
+                   "select id::text || '|' || customer_id::text || '|' || merchant_branch_id::text "
+                   "from orders order by created_at limit 1")
+    if not template:
+        raise RuntimeError("A template order is required for business load")
+    template_id, _, branch_id = template[0].split("|")
+    sql(project, env_file, values,
+        f"insert into actors (id, issuer, subject, active, created_at, updated_at) "
+        f"values ('{actor_id}', '{issuer}', '{subject}', true, now(), now()); "
+        f"insert into actor_roles (actor_id, role) values ('{actor_id}', 'MERCHANT'); "
+        f"insert into merchant_staff_memberships (id, actor_id, branch_id, active, created_at) "
+        f"values ('{membership_id}', '{actor_id}', '{branch_id}', true, now())")
+    marker = "Phase11-business-" + str(uuid.uuid4())
+    orders = sql(project, env_file, values,
+        "with inserted as (insert into orders (id, customer_id, merchant_branch_id, status, "
+        "customer_name_snapshot, merchant_name_snapshot, branch_name_snapshot, "
+        "pickup_line1, pickup_city, pickup_latitude, pickup_longitude, "
+        "delivery_line1, delivery_city, delivery_latitude, delivery_longitude, "
+        "currency, total_amount, created_at, updated_at) "
+        f"select gen_random_uuid(), customer_id, merchant_branch_id, 'CREATED', '{marker}', "
+        "merchant_name_snapshot, branch_name_snapshot, pickup_line1, pickup_city, "
+        "pickup_latitude, pickup_longitude, delivery_line1, delivery_city, "
+        "delivery_latitude, delivery_longitude, currency, total_amount, now(), now() "
+        f"from orders cross join generate_series(1, {count}) where id = '{template_id}' "
+        "returning id) select id from inserted")
+    if len(orders) != count or any(not re.fullmatch(r"[0-9a-f-]{36}", item) for item in orders):
+        raise RuntimeError("Disposable business order count did not match the target")
+    return {"credentials": credentials, "token": token, "branch": branch_id,
+            "orders": orders, "marker": marker}
+
+
 def active_streams(project):
     app = subprocess.run(["docker", "ps", "-q", "--filter",
                           f"label=com.docker.compose.project={project}", "--filter",
@@ -149,6 +189,8 @@ def main():
     parser.add_argument("--project", required=True)
     parser.add_argument("--env-file", type=Path, required=True)
     parser.add_argument("--duration-seconds", type=int, default=600)
+    parser.add_argument("--business-transitions", action="store_true",
+                        help="Add one signed merchant order confirmation per second")
     args = parser.parse_args()
     if not re.fullmatch(r"fleetflow-phase11-[a-z0-9-]+", args.project):
         raise RuntimeError("Only a disposable Phase 11 Compose project is allowed")
@@ -163,6 +205,9 @@ def main():
     if active_streams(args.project) != 0:
         raise RuntimeError("Wait for prior SSE sessions to expire or restart the disposable app")
     customers, drivers = bootstrap(args.project, env_file, values, issuer, 10)
+    business = (prepare_business_transitions(args.project, env_file, values, issuer,
+                                             args.duration_seconds)
+                if args.business_transitions else None)
     for index, driver in enumerate(drivers):
         code, _, _ = request(app + "/api/v1/drivers/me/online", "POST", driver["token"])
         if code != 200:
@@ -192,7 +237,7 @@ def main():
                 if delay > 0:
                     time.sleep(delay)
                 if second and second % 120 == 0:
-                    for user in customers + drivers:
+                    for user in customers + drivers + ([business] if business else []):
                         user["token"] = access_token(issuer, user["credentials"])
                 customer = customers[second % 10]
                 driver = drivers[second % 10]
@@ -207,6 +252,10 @@ def main():
                     pending.append((kind, pool.submit(request, url, token=token)))
                 pending.append(("command", pool.submit(
                     request, app + "/api/v1/drivers/me/heartbeat", "POST", driver["token"])))
+                if business:
+                    pending.append(("business", pool.submit(
+                        request, app + f"/api/v1/merchant-branches/{business['branch']}"
+                        f"/orders/{business['orders'][second]}/confirm", "POST", business["token"])))
                 if second % 10 == 0:
                     for index, item in enumerate(drivers):
                         pending.append(("command", pool.submit(
@@ -231,7 +280,7 @@ def main():
         unexpected = sum(count for code, count in codes.items() if code not in ("200", "204"))
         by_kind = {kind: [ms for sample_kind, code, ms in results
                           if sample_kind == kind and code in (200, 204)]
-                   for kind in ("read", "command")}
+                   for kind in ("read", "command", "business")}
         report = {
             "started_utc": start_utc, "duration_seconds": round(elapsed, 2),
             "target_duration_seconds": args.duration_seconds,
@@ -245,13 +294,43 @@ def main():
                         for key, fraction in (("p50", .5), ("p95", .95), ("p99", .99))},
             "command_ms": {key: percentile(by_kind["command"], fraction)
                            for key, fraction in (("p50", .5), ("p95", .95), ("p99", .99))},
+            "business_transitions": len(by_kind["business"]),
+            "business_ms": {key: percentile(by_kind["business"], fraction)
+                            for key, fraction in (("p50", .5), ("p95", .95), ("p99", .99))},
             "app_stats_before": stats_before, "app_stats_after": stats_after,
         }
+        if business:
+            report["confirmed_rows"] = int(sql(args.project, env_file, values,
+                "select count(*) from orders where customer_name_snapshot = "
+                f"'{business['marker']}' and status = 'CONFIRMED'")[0])
+            deadline = time.monotonic() + 120
+            while True:
+                counts = sql(args.project, env_file, values,
+                    "select count(*)::text || '|' || "
+                    "count(*) filter (where e.status = 'PUBLISHED')::text || '|' || "
+                    "(select count(*) from processed_events p join outbox_events e2 "
+                    "on e2.id = p.event_id join orders o2 on o2.id = e2.aggregate_id "
+                    f"where o2.customer_name_snapshot = '{business['marker']}')::text "
+                    "from outbox_events e join orders o on o.id = e.aggregate_id "
+                    f"where o.customer_name_snapshot = '{business['marker']}'")
+                total, published, projected = map(int, counts[0].split("|"))
+                if total == published == args.duration_seconds and projected == 2 * total:
+                    break
+                if time.monotonic() >= deadline:
+                    raise RuntimeError("Business outbox did not publish and project within two minutes")
+                time.sleep(2)
+            report["business_outbox_total"] = total
+            report["business_outbox_published"] = published
+            report["business_processed_markers"] = projected
         print(json.dumps(report, indent=2))
         if unexpected / len(results) >= .01 or any(code.startswith("5") for code in codes):
             raise RuntimeError("Unexpected error objective failed")
         if report["read_ms"]["p95"] >= 1000 or report["command_ms"]["p95"] >= 2000:
             raise RuntimeError("Latency objective failed")
+        if business and (report["business_transitions"] != args.duration_seconds
+                         or report["confirmed_rows"] != args.duration_seconds
+                         or report["business_ms"]["p95"] >= 2000):
+            raise RuntimeError("Guarded business transition objective failed")
         if max(gauges) != 10 or sum(gauges) / len(gauges) < 9.5:
             raise RuntimeError("Ten-stream availability objective failed")
     finally:
