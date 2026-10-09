@@ -24,4 +24,6 @@ jobs:
       - name: Validate Compose
         run: docker compose --env-file .env.example -f compose.yaml config --quiet
       - name: Verify
+        env:
+          TESTCONTAINERS_HUB_IMAGE_NAME_PREFIX: mirror.gcr.io/
         run: ./mvnw verify --batch-mode --no-transfer-progress
