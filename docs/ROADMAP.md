@@ -1,6 +1,6 @@
 # FleetFlow execution roadmap
 
-[PROJECT_CONTEXT.md](../PROJECT_CONTEXT.md) is the primary living context. This roadmap tracks implementation status; the later phases remain plans. Status vocabulary: `NOT_STARTED` means planned only, `IN_PROGRESS` means implementation under way, `BLOCKED` means an identified prerequisite prevents completion, and `COMPLETE` means the phase acceptance gate passed with recorded evidence. As reconciled in the [Phase 11 baseline](operations/PHASE11_BASELINE.md), Phases 4–8 have recorded acceptance and are included in the last fetched `origin/main`; Phases 9–10 have recorded acceptance on review branches, while their current merge state requires a live check.
+[PROJECT_CONTEXT.md](../PROJECT_CONTEXT.md) is the primary living context. This roadmap tracks implementation status; the later phases remain plans. Status vocabulary: `NOT_STARTED` means planned only, `IN_PROGRESS` means implementation under way, `BLOCKED` means an identified prerequisite prevents completion, `CLOSED_PARTIAL` means work stopped with some acceptance gates unmet, and `COMPLETE` means the phase acceptance gate passed with recorded evidence. As reconciled in the [Phase 11 baseline](operations/PHASE11_BASELINE.md), Phases 4–8 have recorded acceptance and are included in the last fetched `origin/main`; Phases 9–10 have recorded acceptance on review branches, while their current merge state requires a live check.
 
 | Phase | Status | Purpose |
 | --- | --- | --- |
@@ -15,7 +15,7 @@
 | [8](phases/PHASE_8.md) Async events | COMPLETE | Kafka, transactional outbox, idempotent notification and analytics; local and PR CI evidence recorded |
 | [9](phases/Phase9.md) Live tracking | COMPLETE | Authorized SSE snapshot/stream and local driver simulator; local and PR CI evidence recorded |
 | 10 Zones | COMPLETE | PostGIS serviceability and geofencing after basic dispatch; [Phase 10](phases/Phase10.md) records local and CI acceptance and PR #12 was merged into the Phase 9 review branch |
-| [11](phases/phase11.md) Hardening | IN_PROGRESS | Signed demo, off-host retrieval/fresh restore, measured local RPO/RTO and load passed; daily schedule reliability, separate-machine recovery, full security/operations and final review gates remain open |
+| [11](phases/phase11.md) Hardening | CLOSED_PARTIAL | Verified local demo, backup/restore, load, security and CI evidence retained. Operator cancelled the remaining acceptance work on 2026-10-09; daily backup stays active. This is not production acceptance or a `COMPLETE` phase. |
 
 ## Why this order differs from the source outline
 
