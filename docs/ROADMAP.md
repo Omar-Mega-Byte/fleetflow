@@ -15,7 +15,7 @@
 | [8](phases/PHASE_8.md) Async events | COMPLETE | Kafka, transactional outbox, idempotent notification and analytics; local and PR CI evidence recorded |
 | [9](phases/Phase9.md) Live tracking | COMPLETE | Authorized SSE snapshot/stream and local driver simulator; local and PR CI evidence recorded |
 | 10 Zones | COMPLETE | PostGIS serviceability and geofencing after basic dispatch; [Phase 10](phases/Phase10.md) records local and CI acceptance and PR #12 was merged into the Phase 9 review branch |
-| [11](phases/phase11.md) Hardening | IN_PROGRESS | Signed demo, local restore, measured local RPO/RTO and load passed; off-host custody, schedule, full security/operations and final review gates remain open |
+| [11](phases/phase11.md) Hardening | IN_PROGRESS | Signed demo, off-host retrieval/fresh restore, measured local RPO/RTO and load passed; daily schedule reliability, separate-machine recovery, full security/operations and final review gates remain open |
 
 ## Why this order differs from the source outline
 
