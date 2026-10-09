@@ -9,6 +9,15 @@ __pycache__/
 !.env.example
 *.log
 logs/
+*.bak
+*.tmp
+*.old
+*.swp
+*.swo
+coverage/
+.coverage
+htmlcov/
+.pytest_cache/
 *.pid
 *.key
 *.pem

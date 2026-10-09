@@ -21,5 +21,7 @@ jobs:
           cache: maven
       - name: Tracked credential preflight
         run: python3 scripts/Phase11-Secret-Audit.py
+      - name: Validate Compose
+        run: docker compose --env-file .env.example -f compose.yaml config --quiet
       - name: Verify
         run: ./mvnw verify --batch-mode --no-transfer-progress
