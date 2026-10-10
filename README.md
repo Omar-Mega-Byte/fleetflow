@@ -12,20 +12,24 @@
 
 <table>
   <tr>
-    <td width="33%" valign="top">
-      <img src="docs/assets/readme/signal-verify.svg" width="48" height="48" alt="Candidate search and verified route"><br>
+    <td width="64" valign="top"><img src="docs/assets/readme/signal-verify.svg" width="48" height="48" alt="Candidate search and verified route"></td>
+    <td valign="top">
       <sub>01 / VERIFY</sub><br>
       <strong>Nearby is only a starting point.</strong><br>
-      Redis GEO narrows candidates. PostgreSQL checks identity, branch membership, driver state, and versioned PostGIS zones before dispatch.
+      Redis GEO proposes nearby drivers; PostgreSQL resolves actor, branch, and driver eligibility, while PostGIS enforces configured delivery zones.
     </td>
-    <td width="33%" valign="top">
-      <img src="docs/assets/readme/signal-commit.svg" width="48" height="48" alt="One selected offer from competing paths"><br>
+  </tr>
+  <tr>
+    <td width="64" valign="top"><img src="docs/assets/readme/signal-commit.svg" width="48" height="48" alt="One selected offer from competing paths"></td>
+    <td valign="top">
       <sub>02 / COMMIT</sub><br>
       <strong>One offer wins the race.</strong><br>
-      Guarded order and driver transitions, conditional reservation, and database constraints keep a time-bound offer exclusive.
+      Guarded transitions, conditional reservation, and database constraints keep the time-bound offer exclusive under contention.
     </td>
-    <td width="33%" valign="top">
-      <img src="docs/assets/readme/signal-observe.svg" width="48" height="48" alt="Committed event flowing to a live signal"><br>
+  </tr>
+  <tr>
+    <td width="64" valign="top"><img src="docs/assets/readme/signal-observe.svg" width="48" height="48" alt="Committed event flowing to a live signal"></td>
+    <td valign="top">
       <sub>03 / OBSERVE</sub><br>
       <strong>Progress follows committed state.</strong><br>
       The transactional outbox feeds Kafka projections; authorized customers get owned snapshots and bounded SSE streams.
