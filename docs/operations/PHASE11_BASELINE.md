@@ -2,9 +2,11 @@
 
 **Recorded 2026-10-07. Target: local reproducible demo.** This is the target for [Phase 11](../phases/phase11.md), not an internet-facing production deployment or a measured result. Recheck Git refs, service versions, and machine resources when running the acceptance exercises.
 
+**Delivery update, 2026-10-10:** The branch and PR states below are the dated assessment snapshot. PR #11 subsequently merged Phases 9/10 to `main`, and PR #13 merged Phase 11 to `main`. Phase 11 remains `CLOSED_PARTIAL`; integration did not satisfy its remaining acceptance gates.
+
 ## Repository and prerequisite reconciliation
 
-At assessment, the working checkout was `8ce456eedecf8d2f7d172d4476ea7e960c8a1c64` on `codex/phase10-postgis-zones`. A later successful fetch and GitHub PR inspection on 2026-10-07 found `origin/main` at `06c2c203ea22935878cdaa0d23f4863237e3d756` (Phase 8 merge). Phase 10 PR #12 merged into the **Phase 9 branch** at `c0358a1`, while Phase 9 PR #11 remains open against `main`; both of its GitHub `verify` jobs and GitGuardian check passed at that inspection. Thus Phases 9 and 10 are present in the stacked code but not yet integrated into `main`.
+At assessment, the working checkout was `8ce456eedecf8d2f7d172d4476ea7e960c8a1c64` on `codex/phase10-postgis-zones`. A later successful fetch and GitHub PR inspection on 2026-10-07 found `origin/main` at `06c2c203ea22935878cdaa0d23f4863237e3d756` (Phase 8 merge). Phase 10 PR #12 had merged into the **Phase 9 branch** at `c0358a1`, while Phase 9 PR #11 was open against `main`; both of its GitHub `verify` jobs and GitGuardian check passed at that inspection. Thus Phases 9 and 10 were present in the stacked code but not yet integrated into `main` at that time.
 
 | Phase | Evidence in this checkout | Reconciled status |
 | --- | --- | --- |
@@ -56,7 +58,7 @@ These are deliberately modest targets for one app process on a workstation with 
 ## Release blockers at baseline
 
 1. Docker Engine was unavailable at the initial assessment, then started. Testcontainers, a disposable monitoring stack, signed integrated smoke, and an independent restore with a manual correction have run; full Phase 11 demo, load, and unattended restore remain open.
-2. Phase 9 PR #11 remains open against `main`, with Phase 10 merged into that branch through PR #12. Phase 11 cannot be described as integrated into `main` while this stack remains open.
+2. At baseline, Phase 9 PR #11 was open against `main`, with Phase 10 merged into that branch through PR #12. Phase 11 was not integrated into `main` while that stack remained open.
 3. Off-host and scheduled backup, unattended whole-service restore, complete alert/dashboard drills, representative load, full route audit, and clean-start scenario evidence remain to be implemented or exercised.
 4. The local Compose topology, Keycloak dev mode, plaintext broker, and unsafe local/test intake prevent any public-production readiness claim.
 
