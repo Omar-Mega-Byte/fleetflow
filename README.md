@@ -49,7 +49,31 @@ The [observability record](docs/operations/PHASE11_OBSERVABILITY_EVIDENCE.md) ex
 | **Async projections** | Business state and outbox intent commit together. Kafka publication and deduplicated notification/analytics projections follow asynchronously. |
 | **Operational visibility** | Health, metrics, correlation IDs, route limits, private scraping, Grafana panels, alerts, and backup/restore tooling support the local exercises. |
 
-**Explore:** [Architecture](#architecture) · [API surface](#api-surface) · [Swagger gallery](#swagger-gallery) · [Engineering choices](#engineering-choices) · [Technology and verification](#technology-and-verification) · [Run locally](#run-locally) · [Status](#deployment-and-verified-status) · [Repository map](#repository-map)
+**Explore:** [Languages & tools](#languages--tools) · [Architecture](#architecture) · [API surface](#api-surface) · [Swagger gallery](#swagger-gallery) · [Engineering choices](#engineering-choices) · [Verification](#verification) · [Run locally](#run-locally) · [Status](#deployment-and-verified-status) · [Repository map](#repository-map)
+
+## Languages & tools
+
+The badges reflect the implemented backend and the tooling used to build, test, and run it.
+
+### Backend & API
+
+![Java 21](https://img.shields.io/badge/Java%2021-2F686D?style=flat-square&logo=openjdk&logoColor=white) ![Spring Boot 4.1](https://img.shields.io/badge/Spring%20Boot%204.1-2F686D?style=flat-square&logo=springboot&logoColor=white) ![Spring MVC](https://img.shields.io/badge/Spring%20MVC-2F686D?style=flat-square&logo=spring&logoColor=white) ![Spring Data JPA](https://img.shields.io/badge/Spring%20Data%20JPA-2F686D?style=flat-square&logo=spring&logoColor=white) ![REST API](https://img.shields.io/badge/REST%20API-2F686D?style=flat-square)
+
+### Identity & authorization
+
+![Spring Security](https://img.shields.io/badge/Spring%20Security-345D71?style=flat-square&logo=springsecurity&logoColor=white) ![Keycloak](https://img.shields.io/badge/Keycloak-345D71?style=flat-square&logo=keycloak&logoColor=white) ![OAuth2 and OIDC](https://img.shields.io/badge/OAuth2%20%2F%20OIDC-345D71?style=flat-square&logo=openid&logoColor=white) ![JWT](https://img.shields.io/badge/JWT-345D71?style=flat-square&logo=jsonwebtokens&logoColor=white)
+
+### Data & events
+
+![PostgreSQL 17](https://img.shields.io/badge/PostgreSQL%2017-3C6864?style=flat-square&logo=postgresql&logoColor=white) ![PostGIS](https://img.shields.io/badge/PostGIS-3C6864?style=flat-square&logo=postgis&logoColor=white) ![Redis GEO](https://img.shields.io/badge/Redis%20GEO-3C6864?style=flat-square&logo=redis&logoColor=white) ![Apache Kafka](https://img.shields.io/badge/Apache%20Kafka-3C6864?style=flat-square&logo=apachekafka&logoColor=white) ![Flyway](https://img.shields.io/badge/Flyway-3C6864?style=flat-square&logo=flyway&logoColor=white)
+
+### Testing & API documentation
+
+![Maven](https://img.shields.io/badge/Maven-6B604E?style=flat-square&logo=apachemaven&logoColor=white) ![JUnit 5](https://img.shields.io/badge/JUnit%205-6B604E?style=flat-square&logo=junit5&logoColor=white) ![Testcontainers](https://img.shields.io/badge/Testcontainers-6B604E?style=flat-square&logo=testcontainers&logoColor=white) ![Python load tools](https://img.shields.io/badge/Python%20load%20tools-6B604E?style=flat-square&logo=python&logoColor=white) ![OpenAPI](https://img.shields.io/badge/OpenAPI-6B604E?style=flat-square&logo=openapiinitiative&logoColor=white) ![GitHub Actions](https://img.shields.io/badge/GitHub%20Actions-6B604E?style=flat-square&logo=githubactions&logoColor=white)
+
+### Operations & observability
+
+![Docker Compose](https://img.shields.io/badge/Docker%20Compose-415C6E?style=flat-square&logo=docker&logoColor=white) ![Micrometer and Actuator](https://img.shields.io/badge/Micrometer%20%2B%20Actuator-415C6E?style=flat-square) ![Prometheus](https://img.shields.io/badge/Prometheus-415C6E?style=flat-square&logo=prometheus&logoColor=white) ![Grafana](https://img.shields.io/badge/Grafana-415C6E?style=flat-square&logo=grafana&logoColor=white) ![PowerShell](https://img.shields.io/badge/PowerShell-415C6E?style=flat-square&logo=powershell&logoColor=white)
 
 ## Architecture
 
@@ -182,17 +206,7 @@ The captures below render that test-generated local OpenAPI document in the bund
 | Database actor resolution | A valid JWT identifies a subject; current roles, customer ownership, and merchant branch scope come from FleetFlow data. |
 | Owned SSE snapshots | A lightweight live view can resume from current durable state without claiming durable event replay. |
 
-## Technology and verification
-
-| Layer | Stack |
-| --- | --- |
-| Backend | Java 21, Spring Boot 4.1.1, Spring Security, Spring Data JPA, Maven |
-| Durable data | PostgreSQL 17, PostGIS, Flyway |
-| Ephemeral location | Redis GEO and expiring driver fixes |
-| Events | Apache Kafka, transactional outbox, deduplicating consumers |
-| Identity | Keycloak OIDC/JWT, OAuth2 Resource Server, application actor/object scope |
-| Operations | Docker Compose, Actuator, Micrometer, Prometheus, Grafana, alert configuration, PowerShell recovery scripts |
-| Verification | JUnit, Spring integration tests, Testcontainers, GitHub Actions |
+## Verification
 
 On 2026-10-10, a full `clean verify` on this branch passed **124 tests, 0 failures, 0 errors, 0 skips** after the Keycloak image update. The suite covers PostgreSQL/PostGIS, Redis, Kafka, Keycloak, and API behavior through Testcontainers-backed integration tests. [GitHub Actions](.github/workflows/verify.yml) runs a tracked-credential preflight and Maven verification; a local pass is not a claim about the current remote CI result. Scenario records include [atomic assignment](docs/phases/PHASE_6.md), [tracking](docs/phases/Phase9.md), and [zones](docs/phases/Phase10.md).
 
