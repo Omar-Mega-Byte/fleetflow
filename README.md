@@ -194,7 +194,7 @@ The captures below render that test-generated local OpenAPI document in the bund
 | Operations | Docker Compose, Actuator, Micrometer, Prometheus, Grafana, alert configuration, PowerShell recovery scripts |
 | Verification | JUnit, Spring integration tests, Testcontainers, GitHub Actions |
 
-On 2026-10-10, the Phase 11 backend branch recorded a full `clean verify` pass of **124 tests, 0 failures, 0 errors, 0 skips** after its Keycloak image update. The suite covers PostgreSQL/PostGIS, Redis, Kafka, Keycloak, and API behavior through Testcontainers-backed integration tests. [GitHub Actions](.github/workflows/verify.yml) runs a tracked-credential preflight and Maven verification; a local pass is not a claim about the current remote CI result. Scenario records include [atomic assignment](docs/phases/PHASE_6.md), [tracking](docs/phases/Phase9.md), and [zones](docs/phases/Phase10.md).
+On 2026-10-10, a full `clean verify` on this branch passed **124 tests, 0 failures, 0 errors, 0 skips** after the Keycloak image update. The suite covers PostgreSQL/PostGIS, Redis, Kafka, Keycloak, and API behavior through Testcontainers-backed integration tests. [GitHub Actions](.github/workflows/verify.yml) runs a tracked-credential preflight and Maven verification; a local pass is not a claim about the current remote CI result. Scenario records include [atomic assignment](docs/phases/PHASE_6.md), [tracking](docs/phases/Phase9.md), and [zones](docs/phases/Phase10.md).
 
 ## Run locally
 
