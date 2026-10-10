@@ -38,8 +38,19 @@ public class SecurityConfiguration {
                     }
                     auth.requestMatchers(HttpMethod.GET, "/api/v1/orders", "/api/v1/orders/*")
                             .hasRole("CUSTOMER");
+                    auth.requestMatchers(HttpMethod.GET, "/api/v1/orders/*/tracking",
+                            "/api/v1/orders/*/tracking/stream").hasRole("CUSTOMER");
                     auth.requestMatchers(HttpMethod.GET, "/api/v1/merchant-branches/*/orders")
                             .hasRole("MERCHANT");
+                    auth.requestMatchers(HttpMethod.GET,
+                            "/api/v1/merchant-branches/*/zones",
+                            "/api/v1/merchant-branches/*/zone-policy").hasRole("MERCHANT");
+                    auth.requestMatchers(HttpMethod.POST,
+                            "/api/v1/merchant-branches/*/zones",
+                            "/api/v1/merchant-branches/*/serviceability").hasRole("MERCHANT");
+                    auth.requestMatchers(HttpMethod.PUT,
+                            "/api/v1/merchant-branches/*/zones/*",
+                            "/api/v1/merchant-branches/*/zone-policy").hasRole("MERCHANT");
                     auth.requestMatchers(HttpMethod.POST, "/api/v1/dispatch/orders/*/match")
                             .hasRole("DISPATCHER");
                     auth.requestMatchers(HttpMethod.GET, "/api/v1/dispatch/orders/*/attempts")

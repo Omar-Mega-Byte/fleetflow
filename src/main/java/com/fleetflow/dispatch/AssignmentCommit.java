@@ -6,6 +6,7 @@ import java.util.UUID;
 
 import com.fleetflow.events.OutboxEvents;
 import com.fleetflow.lifecycle.LifecycleHistory;
+import com.fleetflow.zone.ZoneService;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -17,14 +18,16 @@ class AssignmentCommit {
     private final LifecycleHistory lifecycle;
     private final RecoveryQueue recovery;
     private final OutboxEvents outbox;
+    private final ZoneService zones;
 
     AssignmentCommit(JdbcTemplate jdbc, AssignmentProperties config, LifecycleHistory lifecycle,
-                     RecoveryQueue recovery, OutboxEvents outbox) {
+                     RecoveryQueue recovery, OutboxEvents outbox, ZoneService zones) {
         this.jdbc = jdbc;
         this.config = config;
         this.lifecycle = lifecycle;
         this.recovery = recovery;
         this.outbox = outbox;
+        this.zones = zones;
     }
 
     @Transactional
@@ -34,6 +37,8 @@ class AssignmentCommit {
         var orders = jdbc.query("select status from orders where id = ? for update",
                 (rs, row) -> rs.getString("status"), orderId);
         if (orders.isEmpty() || !"DISPATCHING".equals(orders.getFirst())) throw AssignmentService.conflict();
+        ZoneService.Decision coverage = zones.forLockedOrder(orderId);
+        if (!coverage.supported()) throw ZoneService.unsupported();
         if (jdbc.queryForObject("select count(*) from driver_assignments where order_id = ? "
                         + "and status in ('OFFERED', 'ACCEPTED')",
                 Integer.class, orderId) != 0) throw AssignmentService.conflict();
@@ -69,10 +74,12 @@ class AssignmentCommit {
         Instant expiresAt = offeredAt.plus(config.offerTtl());
         jdbc.update("""
                 insert into driver_assignments (id, order_id, driver_id, attempt_id, candidate_id,
-                  offered_by_actor_id, offered_source, status, offered_at, expires_at)
-                values (?, ?, ?, ?, ?, ?, ?, 'OFFERED', ?, ?)
+                  offered_by_actor_id, offered_source, status, offered_at, expires_at,
+                  zone_mode_at_offer, zone_policy_version_at_offer, zone_id_at_offer)
+                values (?, ?, ?, ?, ?, ?, ?, 'OFFERED', ?, ?, ?, ?, ?)
                 """, offerId, orderId, driverId, attemptId, candidates.getFirst(), dispatcherId,
-                dispatcherId == null ? "SYSTEM" : "ACTOR", Timestamp.from(offeredAt), Timestamp.from(expiresAt));
+                dispatcherId == null ? "SYSTEM" : "ACTOR", Timestamp.from(offeredAt), Timestamp.from(expiresAt),
+                coverage.mode(), coverage.policyVersion(), coverage.zoneId());
         var pending = jdbc.query("select id from deliveries where order_id = ? and status = 'PENDING'",
                 (rs, row) -> (UUID) rs.getObject("id"), orderId);
         if (pending.isEmpty()) {

@@ -42,6 +42,7 @@ public class ActorAuthenticationFilter extends OncePerRequestFilter {
                                     FilterChain chain) throws ServletException, IOException {
         if (SecurityContextHolder.getContext().getAuthentication() instanceof JwtAuthenticationToken jwt) {
             try {
+                request.setAttribute("fleetflowTokenExpiresAt", jwt.getToken().getExpiresAt());
                 AuthenticatedActor actor = resolver.resolve(jwt.getToken().getIssuer().toString(),
                         jwt.getToken().getSubject());
                 var authorities = actor.roles().stream()

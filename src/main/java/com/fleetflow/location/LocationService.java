@@ -9,6 +9,7 @@ import java.util.Set;
 import java.util.UUID;
 
 import com.fleetflow.api.ApiFailure;
+import com.fleetflow.tracking.TrackingHub;
 import io.micrometer.core.instrument.MeterRegistry;
 import org.springframework.dao.DataAccessException;
 import org.springframework.http.HttpStatus;
@@ -21,14 +22,16 @@ public class LocationService {
     private final LocationProperties settings;
     private final Clock clock;
     private final MeterRegistry metrics;
+    private final TrackingHub tracking;
 
     LocationService(DriverEligibility eligibility, RedisLocationStore redis, LocationProperties settings,
-                    Clock clock, MeterRegistry metrics) {
+                    Clock clock, MeterRegistry metrics, TrackingHub tracking) {
         this.eligibility = eligibility;
         this.redis = redis;
         this.settings = settings;
         this.clock = clock;
         this.metrics = metrics;
+        this.tracking = tracking;
     }
 
     public void update(LocationRequest request) {
@@ -50,6 +53,7 @@ public class LocationService {
             }
             if (outcome != 0) throw unavailable();
             count("location", "accepted");
+            tracking.driverMoved(id);
         } catch (DataAccessException failure) {
             count("redis", "failure");
             throw unavailable();

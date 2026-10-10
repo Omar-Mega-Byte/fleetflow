@@ -22,7 +22,7 @@ import org.testcontainers.postgresql.PostgreSQLContainer;
 @SpringBootTest
 @ActiveProfiles("test")
 class DatabaseOutageTests {
-    private static final PostgreSQLContainer postgres = new PostgreSQLContainer("postgres:17.11-alpine3.24");
+    private static final PostgreSQLContainer postgres = PostgisTestDatabase.create();
 
     static { postgres.start(); }
 

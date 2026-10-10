@@ -29,7 +29,8 @@ class OpenApiConfiguration {
                 .info(new Info().title("FleetFlow API").version("v1")
                         .description("Current business routes. Local/test includes loopback-only ADMIN fixtures "
                                 + "and order creation with caller-submitted prices; default/prod register "
-                                + "scoped reads, lifecycle, location, matching and assignment commands. "
+                                + "scoped reads, lifecycle, location, matching, assignment, tracking "
+                                + "and merchant-scoped delivery zones. "
                                 + "Use a Keycloak access token with audience fleetflow-api. "
                                 + "FleetFlow roles are provisioned in PostgreSQL, not inferred from token claims."))
                 .addSecurityItem(new SecurityRequirement().addList("bearerAuth"))
@@ -52,12 +53,12 @@ class OpenApiConfiguration {
                 if (method != PathItem.HttpMethod.GET || !path.endsWith("/me")) {
                     responses.addApiResponse("400", problem("Malformed input or unsupported filter (INVALID_REQUEST)."));
                 }
-                if (method == PathItem.HttpMethod.GET
+                if (method == PathItem.HttpMethod.GET || method == PathItem.HttpMethod.PUT
                         || (method == PathItem.HttpMethod.POST && !path.equals("/api/v1/actors")
                         && !path.equals("/api/v1/merchants"))) {
                     responses.addApiResponse("404", problem("Requested or referenced resource is unavailable."));
                 }
-                if (method == PathItem.HttpMethod.POST) {
+                if (method == PathItem.HttpMethod.POST || method == PathItem.HttpMethod.PUT) {
                     responses.addApiResponse("409", problem(path.contains("/cancel")
                             || path.contains("/confirm") || path.contains("/start-preparation")
                             || path.contains("/ready-for-pickup") || path.contains("/drivers/me/")
@@ -67,6 +68,9 @@ class OpenApiConfiguration {
                             || path.equals("/api/v1/drivers/me/heartbeat")) {
                         responses.addApiResponse("429", problem("Driver update rate exceeded."));
                     }
+                }
+                if (method == PathItem.HttpMethod.GET && path.endsWith("/tracking/stream")) {
+                    responses.addApiResponse("429", problem("Too many active tracking streams."));
                 }
             }));
         };

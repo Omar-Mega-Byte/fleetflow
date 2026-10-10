@@ -16,6 +16,7 @@ import com.fleetflow.merchant.MerchantService;
 import com.fleetflow.identity.Role;
 import com.fleetflow.lifecycle.LifecycleHistory;
 import com.fleetflow.security.ActorAccess;
+import com.fleetflow.zone.ZoneService;
 import jakarta.persistence.EntityManager;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.DecimalMax;
@@ -44,9 +45,11 @@ public class OrderService {
     private final Clock clock;
     private final ActorAccess access;
     private final LifecycleHistory history;
+    private final ZoneService zones;
 
     OrderService(OrderRepository orders, CustomerService customers, MerchantService merchants,
-                 EntityManager entityManager, Clock clock, ActorAccess access, LifecycleHistory history) {
+                 EntityManager entityManager, Clock clock, ActorAccess access, LifecycleHistory history,
+                 ZoneService zones) {
         this.orders = orders;
         this.customers = customers;
         this.merchants = merchants;
@@ -54,6 +57,7 @@ public class OrderService {
         this.clock = clock;
         this.access = access;
         this.history = history;
+        this.zones = zones;
     }
 
     @Transactional
@@ -61,6 +65,8 @@ public class OrderService {
         CustomerService.CustomerView customer = customers.forActor(access.require(Role.CUSTOMER).id());
         MerchantService.BranchView branch = merchants.branchForOrder(request.branchId());
         Currency.getInstance(request.currency());
+        ZoneService.Decision coverage = zones.forNewOrder(branch.id(), request.delivery().latitude(),
+                request.delivery().longitude());
         BigDecimal total = BigDecimal.ZERO.setScale(2);
         java.util.ArrayList<OrderItemEntity> lines = new java.util.ArrayList<>();
         int position = 1;
@@ -76,7 +82,8 @@ public class OrderService {
                 customer.displayName(), branch.merchantName(), branch.name(), branch.pickupLine1(),
                 branch.pickupCity(), branch.pickupLatitude(), branch.pickupLongitude(),
                 request.delivery().line1().strip(), request.delivery().city().strip(),
-                request.delivery().latitude(), request.delivery().longitude(), request.currency(), total, now);
+                request.delivery().latitude(), request.delivery().longitude(), request.currency(), total, now,
+                coverage.mode(), coverage.policyVersion(), coverage.zoneId());
         lines.forEach(order::addItem);
         entityManager.persist(order);
         entityManager.flush();

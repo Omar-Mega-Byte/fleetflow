@@ -3,6 +3,7 @@ package com.fleetflow.dispatch;
 import java.util.UUID;
 
 import com.fleetflow.lifecycle.RecoveryTransitions;
+import com.fleetflow.zone.ZoneService;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -12,11 +13,14 @@ class RecoveryCommit {
     private final JdbcTemplate jdbc;
     private final RecoveryQueue queue;
     private final RecoveryTransitions transitions;
+    private final ZoneService zones;
 
-    RecoveryCommit(JdbcTemplate jdbc, RecoveryQueue queue, RecoveryTransitions transitions) {
+    RecoveryCommit(JdbcTemplate jdbc, RecoveryQueue queue, RecoveryTransitions transitions,
+                   ZoneService zones) {
         this.jdbc = jdbc;
         this.queue = queue;
         this.transitions = transitions;
+        this.zones = zones;
     }
 
     @Transactional
@@ -64,6 +68,30 @@ class RecoveryCommit {
             return;
         }
         exhaust(orderId, "NO_DRIVER");
+    }
+
+    @Transactional
+    public void zoneBlocked(UUID orderId) {
+        jdbc.execute("set local lock_timeout = '2s'");
+        var states = jdbc.query("select status from orders where id = ? for update",
+                (rs, row) -> rs.getString(1), orderId);
+        if (states.isEmpty() || !"DISPATCHING".equals(states.getFirst())) {
+            queue.resolve(orderId, "ORDER_CHANGED");
+            return;
+        }
+        if (zones.forLockedOrder(orderId).supported()) {
+            queue.schedule(orderId, "ZONE_CHANGED_RETRY", 0);
+            return;
+        }
+        transitions.order(orderId, "DISPATCHING", "DISPATCH_FAILED", null,
+                "ZONE_UNSERVICEABLE", "Destination outside current branch zone");
+        queue.schedule(orderId, "ZONE_UNSERVICEABLE", 0);
+        queue.exhaust(orderId, "ZONE_UNSERVICEABLE");
+        jdbc.update("""
+                insert into dispatch_incidents (id, order_id, code, reason, status, opened_at)
+                values (?, ?, 'ZONE_UNSERVICEABLE', 'Destination outside current branch zone',
+                        'OPEN', clock_timestamp()) on conflict do nothing
+                """, UUID.randomUUID(), orderId);
     }
 
     private void exhaust(UUID orderId, String reason) {
