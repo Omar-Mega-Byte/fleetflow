@@ -1,6 +1,6 @@
 # FleetFlow
 
-FleetFlow is a Java/Spring learning backend for delivery orchestration. Phases 0–9 provide guarded order and driver lifecycles, Redis-backed live location, immutable dispatch matching evidence, atomic assignment offers, recovery, delivery progress, a PostgreSQL outbox with Kafka delivery, and owner-scoped live tracking. Phase 10 adds branch delivery zones. [Phase 9](docs/phases/Phase9.md) and [Phase 10](docs/phases/Phase10.md) record acceptance evidence on their open review branches, and [the roadmap](docs/ROADMAP.md) tracks remaining work. Payments and trusted pricing are not implemented.
+FleetFlow is a Java/Spring learning backend for delivery orchestration. Phases 0–10 provide guarded order and driver lifecycles, Redis-backed live location, immutable dispatch matching evidence, atomic assignment offers, recovery, delivery progress, a PostgreSQL outbox with Kafka delivery, owner-scoped live tracking, and branch delivery zones. Phase 11 added local hardening and recovery exercises but [closed with acceptance gaps](docs/phases/phase11.md). [The roadmap](docs/ROADMAP.md) tracks status. Payments and trusted pricing are not implemented.
 
 **Order prices are still submitted by the caller.** `POST /api/v1/orders` is available only with the `local` or `test` profile on a loopback server. Authentication does not make that write suitable for public production use. The `default` and `prod` profiles register secured reads and lifecycle commands, but not intake or fixture administration.
 
@@ -15,7 +15,7 @@ Flyway owns schema changes. V1–V3 remain immutable; V3 adds canonical lifecycl
 ## Local OIDC setup
 
 1. Copy `.env.example` to `.env`. Set random local `DB_PASSWORD` and `KC_ADMIN_PASSWORD`; choose a local `KC_ADMIN_USER`. Keep `.env` private. Keep the default `OIDC_PORT=8081`, issuer, and JWKS URI aligned unless you change all three together.
-2. Start the stack with `docker compose --env-file .env -p fleetflow up -d --build --pull never` when the pinned images are cached. Pull only an absent image first. One Compose project manages the app, PostgreSQL, Redis, Kafka, and Keycloak on loopback. Keycloak imports the versioned realm configuration without users or secrets.
+2. Validate with `docker compose --env-file .env -p fleetflow config --quiet`, then start the stack with `docker compose --env-file .env -p fleetflow up -d --build --pull never` when the pinned images are cached. Pull only an absent image first. One Compose project manages the app, PostgreSQL, Redis, Kafka, and Keycloak on loopback. The build tags the app `fleetflow-app:local` so isolated Compose projects can reuse the same image while keeping separate containers and volumes. Keycloak imports the versioned realm configuration without users or secrets.
 3. Check `http://127.0.0.1:8081/realms/fleetflow/.well-known/openid-configuration`. Its `issuer` must equal `OIDC_ISSUER` exactly. The client `fleetflow-cli` puts `fleetflow-api` in access-token `aud`; `OIDC_AUDIENCE` must match exactly.
 4. Sign in to the local Keycloak Admin Console with the private bootstrap credentials. In realm `fleetflow`, create an enabled development user with username, email, first and last names, a permanent password, and no outstanding required actions. Copy its Keycloak user ID (`sub`), which is a UUID. For the first application administrator run `./scripts/Bootstrap-LocalAdmin.ps1 -Subject <Keycloak-user-id>`. The script inserts an active actor and ADMIN role into local PostgreSQL in one transaction. It does not expose an anonymous bootstrap endpoint. The Keycloak bootstrap administrator is distinct from a FleetFlow ADMIN actor.
 5. Use the Compose app at `127.0.0.1:8080`. For local/test fixture APIs and Swagger, stop only the Compose app service and run `./scripts/Run-Local.ps1`; it loads database, Redis, Kafka, and OIDC values from `.env`, selects `local`, and binds to loopback. Health liveness and readiness are at `/actuator/health/liveness` and `/actuator/health/readiness`.
@@ -23,6 +23,8 @@ Flyway owns schema changes. V1–V3 remain immutable; V3 adds canonical lifecycl
 7. Open [local Swagger UI](http://127.0.0.1:8080/swagger-ui/index.html). Select **Authorize** and paste the access token value; Swagger UI adds the `Bearer` prefix. The token must map to an active FleetFlow actor with the role listed for that operation.
 
 Use `docker compose --env-file .env -p fleetflow down` to stop the stack. The database volume persists; `down --volumes` would erase it.
+
+The optional [monitoring overlay](docs/operations/MONITORING.md) adds private Prometheus and Grafana to the same Compose project. The separate alerting overlay adds Alertmanager only when a private webhook file is configured. Keep these optional files in the documented order after `compose.yaml`; neither creates another application stack.
 
 ### Swagger and OpenAPI
 
