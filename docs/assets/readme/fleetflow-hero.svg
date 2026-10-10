@@ -1,0 +1,66 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 360" role="img" aria-labelledby="title desc">
+  <title id="title">FleetFlow dispatch schematic</title>
+  <desc id="desc">A selected driver route connects a pickup to a delivery inside a service zone. Other candidates remain muted; a small state rail traces order, offer, and delivery.</desc>
+  <defs>
+    <pattern id="grid" width="36" height="36" patternUnits="userSpaceOnUse"><path d="M36 0H0V36" fill="none" stroke="#293B43" stroke-width="1"/></pattern>
+    <clipPath id="frame"><rect x="1" y="1" width="1198" height="358" rx="16"/></clipPath>
+  </defs>
+  <g clip-path="url(#frame)">
+    <rect width="1200" height="360" fill="#111D24"/>
+    <rect width="354" height="360" fill="#172831"/>
+    <path d="M354 0V360" stroke="#526871"/>
+    <rect x="355" width="845" height="360" fill="url(#grid)" opacity=".73"/>
+    <!-- The heading in the README remains the primary title. -->
+    <g fill="none" stroke="#8EDACB" stroke-width="3" stroke-linecap="square">
+      <path d="M48 70V36H71M48 51H66"/><path d="M80 70V36H103M80 51H98" opacity=".5"/>
+    </g>
+    <text x="126" y="61" fill="#F2F6F4" font-family="Arial, Helvetica, sans-serif" font-size="24" font-weight="700" letter-spacing=".7">FleetFlow</text>
+    <text x="48" y="116" fill="#94ADB3" font-family="ui-monospace, Consolas, monospace" font-size="12" letter-spacing="2">DELIVERY ORCHESTRATION</text>
+    <path d="M48 141H303" stroke="#425B64"/>
+    <path d="M67 178V281" fill="none" stroke="#4E6970" stroke-width="2"/>
+    <path d="M67 178V229" fill="none" stroke="#8EDACB" stroke-width="2"/>
+    <g font-family="ui-monospace, Consolas, monospace" font-size="12" letter-spacing="1.3">
+      <circle cx="67" cy="179" r="7" fill="#172831" stroke="#8EDACB" stroke-width="2"/>
+      <circle cx="67" cy="229" r="7" fill="#172831" stroke="#8EDACB" stroke-width="2"/>
+      <circle cx="67" cy="280" r="7" fill="#172831" stroke="#76939A" stroke-width="2"/>
+      <text x="92" y="183" fill="#E8F0EF">01  ORDER</text>
+      <text x="92" y="233" fill="#E8F0EF">02  ATOMIC OFFER</text>
+      <text x="92" y="284" fill="#BDD0D1">03  DELIVERY</text>
+    </g>
+    <text x="48" y="329" fill="#91A9AF" font-family="ui-monospace, Consolas, monospace" font-size="11" letter-spacing="1.3">STATE IS A FIRST-CLASS SIGNAL</text>
+    <!-- Abstract street fabric and an enforced service area; this is a schematic, not a map. -->
+    <g fill="none" stroke="#36505A" stroke-width="1.5" opacity=".8">
+      <path d="M386 230C500 209 580 253 686 201S863 135 977 184 1119 179 1210 124"/>
+      <path d="M422 362C515 295 576 317 654 290S793 231 887 281 1075 325 1210 254"/>
+      <path d="M465-15C503 73 559 100 644 87S766 22 864 71 1040 94 1210 30"/>
+      <path d="M604-12C594 83 616 142 641 209S686 317 720 372"/>
+      <path d="M930-10C906 63 915 122 941 188S1001 280 1013 370"/>
+    </g>
+    <path d="M891 61L1077 48 1170 104 1158 226 1020 278 904 220 855 124Z" fill="#8EDACB" fill-opacity=".035" stroke="#789A96" stroke-width="1.5" stroke-dasharray="6 7"/>
+    <text x="955" y="82" fill="#B5CBC9" font-family="ui-monospace, Consolas, monospace" font-size="11" letter-spacing="1.5">SERVICE ZONE</text>
+    <g fill="none" stroke="#607981" stroke-width="1.5" stroke-dasharray="4 7" opacity=".7">
+      <path d="M516 146Q633 151 789 225"/><path d="M677 83Q721 142 789 225"/><path d="M671 285Q719 246 789 225"/>
+    </g>
+    <path d="M577 256C652 237 701 261 789 225S912 213 959 182 1014 147 1072 143" fill="none" stroke="#123C3D" stroke-width="12" stroke-linecap="round"/>
+    <path d="M577 256C652 237 701 261 789 225S912 213 959 182 1014 147 1072 143" fill="none" stroke="#8EDACB" stroke-width="3.5" stroke-linecap="round"/>
+    <g fill="#16262D" stroke="#8AA5A8" stroke-width="1.8"><circle cx="516" cy="146" r="8"/><circle cx="677" cy="83" r="8"/><circle cx="671" cy="285" r="8"/></g>
+    <g fill="#A8BEC0"><circle cx="516" cy="146" r="2.5"/><circle cx="677" cy="83" r="2.5"/><circle cx="671" cy="285" r="2.5"/></g>
+    <circle cx="577" cy="256" r="14" fill="#172831" stroke="#8EDACB" stroke-width="2.5"/>
+    <path d="M570 256H584M577 249V263" stroke="#8EDACB" stroke-width="2"/>
+    <circle cx="789" cy="225" r="14" fill="#172831" stroke="#8EDACB" stroke-width="2.5"/>
+    <circle cx="789" cy="225" r="4" fill="#8EDACB"/>
+    <circle cx="1072" cy="143" r="16" fill="#172831" stroke="#E7C18C" stroke-width="2.5"/>
+    <circle cx="1072" cy="143" r="4" fill="#E7C18C"/>
+    <g fill="#DDEAE7" font-family="ui-monospace, Consolas, monospace" font-size="11" letter-spacing="1.2">
+      <text x="391" y="38" fill="#9FB6BA">DISPATCH / SCHEMATIC</text>
+      <text x="485" y="285">DRIVER</text><text x="752" y="254">PICKUP</text><text x="1035" y="177">DROP-OFF</text>
+    </g>
+    <rect x="394" y="301" width="768" height="39" rx="5" fill="#172831" stroke="#3E5961"/>
+    <g fill="#AFC5C5" font-family="ui-monospace, Consolas, monospace" font-size="11" letter-spacing="1">
+      <text x="414" y="325">GEO PREFILTER</text><text x="598" y="325">DURABLE CHECK</text>
+      <text x="779" y="325" fill="#A8E1D4">EXCLUSIVE OFFER</text><text x="987" y="325">EVENT STREAM</text>
+    </g>
+    <g fill="#6B8E91"><circle cx="571" cy="321" r="2"/><circle cx="752" cy="321" r="2"/><circle cx="958" cy="321" r="2"/></g>
+  </g>
+  <rect x="1" y="1" width="1198" height="358" rx="16" fill="none" stroke="#62777B" stroke-width="2"/>
+</svg>
