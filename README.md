@@ -6,7 +6,7 @@
 
 `Spring Boot 4.1.1` · `PostgreSQL / PostGIS` · `Redis GEO` · `Kafka` · `Keycloak / OIDC` · `Docker Compose` · `Prometheus / Grafana`
 
-> **Project scope:** A backend engineering and portfolio project with a loopback local demo. It has no customer frontend, trusted commercial pricing, payment flow, or public production order intake. Operational hardening remains [in progress](docs/phases/phase11.md).
+> **Project scope:** A backend engineering and portfolio project with a loopback local demo. Trusted commercial pricing, payments, and public production order intake are outside its implemented scope. The [Phase 11 record](docs/phases/phase11.md) is `CLOSED_PARTIAL` with unverified acceptance gates.
 
 ## At a glance
 
@@ -194,7 +194,7 @@ The captures below render that test-generated local OpenAPI document in the bund
 | Operations | Docker Compose, Actuator, Micrometer, Prometheus, Grafana, alert configuration, PowerShell recovery scripts |
 | Verification | JUnit, Spring integration tests, Testcontainers, GitHub Actions |
 
-On 2026-10-10, `clean verify` passed **122 tests, 0 failures, 0 errors, 0 skips** on this checkout. The suite covers PostgreSQL/PostGIS, Redis, Kafka, Keycloak, and API behavior through Testcontainers-backed integration tests. [GitHub Actions](.github/workflows/verify.yml) runs a tracked-credential preflight and Maven verification; a local pass is not a claim about the current remote CI result. Scenario records include [atomic assignment](docs/phases/PHASE_6.md), [tracking](docs/phases/Phase9.md), and [zones](docs/phases/Phase10.md).
+On 2026-10-10, the Phase 11 backend branch recorded a full `clean verify` pass of **124 tests, 0 failures, 0 errors, 0 skips** after its Keycloak image update. The suite covers PostgreSQL/PostGIS, Redis, Kafka, Keycloak, and API behavior through Testcontainers-backed integration tests. [GitHub Actions](.github/workflows/verify.yml) runs a tracked-credential preflight and Maven verification; a local pass is not a claim about the current remote CI result. Scenario records include [atomic assignment](docs/phases/PHASE_6.md), [tracking](docs/phases/Phase9.md), and [zones](docs/phases/Phase10.md).
 
 ## Run locally
 
@@ -224,7 +224,7 @@ Run tests with `.\mvnw.cmd clean verify`. The [monitoring runbook](docs/operatio
 
 The Compose topology is a loopback learning and operations exercise: Keycloak uses development mode, service ports are local, and the optional monitoring scrape stays private. Dated records document signed local workflows, dashboard and load exercises, and restore from an independently retrieved remote archive. These observations do not prove multi-host recovery or public deployment readiness.
 
-**Phase 11 is `IN_PROGRESS` on this branch.** Its [acceptance record](docs/phases/phase11.md) still lists scheduled-backup reliability, host-loss recovery, remaining resilience and security drills, sustained business-transition load, and final integration/review as open gates. The [backup/restore runbook](docs/operations/BACKUP_RESTORE.md) and [monitoring runbook](docs/operations/MONITORING.md) separate measured exercises from pending acceptance.
+**Phase 11 is `CLOSED_PARTIAL` on this branch.** A regular 02:00 Cairo backup succeeded on 2026-10-10, but the [acceptance record](docs/phases/phase11.md) leaves 24-hour RPO evidence, replacement-host recovery, specified resilience and object-scope drills, service-image advisory disposition, and final stacked-PR integration unverified. The operator cancelled the remaining Phase 11 acceptance work; no production-readiness claim follows. The [backup/restore runbook](docs/operations/BACKUP_RESTORE.md) and [monitoring runbook](docs/operations/MONITORING.md) separate measured exercises from those limits.
 
 ## Repository map
 
