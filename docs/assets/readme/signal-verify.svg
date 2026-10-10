@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-labelledby="title">
+  <title id="title">Candidate search and verified route</title>
+  <rect x="1" y="1" width="62" height="62" rx="11" fill="#172831" stroke="#526871" stroke-width="2"/>
+  <path d="M13 44c10-14 17-15 24-7s12 3 15-8" fill="none" stroke="#8EDACB" stroke-width="2.5" stroke-linecap="round"/>
+  <circle cx="21" cy="21" r="10" fill="none" stroke="#76939A" stroke-width="1.5" stroke-dasharray="3 3"/>
+  <circle cx="21" cy="21" r="3.5" fill="#8EDACB"/>
+  <circle cx="44" cy="18" r="3" fill="#7B969B"/>
+  <circle cx="50" cy="41" r="3" fill="#7B969B"/>
+  <circle cx="38" cy="37" r="4" fill="#172831" stroke="#8EDACB" stroke-width="2"/>
+  <path d="m35.5 37 1.8 1.8 3.5-3.8" fill="none" stroke="#8EDACB" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
