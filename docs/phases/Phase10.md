@@ -1,6 +1,6 @@
 # Phase 10 — PostGIS zones and geofencing
 
-**Status: COMPLETE on the Phase 10 review branch.** The [roadmap](../ROADMAP.md) schedules durable branch serviceability after basic dispatch. The implementation and acceptance evidence below passed on the delivered code head; [PR #12](https://github.com/Omar-Mega-Byte/fleetflow/pull/12) remains open against the Phase 9 branch, so this status does not claim a merge to `main`.
+**Status: COMPLETE; merged to `main` on 2026-10-10.** The [roadmap](../ROADMAP.md) schedules durable branch serviceability after basic dispatch. The implementation and acceptance evidence below passed on the delivered code head. [PR #12](https://github.com/Omar-Mega-Byte/fleetflow/pull/12) merged into the Phase 9 branch; [PR #11](https://github.com/Omar-Mega-Byte/fleetflow/pull/11) subsequently merged both phases to `main`.
 
 ## Objective and current boundary
 
@@ -78,7 +78,7 @@ The isolated `fleetflow-phase10-smoke` Compose project used the pinned PostGIS i
 
 `scripts/Phase10-Spatial-Plan.sql` creates 50 branches with 100 active zones each in a disposable transaction, analyzes the table, and runs the branch-scoped `ST_Covers` query. The observed plan used `idx_delivery_zone_boundary_gist` as an Index Scan, examined 50 spatial hits, discarded 49 from other branches, and returned one zone. `EXPLAIN (ANALYZE, BUFFERS)` reported **0.237 ms** execution, 54 shared buffer hits, and no reads for this warm local synthetic fixture; this is query-plan evidence, not a production latency guarantee. The fixture transaction rolled back and left the one smoke zone intact.
 
-The delivered code head is `18d4aeb6c3d895f4c374b5596b2cca7c1e1f4844`, comprising `ec2f33c`, `6b448eb`, and `18d4aeb`. Both [push verify](https://github.com/Omar-Mega-Byte/fleetflow/actions/runs/37552391676) and [PR verify](https://github.com/Omar-Mega-Byte/fleetflow/actions/runs/37552407216) passed on that head; [GitGuardian Security Checks](https://github.com/Omar-Mega-Byte/fleetflow/pull/12/checks) passed. [PR #12](https://github.com/Omar-Mega-Byte/fleetflow/pull/12) carries the reviewable work. This acceptance is for the Phase 10 slice on its review branch, not a production-readiness assessment or a merge to `main`.
+The delivered code head is `18d4aeb6c3d895f4c374b5596b2cca7c1e1f4844`, comprising `ec2f33c`, `6b448eb`, and `18d4aeb`. Both [push verify](https://github.com/Omar-Mega-Byte/fleetflow/actions/runs/37552391676) and [PR verify](https://github.com/Omar-Mega-Byte/fleetflow/actions/runs/37552407216) passed on that head; [GitGuardian Security Checks](https://github.com/Omar-Mega-Byte/fleetflow/pull/12/checks) passed. [PR #12](https://github.com/Omar-Mega-Byte/fleetflow/pull/12) carries the reviewable work. This acceptance is for the Phase 10 slice and does not establish public production readiness. Its subsequent integration to `main` is recorded above.
 
 **Out of scope:** route optimization, paid maps, global arbitrary geofencing, full GPS history, production order intake/pricing changes and Phase 11 hardening.
 
