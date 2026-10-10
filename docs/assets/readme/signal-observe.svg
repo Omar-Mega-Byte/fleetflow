@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-labelledby="title">
+  <title id="title">Committed event flowing to a live signal</title>
+  <rect x="1" y="1" width="62" height="62" rx="11" fill="#172831" stroke="#526871" stroke-width="2"/>
+  <path d="M13 18h12l8 14h17" fill="none" stroke="#8EDACB" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M13 46h12l8-14" fill="none" stroke="#617D83" stroke-width="1.8" stroke-linecap="round"/>
+  <circle cx="13" cy="18" r="4" fill="#172831" stroke="#8EDACB" stroke-width="2"/>
+  <circle cx="13" cy="46" r="3" fill="#617D83"/>
+  <circle cx="33" cy="32" r="4" fill="#8EDACB"/>
+  <path d="m48 27 5 5-5 5" fill="none" stroke="#E7C18C" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

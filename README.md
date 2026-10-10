@@ -10,14 +10,35 @@
 
 ## At a glance
 
-| | |
-| --- | --- |
-| **Delivery core** | Customer and branch-scoped merchant orders; guarded driver, order, offer, and delivery transitions. |
-| **Dispatch** | Redis GEO candidate prefilter, durable eligibility checks, ranked match attempts, and exclusive time-bound offers. |
-| **Geospatial** | Versioned PostGIS branch zones; boundary-inclusive `ST_Covers` checks when zone policy is enforced. |
-| **Events + tracking** | Transactional outbox → Kafka → deduplicated projections; owned snapshots and short-lived SSE streams. |
-| **Trust boundary** | Signed Keycloak JWTs identify callers; PostgreSQL resolves active roles, ownership, and exact-branch membership. |
-| **Evidence** | Testcontainers integration suite, generated OpenAPI coverage, GitHub Actions, and dated local operations exercises. |
+<table>
+  <tr>
+    <td width="64" valign="top"><img src="docs/assets/readme/signal-verify.svg" width="48" height="48" alt="Candidate search and verified route"></td>
+    <td valign="top">
+      <sub>01 / VERIFY</sub><br>
+      <strong>Nearby is only a starting point.</strong><br>
+      Redis GEO proposes nearby drivers; PostgreSQL resolves actor, branch, and driver eligibility, while PostGIS enforces configured delivery zones.
+    </td>
+  </tr>
+  <tr>
+    <td width="64" valign="top"><img src="docs/assets/readme/signal-commit.svg" width="48" height="48" alt="One selected offer from competing paths"></td>
+    <td valign="top">
+      <sub>02 / COMMIT</sub><br>
+      <strong>One offer wins the race.</strong><br>
+      Guarded transitions, conditional reservation, and database constraints keep the time-bound offer exclusive under contention.
+    </td>
+  </tr>
+  <tr>
+    <td width="64" valign="top"><img src="docs/assets/readme/signal-observe.svg" width="48" height="48" alt="Committed event flowing to a live signal"></td>
+    <td valign="top">
+      <sub>03 / OBSERVE</sub><br>
+      <strong>Progress follows committed state.</strong><br>
+      The transactional outbox feeds Kafka projections; authorized customers get owned snapshots and bounded SSE streams.
+    </td>
+  </tr>
+</table>
+
+<sub>VERIFIED SNAPSHOT · 2026-10-10</sub><br>
+<strong><a href="#verification">124 tests passed</a></strong> · <strong><a href="#api-surface">57 registered API operations</a></strong> · <strong><a href="#deployment-and-verified-status">Phase 11: CLOSED_PARTIAL</a></strong>
 
 ## See FleetFlow in action
 
