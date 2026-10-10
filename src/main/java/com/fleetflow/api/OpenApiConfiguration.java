@@ -50,6 +50,7 @@ class OpenApiConfiguration {
                 responses.addApiResponse("401", problem("Missing or invalid bearer token (UNAUTHENTICATED)."));
                 responses.addApiResponse("403", problem("Actor missing, inactive, or lacking the required role (FORBIDDEN)."));
                 responses.addApiResponse("503", problem("Required database or Redis service unavailable."));
+                responses.addApiResponse("429", problem("Per-actor route budget or active stream cap exceeded; route-budget responses include Retry-After."));
                 if (method != PathItem.HttpMethod.GET || !path.endsWith("/me")) {
                     responses.addApiResponse("400", problem("Malformed input or unsupported filter (INVALID_REQUEST)."));
                 }
@@ -64,13 +65,6 @@ class OpenApiConfiguration {
                             || path.contains("/ready-for-pickup") || path.contains("/drivers/me/")
                             ? "Invalid, duplicate or competing lifecycle action (LIFECYCLE_CONFLICT)."
                             : "Conflict with current or stored state (DATA_CONFLICT)."));
-                    if (path.equals("/api/v1/drivers/me/location")
-                            || path.equals("/api/v1/drivers/me/heartbeat")) {
-                        responses.addApiResponse("429", problem("Driver update rate exceeded."));
-                    }
-                }
-                if (method == PathItem.HttpMethod.GET && path.endsWith("/tracking/stream")) {
-                    responses.addApiResponse("429", problem("Too many active tracking streams."));
                 }
             }));
         };

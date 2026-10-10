@@ -7,14 +7,20 @@ import java.time.ZoneOffset;
 import java.util.Set;
 import java.util.UUID;
 
+import io.micrometer.core.instrument.MeterRegistry;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 import tools.jackson.databind.ObjectMapper;
 
 /** Each side effect and its processed marker commit in one PostgreSQL transaction. */
 @Service
 public class EventProjector {
+    private static final Logger log = LoggerFactory.getLogger(EventProjector.class);
     private static final Set<String> STATUSES = Set.of("CREATED", "CONFIRMED", "PREPARING",
             "READY_FOR_PICKUP", "DISPATCHING", "DISPATCH_FAILED", "DRIVER_ASSIGNED",
             "PICKED_UP", "IN_TRANSIT", "DELIVERED", "DELIVERY_FAILED", "CANCELLED");
@@ -24,10 +30,12 @@ public class EventProjector {
 
     private final JdbcTemplate jdbc;
     private final ObjectMapper mapper;
+    private final MeterRegistry metrics;
 
-    public EventProjector(JdbcTemplate jdbc, ObjectMapper mapper) {
+    public EventProjector(JdbcTemplate jdbc, ObjectMapper mapper, MeterRegistry metrics) {
         this.jdbc = jdbc;
         this.mapper = mapper;
+        this.metrics = metrics;
     }
 
     @Transactional
@@ -36,7 +44,10 @@ public class EventProjector {
         if (!mark("notification", event.eventId())) return;
         if ("ORDER_STATUS_CHANGED".equals(event.eventType())) {
             String status = event.payload().get("newStatus");
-            if (!CUSTOMER_NOTICES.contains(status)) return;
+            if (!CUSTOMER_NOTICES.contains(status)) {
+                projected("notification", "ignored", event);
+                return;
+            }
             UUID recipient = jdbc.queryForObject("""
                     select c.actor_id from orders o join customers c on c.id = o.customer_id
                     where o.id = ?
@@ -53,13 +64,17 @@ public class EventProjector {
             if (recipients.size() != 1) throw new InvalidEventException("Missing offer recipient");
             insertNotification(event, recipients.getFirst(), assignment, null);
         }
+        projected("notification", "applied", event);
     }
 
     @Transactional
     public void analytics(String json) {
         EventEnvelope event = decode(json);
         if (!mark("analytics", event.eventId())) return;
-        if (!"ORDER_STATUS_CHANGED".equals(event.eventType())) return;
+        if (!"ORDER_STATUS_CHANGED".equals(event.eventType())) {
+            projected("analytics", "ignored", event);
+            return;
+        }
         LocalDate day = event.occurredAt().atZone(ZoneOffset.UTC).toLocalDate();
         jdbc.update("""
                 insert into analytics_daily_order_transitions(day, status, total)
@@ -67,15 +82,27 @@ public class EventProjector {
                 on conflict (day, status) do update
                   set total = analytics_daily_order_transitions.total + 1
                 """, Date.valueOf(day), event.payload().get("newStatus"));
+        projected("analytics", "applied", event);
     }
 
     @Transactional
     public void quarantine(String consumer, String topic, int partition, long offset, String errorCode) {
-        jdbc.update("""
+        int inserted = jdbc.update("""
                 insert into quarantined_events
                   (consumer_name, topic, partition_number, record_offset, error_code)
                 values (?, ?, ?, ?, ?) on conflict do nothing
                 """, consumer, topic, partition, offset, errorCode);
+        if (inserted == 1 && TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override public void afterCommit() {
+                    metrics.counter("fleetflow.events.quarantined", "consumer", consumer).increment();
+                    log.atWarn().addKeyValue("event", "event.quarantined")
+                            .addKeyValue("consumer", consumer).addKeyValue("topic", topic)
+                            .addKeyValue("partition", partition).addKeyValue("offset", offset)
+                            .addKeyValue("errorCode", errorCode).log("Event quarantined");
+                }
+            });
+        }
     }
 
     private EventEnvelope decode(String json) {
@@ -135,5 +162,19 @@ public class EventProjector {
                 values (?, ?, ?, ?, ?, ?, ?, ?)
                 """, UUID.randomUUID(), event.eventId(), recipient, event.aggregateId(), assignment,
                 event.eventType(), state, Timestamp.from(event.occurredAt()));
+    }
+
+    private void projected(String consumer, String outcome, EventEnvelope event) {
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override public void afterCommit() {
+                metrics.counter("fleetflow.events.projected", "consumer", consumer,
+                        "outcome", outcome).increment();
+                log.atInfo().addKeyValue("event", "event.projected")
+                        .addKeyValue("consumer", consumer).addKeyValue("outcome", outcome)
+                        .addKeyValue("eventId", event.eventId())
+                        .addKeyValue("orderId", event.aggregateId())
+                        .log("Event projection committed");
+            }
+        });
     }
 }

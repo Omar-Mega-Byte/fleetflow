@@ -21,6 +21,7 @@ public class SecurityConfiguration {
                                             SecurityProblemWriter errors, Environment environment) throws Exception {
         Set<String> profiles = Set.of(environment.getActiveProfiles());
         boolean localFixtures = profiles.equals(Set.of("local")) || profiles.equals(Set.of("test"));
+        boolean monitoring = profiles.contains("monitoring");
         http.csrf(csrf -> csrf.disable())
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .httpBasic(basic -> basic.disable())
@@ -32,6 +33,10 @@ public class SecurityConfiguration {
                             .permitAll();
                     auth.requestMatchers(HttpMethod.GET, "/actuator/metrics", "/actuator/metrics/*")
                             .hasRole("DISPATCHER");
+                    if (monitoring) {
+                        // Only the private management port exposes this endpoint in the monitoring profile.
+                        auth.requestMatchers(HttpMethod.GET, "/actuator/prometheus").permitAll();
+                    }
                     if (localFixtures) {
                         auth.requestMatchers("/v3/api-docs", "/v3/api-docs/**",
                                 "/swagger-ui.html", "/swagger-ui/**").permitAll();

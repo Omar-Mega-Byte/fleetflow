@@ -34,7 +34,10 @@ public class OfferExpiryService {
             try {
                 if (commit.expire(id)) expired++;
             } catch (RuntimeException failure) {
-                log.warn("Offer expiry transaction failed for offer {}; it remains retryable", id, failure);
+                log.atWarn().addKeyValue("event", "offer.expiry_failed")
+                        .addKeyValue("offerId", id)
+                        .addKeyValue("failureType", failure.getClass().getSimpleName())
+                        .log("Offer expiry transaction failed; it remains retryable");
                 try {
                     jdbc.update("""
                             update driver_assignments
@@ -42,7 +45,10 @@ public class OfferExpiryService {
                             where id = ? and status = 'OFFERED'
                             """, id);
                 } catch (RuntimeException retryFailure) {
-                    log.warn("Could not defer failed offer expiry for offer {}", id, retryFailure);
+                    log.atWarn().addKeyValue("event", "offer.expiry_defer_failed")
+                            .addKeyValue("offerId", id)
+                            .addKeyValue("failureType", retryFailure.getClass().getSimpleName())
+                            .log("Could not defer failed offer expiry");
                 }
             }
         }

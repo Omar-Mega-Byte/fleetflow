@@ -1,0 +1,61 @@
+# Optional local-only monitoring overlay: one Compose project with compose.yaml.
+services:
+  app:
+    environment:
+      SPRING_PROFILES_ACTIVE: prod,monitoring
+      FLEETFLOW_VERSION: ${FLEETFLOW_VERSION:-local}
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:9095/actuator/health/readiness"]
+    networks:
+      - default
+      - monitoring
+
+  prometheus:
+    image: prom/prometheus:v3.15.0@sha256:efd719c99d83b060d9daefdcf00360461adf279f45ef5391f8d111892118753e
+    profiles: [monitoring]
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      - --storage.tsdb.retention.time=7d
+    volumes:
+      - ./ops/monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./ops/monitoring/alerts.yml:/etc/prometheus/alerts.yml:ro
+      - prometheus_data:/prometheus
+    networks:
+      - monitoring
+    depends_on:
+      app:
+        condition: service_healthy
+
+  grafana:
+    image: grafana/grafana:13.1.6@sha256:d8276d620291d3aaae3e31dde6d63e6807afee49825f04e8aa7392bbe024216f
+    profiles: [monitoring]
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:?Set GRAFANA_ADMIN_USER in .env}
+      GF_SECURITY_ADMIN_PASSWORD__FILE: /run/secrets/grafana_admin_credential
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_AUTH_ANONYMOUS_ENABLED: "false"
+    ports:
+      - "127.0.0.1:${GRAFANA_PORT:-3000}:3000"
+    volumes:
+      - ./ops/monitoring/grafana/datasource.yml:/etc/grafana/provisioning/datasources/fleetflow.yml:ro
+      - ./ops/monitoring/grafana/dashboards.yml:/etc/grafana/provisioning/dashboards/fleetflow.yml:ro
+      - ./ops/monitoring/grafana/fleetflow.json:/var/lib/grafana/dashboards/fleetflow.json:ro
+      - grafana_data:/var/lib/grafana
+    networks:
+      - monitoring
+    secrets:
+      - grafana_admin_credential
+    depends_on:
+      - prometheus
+
+networks:
+  monitoring: {}
+
+volumes:
+  prometheus_data:
+  grafana_data:
+
+secrets:
+  grafana_admin_credential:
+    file: ${GRAFANA_SECRET_FILE:?Set GRAFANA_SECRET_FILE in .env}

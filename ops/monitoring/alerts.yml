@@ -1,0 +1,43 @@
+groups:
+  - name: fleetflow-local-demo
+    rules:
+      - alert: FleetFlowOutboxBacklog
+        expr: fleetflow_outbox_pending > 0 and fleetflow_outbox_oldest_seconds > 30
+        for: 1m
+        labels:
+          severity: warning
+          owner: local-operator
+        annotations:
+          summary: Outbox oldest pending event exceeds the healthy demo target.
+          runbook: docs/operations/MONITORING.md#outbox-backlog
+          recovery: Restore Kafka, inspect failed rows, then verify pending age falls.
+      - alert: FleetFlowOutboxFailed
+        expr: fleetflow_outbox_failed > 0
+        for: 30s
+        labels:
+          severity: warning
+          owner: local-operator
+        annotations:
+          summary: An outbox row reached its bounded failure state.
+          runbook: docs/operations/MONITORING.md#outbox-backlog
+          recovery: Inspect the safe error code and retry policy; do not delete the row.
+      - alert: FleetFlowDependencyUnavailable
+        expr: fleetflow_operations_database_available == 0 or fleetflow_operations_redis_available == 0
+        for: 30s
+        labels:
+          severity: warning
+          owner: local-operator
+        annotations:
+          summary: A required local dependency is unavailable.
+          runbook: docs/operations/MONITORING.md#dependency-outage
+          recovery: Restore the dependency and verify fresh driver fixes and readiness.
+      - alert: FleetFlowReadinessUnobservable
+        expr: up{job="fleetflow"} == 0
+        for: 30s
+        labels:
+          severity: critical
+          owner: local-operator
+        annotations:
+          summary: The application metrics endpoint cannot be scraped.
+          runbook: docs/operations/MONITORING.md#readiness-and-scrape
+          recovery: Check app health, management port, and Compose network.

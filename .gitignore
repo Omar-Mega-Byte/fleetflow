@@ -1,4 +1,6 @@
 target/
+__pycache__/
+*.pyc
 .idea/
 .vscode/
 *.iml
@@ -7,6 +9,15 @@ target/
 !.env.example
 *.log
 logs/
+*.bak
+*.tmp
+*.old
+*.swp
+*.swo
+coverage/
+.coverage
+htmlcov/
+.pytest_cache/
 *.pid
 *.key
 *.pem
