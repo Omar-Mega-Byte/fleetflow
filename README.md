@@ -1,98 +1,124 @@
+![FleetFlow route illustration: every handoff has a state](docs/assets/readme/fleetflow-banner.svg)
+
 # FleetFlow
 
-FleetFlow is a Java/Spring learning backend for delivery orchestration. Phases 0–10 provide guarded order and driver lifecycles, Redis-backed live location, immutable dispatch matching evidence, atomic assignment offers, recovery, delivery progress, a PostgreSQL outbox with Kafka delivery, owner-scoped live tracking, and branch delivery zones. Phase 11 added local hardening and recovery exercises but [closed with acceptance gaps](docs/phases/phase11.md). [The roadmap](docs/ROADMAP.md) tracks status. Payments and trusted pricing are not implemented.
+**A Java/Spring Boot delivery orchestration learning backend that makes the path from order to delivery explicit, guarded, and observable.** It models customer and merchant workflows, ranks eligible drivers, creates exclusive offers, and follows delivery through completion or recovery.
 
-**Order prices are still submitted by the caller.** `POST /api/v1/orders` is available only with the `local` or `test` profile on a loopback server. Authentication does not make that write suitable for public production use. The `default` and `prod` profiles register secured reads and lifecycle commands, but not intake or fixture administration.
+`Java 21` · `Spring Boot 4.1.1` · `PostgreSQL / PostGIS` · `Redis` · `Kafka` · `Keycloak / OIDC` · `Docker Compose` · `Prometheus / Grafana`
 
-## Prerequisites and verification
+## The project
 
-- Java 21 and the pinned Maven Wrapper 3.9.16.
-- Docker Engine and Compose for the app, PostgreSQL, Redis, Kafka, and local Keycloak. The images are pinned in `compose.yaml` and the app's `Dockerfile`.
-- `./mvnw.cmd clean verify --no-transfer-progress` on Windows, or `./mvnw clean verify --no-transfer-progress` on Linux/macOS. Tests start disposable PostgreSQL, Redis, Kafka, and Keycloak containers. Check the pinned images before pulling an absent image.
+FleetFlow is a portfolio system for practicing backend engineering at the points where delivery software gets difficult: state transitions, competing dispatchers, changing driver location, geographic serviceability, asynchronous events, and authorization across customer, merchant, driver, and dispatcher roles. Its durable business decisions live in PostgreSQL; Redis supplies short-lived location and proximity data, while Kafka carries committed events from a transactional outbox.
 
-Flyway owns schema changes. V1–V3 remain immutable; V3 adds canonical lifecycle state and history. V4 adds dispatch status history, V5–V7 add matching snapshots and constraints, V8 adds atomic assignment, V9–V10 add recovery and delivery state, V11 adds asynchronous event tables, and V12 adds PostGIS delivery zones. Hibernate uses `ddl-auto=validate` in every profile. The pinned Compose PostgreSQL image includes PostGIS; use a backup and restore rehearsal before changing an existing database volume.
+The repository contains a backend and a loopback local demonstration stack. It has no customer-facing frontend or public order intake. The [execution roadmap](docs/ROADMAP.md) and [Phase 11 record](docs/phases/phase11.md) distinguish implemented slices from operational acceptance still in progress.
 
-## Local OIDC setup
+> **CV summary:** Built a Java 21/Spring Boot delivery orchestration backend with guarded order and driver lifecycles, PostgreSQL-constrained dispatch offers, Redis GEO candidate prefiltering, PostGIS serviceability zones, an outbox-backed Kafka event pipeline, owned SSE tracking, Keycloak OIDC authorization, Testcontainers integration tests, and a Dockerized monitoring demo.
 
-1. Copy `.env.example` to `.env`. Set random local `DB_PASSWORD` and `KC_ADMIN_PASSWORD`; choose a local `KC_ADMIN_USER`. Keep `.env` private. Keep the default `OIDC_PORT=8081`, issuer, and JWKS URI aligned unless you change all three together.
-2. Validate with `docker compose --env-file .env -p fleetflow config --quiet`, then start the stack with `docker compose --env-file .env -p fleetflow up -d --build --pull never` when the pinned images are cached. Pull only an absent image first. One Compose project manages the app, PostgreSQL, Redis, Kafka, and Keycloak on loopback. The build tags the app `fleetflow-app:local` so isolated Compose projects can reuse the same image while keeping separate containers and volumes. Keycloak imports the versioned realm configuration without users or secrets.
-3. Check `http://127.0.0.1:8081/realms/fleetflow/.well-known/openid-configuration`. Its `issuer` must equal `OIDC_ISSUER` exactly. The client `fleetflow-cli` puts `fleetflow-api` in access-token `aud`; `OIDC_AUDIENCE` must match exactly.
-4. Sign in to the local Keycloak Admin Console with the private bootstrap credentials. In realm `fleetflow`, create an enabled development user with username, email, first and last names, a permanent password, and no outstanding required actions. Copy its Keycloak user ID (`sub`), which is a UUID. For the first application administrator run `./scripts/Bootstrap-LocalAdmin.ps1 -Subject <Keycloak-user-id>`. The script inserts an active actor and ADMIN role into local PostgreSQL in one transaction. It does not expose an anonymous bootstrap endpoint. The Keycloak bootstrap administrator is distinct from a FleetFlow ADMIN actor.
-5. Use the Compose app at `127.0.0.1:8080`. For local/test fixture APIs and Swagger, stop only the Compose app service and run `./scripts/Run-Local.ps1`; it loads database, Redis, Kafka, and OIDC values from `.env`, selects `local`, and binds to loopback. Health liveness and readiness are at `/actuator/health/liveness` and `/actuator/health/readiness`.
-6. Obtain a development access token from Keycloak's `fleetflow-cli` client. For example, in PowerShell, set `$username`, read `$password = Read-Host -AsSecureString`, then call `Invoke-RestMethod -Method Post -Uri "$env:OIDC_ISSUER/protocol/openid-connect/token" -Body @{grant_type='password';client_id='fleetflow-cli';username=$username;password=($password | ConvertFrom-SecureString -AsPlainText)}`. Set `$env:OIDC_ISSUER` from `.env` first or use its literal loopback URL. Keep the returned access token in a temporary shell variable and send `Authorization: Bearer <token>` to the API. The password grant exists only in this local learning realm.
-7. Open [local Swagger UI](http://127.0.0.1:8080/swagger-ui/index.html). Select **Authorize** and paste the access token value; Swagger UI adds the `Bearer` prefix. The token must map to an active FleetFlow actor with the role listed for that operation.
+## See it in action
 
-Use `docker compose --env-file .env -p fleetflow down` to stop the stack. The database volume persists; `down --volumes` would erase it.
+The local profile serves interactive Swagger documentation for the registered business routes. The optional monitoring overlay provisions a private Prometheus scrape and a Grafana operations dashboard.
 
-The optional [monitoring overlay](docs/operations/MONITORING.md) adds private Prometheus and Grafana to the same Compose project. The separate alerting overlay adds Alertmanager only when a private webhook file is configured. Keep these optional files in the documented order after `compose.yaml`; neither creates another application stack.
+![FleetFlow local Grafana dashboard showing dependency, API, outbox, and stream signals](docs/assets/readme/grafana-local-operations.png)
 
-### Swagger and OpenAPI
+*Real local Grafana capture from the 2026-10-09 Phase 11 exercise, cropped to remove browser chrome. It records that exercise, not current service health; see the [observability evidence](docs/operations/PHASE11_OBSERVABILITY_EVIDENCE.md).*
 
-With the `local` or `test` profile on loopback, Swagger UI at `/swagger-ui/index.html` shows all **57 registered `/api/v1` operations**. The machine-readable contract is at `/v3/api-docs` (JSON) or `/v3/api-docs.yaml`. Operations are grouped by customer, merchant, driver, dispatch, delivery zones and fixture purpose. Each lists its required role and profile, request and response schema, supported filters, and safe error responses.
+## Engineering highlights
 
-The local/test page includes fixture ADMIN routes and `POST /api/v1/orders`. Those routes are absent from default/prod, where the OpenAPI and Swagger endpoints are disabled. Submitted order prices remain untrusted, so the create route is only for loopback learning. The Actuator health probes are operational endpoints documented above; they are intentionally outside the business API contract.
+| Concern | Implemented behavior |
+| --- | --- |
+| **Guarded lifecycles** | Customer and merchant order commands, driver duty changes, and delivery commands enforce legal transitions and persist state/history. Invalid or competing actions return conflicts. |
+| **Dispatch under contention** | Matching snapshots rank candidates after bounded Redis GEO lookup and durable eligibility checks. Offer creation locks the order, conditionally reserves an available driver, and relies on partial unique indexes to prevent simultaneous active offers for one order or driver. Acceptance rechecks ownership, deadline, and offer state. |
+| **Geographic serviceability** | Merchant branches store versioned WGS84 polygons in PostGIS. `ST_Covers` includes boundary points when an enforced zone is checked during preview, order creation, matching, and offer creation. Redis GEO is a driver prefilter, not zone truth. |
+| **Live tracking** | Customer-owned snapshots and short-lived SSE streams report current order/delivery state with an optional fresh driver fix. PostgreSQL determines ownership and assignment; Redis location can disappear without turning a stale fix into an authorized position. |
+| **Asynchronous effects** | Business transactions insert outbox events. A bounded publisher sends them to Kafka; consumers build actor-scoped notifications and daily transition counts with deduplication. A committed command can precede its derived projection. |
+| **Operational signals** | Actuator health and metrics, structured correlation IDs, bounded route limits, a private Prometheus scrape, provisioned Grafana panels, alerts, and backup/restore scripts support the local hardening exercises. |
 
-To try a customer read, provision an actor with a `CUSTOMER` role and customer profile, authorize Swagger with that actor's Keycloak token, then open **Customer orders**. To try a fixture route, use a separately provisioned `ADMIN` actor. An ADMIN role alone grants no customer or branch scope. The API never accepts `X-Dev-Actor-Id` as identity. Keep bearer tokens out of screenshots and committed examples.
+## Architecture
 
-### Provisioning and revocation
-
-Only the local/test ADMIN fixture route creates an actor record. It returns the internal actor UUID and active flag; the OIDC issuer and subject remain distinct from that UUID. Creating an actor does **not** grant a role. An operator with database authority grants or revokes roles in `actor_roles`, for example:
-
-```sql
-INSERT INTO actor_roles (actor_id, role) VALUES ('<actor-uuid>', 'CUSTOMER');
-DELETE FROM actor_roles WHERE actor_id = '<actor-uuid>' AND role = 'CUSTOMER';
-UPDATE merchant_staff_memberships SET active = false WHERE id = '<membership-uuid>';
+```mermaid
+flowchart LR
+    A[Customer · merchant · driver · dispatcher] -->|Bearer JWT| API[Spring Boot API]
+    KC[Keycloak] -.->|Issuer, signature and audience| API
+    API -->|State, ownership, offers, zones| PG[(PostgreSQL + PostGIS)]
+    API -->|Fresh GPS, heartbeat, GEO prefilter| R[(Redis)]
+    PG -->|Committed outbox rows| PUB[Outbox publisher]
+    PUB --> K[Kafka]
+    K --> C[Notification + analytics consumers]
+    C --> PG
+    API -->|Owned snapshot + SSE| A
+    M[Prometheus] -->|Private monitoring scrape| API
+    G[Grafana] --> M
 ```
 
-The allowlist is CUSTOMER, MERCHANT, DRIVER, SUPPORT, DISPATCHER, ADMIN. Role changes, actor deactivation, and branch membership revocation take effect on the next request, including while an old bearer token remains valid. SUPPORT, DISPATCHER, and ADMIN do not inherit customer or merchant object access. Production provisioning is an out-of-band operator responsibility; there is no registration, password database, role self-assignment, or FleetFlow token issuer.
+**The consistency boundary is PostgreSQL.** Order state, assignment exclusivity, zone policy, and recovery records survive Redis loss. Redis stores ephemeral driver position and liveness; it cannot authorize an offer on its own. Outbox insertion shares the business transaction, while Kafka publication and consumer projections happen afterward. The [architecture plan](docs/architecture/ARCHITECTURE_PLAN.md), [state machines](docs/architecture/STATE_MACHINES.md), and [Phase 8 event record](docs/phases/PHASE_8.md) explain the detailed decisions.
 
-## Configuration
+## API and Swagger
 
-| Variable | Meaning |
-| --- | --- |
-| `DB_URL`, `DB_USER`, `DB_PASSWORD` | Required application database connection. |
-| `DB_NAME`, `DB_PORT` | Compose database name and loopback host port; default port 5433. |
-| `OIDC_ISSUER` | Exact trusted `iss`, required at startup in every profile. |
-| `OIDC_JWKS_URI` | Trusted provider key endpoint, required at startup. |
-| `OIDC_AUDIENCE` | Required access-token audience, `fleetflow-api` locally. |
-| `OIDC_PORT` | Local Keycloak loopback host port, default 8081. |
-| `KC_ADMIN_USER`, `KC_ADMIN_PASSWORD` | Private local Keycloak bootstrap credentials; required when starting the OIDC Compose profile. |
-| `REDIS_HOST`, `REDIS_PORT` | Redis connection for location, heartbeat, and matching. |
-| `KAFKA_BOOTSTRAP_SERVERS`, `KAFKA_PORT` | Kafka bootstrap address for a host-run app and loopback broker port in Compose. |
-| `OUTBOX_ENABLED`, `OUTBOX_BATCH_SIZE`, `OUTBOX_SWEEP_INTERVAL_MS`, `OUTBOX_LEASE_DURATION`, `OUTBOX_SEND_TIMEOUT`, `OUTBOX_MAX_ATTEMPTS` | Publisher controls; see the [Phase 8 runbook](docs/phases/PHASE_8.md). |
-| `OUTBOX_PUBLISHED_RETENTION`, `OUTBOX_PRUNE_BATCH_SIZE`, `OUTBOX_PRUNE_INTERVAL_MS` | Cleanup of old published events only after both consumers have processed them. |
-| `SPRING_PROFILES_ACTIVE`, `SERVER_PORT` | Active profile and HTTP port; local script sets `local`, default HTTP port 8080. |
+With the `local` profile, open [Swagger UI](http://127.0.0.1:8080/swagger-ui/index.html) or retrieve the [OpenAPI JSON](http://127.0.0.1:8080/v3/api-docs). The current local-profile integration test reads the generated specification and verifies **57 registered `/api/v1` HTTP operations** against Spring's route registry. These URLs are available only when that local instance is running. The default/prod profiles disable Swagger and OpenAPI endpoints.
 
-Missing issuer, JWKS URI, or audience fails application startup. Signed tokens must have a trusted signature, exact issuer and audience, subject, expiry, and valid not-before time. The application reads roles only from PostgreSQL, not token role, email, or username claims. Business routes use stateless bearer authentication with no session, form login, basic auth, or trusted development header.
+The API has separate routes for a customer's own orders, exact-branch merchant work, driver self actions, dispatcher matching/assignment/recovery, and merchant serviceability. Representative operations:
 
-## Route and policy matrix
-
-| Method and path | Profiles | Policy |
+| Actor | Operation | Purpose |
 | --- | --- | --- |
-| `GET /api/v1/orders/{id}` | local/test/default/prod | CUSTOMER; query includes order ID and the caller's customer ID. Foreign and absent orders both return `404 RESOURCE_NOT_FOUND`. |
-| `GET /api/v1/orders` | local/test/default/prod | CUSTOMER; customer scope is in the SQL query, with bounded Phase 1 filters, sort, and pagination. No owner parameter. |
-| `GET /api/v1/merchant-branches/{branchId}/orders` | local/test/default/prod | MERCHANT plus current active membership for that exact active branch; narrow summaries, branch-scoped SQL. Inaccessible branch returns `404 RESOURCE_NOT_FOUND`. |
-| `GET`, `POST /api/v1/merchant-branches/{branchId}/zones`; `PUT /zones/{zoneId}`; `GET`, `PUT /zone-policy`; `POST /serviceability` | local/test/default/prod | MERCHANT plus current active membership for the exact active branch; bounded GeoJSON zones, explicit enforcement mode, and PostGIS destination preview. See [Phase 10](docs/phases/Phase10.md). |
-| `GET /api/v1/drivers/me` | local/test/default/prod | DRIVER; resolves only the caller's profile and reports durable operational state/version. A suspended/inactive driver may read self status. |
-| `POST /api/v1/orders/{orderId}/cancel` | local/test/default/prod | Owning CUSTOMER; CREATED or CONFIRMED only, with a required reason. |
-| `POST /api/v1/merchant-branches/{branchId}/orders/{orderId}/confirm`, `/start-preparation`, `/ready-for-pickup`, `/cancel` | local/test/default/prod | MERCHANT with active exact branch membership; cancellation requires a reason. |
-| `POST /api/v1/drivers/me/online`, `/available`, `/pause`, `/offline` | local/test/default/prod | Active, unsuspended DRIVER acting only on self; availability also needs an active suitable vehicle. It does not imply fresh location or dispatch eligibility. |
-| `POST /api/v1/drivers/me/location`, `/heartbeat` | local/test/default/prod | DRIVER self operational updates; Redis liveness is separate from durable availability. |
-| `POST /api/v1/dispatch/orders/{id}/match`, `GET /api/v1/dispatch/orders/{id}/attempts` | local/test/default/prod | DISPATCHER; immutable ranked candidate evidence and bounded read. |
-| `POST /api/v1/dispatch/orders/{id}/offers`, `GET /api/v1/dispatch/orders/{id}/assignments` | local/test/default/prod | DISPATCHER; current Redis and PostgreSQL eligibility recheck, atomic reservation, and bounded assignment read. |
-| `GET /api/v1/drivers/me/offers`, `POST /api/v1/drivers/me/offers/{offerId}/accept`, `/reject` | local/test/default/prod | DRIVER; exact offer ownership, server deadline, and atomic state changes. |
-| `GET /api/v1/notifications/me` | local/test/default/prod | CUSTOMER or DRIVER; returns only the signed actor's newest 1–20 notifications. |
-| `GET /api/v1/dispatch/analytics/daily` | local/test/default/prod | DISPATCHER; UTC transition counts for an inclusive range of at most 31 days. |
-| `POST /api/v1/orders` | local/test, loopback | CUSTOMER; caller-derived customer and existing validation, snapshots, and rollback. Submitted prices are untrusted. No default/prod handler. |
-| Fixture actor/customer/merchant/branch/membership/driver/vehicle create/read routes | local/test, loopback | Explicitly provisioned ADMIN only; no production fixture controllers. |
-| `/actuator/health/**`, `/actuator/info` | Health in all profiles; info except prod | Anonymous probes, hidden health details. Other routes do not inherit this permit rule. |
+| Customer | `GET /api/v1/orders` | List only the signed customer's orders with bounded filters and pagination. |
+| Merchant | `POST /api/v1/merchant-branches/{branchId}/orders/{orderId}/ready-for-pickup` | Advance a prepared order for a currently authorized branch. |
+| Driver | `POST /api/v1/drivers/me/offers/{offerId}/accept` | Accept the caller's unexpired offer. |
+| Dispatcher | `POST /api/v1/dispatch/orders/{orderId}/match` | Persist ranked candidate evidence for a ready order. |
+| Dispatcher | `POST /api/v1/dispatch/orders/{orderId}/offers` | Create an exclusive, time-bound offer from the latest eligible attempt. |
+| Merchant | `POST /api/v1/merchant-branches/{branchId}/serviceability` | Preview the current destination zone decision. |
 
-The order list allows `branchId`, statuses through `DRIVER_ASSIGNED`, inclusive `from`, exclusive `to`, zero-based `page`, `size` 1–100, and `sort=createdAt,asc/desc` or `id,asc/desc`. `POST /api/v1/orders` retains Phase 1's request body and exact decimal calculation; [Phase 1](docs/phases/PHASE_1.md) records that behavior. All API requests use `Authorization: Bearer <access-token>`; `X-Dev-Actor-Id` has no identity effect.
+Swagger documents the full request and response schemas. Fixture creation routes and `POST /api/v1/orders` register only in `local`/`test`; they are bound to loopback and still require the relevant bearer identity and role. The order-create request accepts caller-supplied prices, so it is a learning fixture rather than trusted production intake.
 
-API and security errors include a stable code, safe message, path, timestamp, correlation ID, and bounded fields list. Missing or invalid tokens return `401 UNAUTHENTICATED`; a valid token without a provisioned active actor or required role returns `403 FORBIDDEN`; object-scope denial returns `404 RESOURCE_NOT_FOUND`; invalid, duplicate and losing-race lifecycle commands return `409 LIFECYCLE_CONFLICT`. Database failure returns a safe `503` where a response can be sent. `X-Correlation-ID` is validated or generated and returned on both MVC and security-filter responses. Health details are hidden. Do not log tokens, credentials, subjects, request bodies, or SQL bind values.
+## Run locally
 
-## Delivery status
+**Prerequisites:** Java 21, Docker Desktop with Compose, PowerShell, and cached or available pinned images. Testcontainers also uses Docker for the integration suite.
 
-The [execution roadmap](docs/ROADMAP.md) tracks phase status. [Phase 6](docs/phases/PHASE_6.md) records assignment and concurrency evidence. [Phase 7](docs/phases/PHASE_7.md) records recovery and delivery evidence. [Phase 8](docs/phases/PHASE_8.md) records event transport proof. [Phase 9](docs/phases/Phase9.md) records tracking and simulator proof. [Phase 10](docs/phases/Phase10.md) tracks current zone acceptance. No production readiness claim follows from these slices alone.
+1. Copy `.env.example` to ignored `.env`. Set private local values for `DB_PASSWORD`, `KC_ADMIN_USER`, and `KC_ADMIN_PASSWORD`; keep the issuer, JWKS URI, audience, and loopback ports aligned. The [local OIDC instructions](#local-oidc-setup) explain actor provisioning.
+2. Start the backend and its dependencies:
 
-[Phase 11's synthetic demo guide](docs/operations/PHASE11_DEMO.md) reproduces the signed end-to-end scenarios, monitoring, load, and encrypted restore. Its [evidence record](docs/phases/phase11.md) reports measured local recovery, off-host upload/retrieval and fresh restore, scheduled-task exercises, and workload results. The operator closed further Phase 11 work on 2026-10-09 with unmet daily-reliability, separate-machine recovery, security/operations, and review-integration gates; its status is `CLOSED_PARTIAL`, not `COMPLETE`. The daily backup remains scheduled. The local Compose topology is not an internet-facing deployment.
+   ```powershell
+   docker compose --env-file .env -p fleetflow up -d --build --pull never
+   docker compose --env-file .env -p fleetflow ps
+   ```
+
+   `--pull never` uses cached pinned images. If one is absent, fetch that image intentionally before starting. The normal Compose app uses `prod`; health is available at `http://127.0.0.1:8080/actuator/health/readiness`.
+
+3. For Swagger and local fixtures, stop only the Compose app and run the loopback local profile in a separate PowerShell terminal:
+
+   ```powershell
+   docker compose --env-file .env -p fleetflow stop app
+   .\scripts\Run-Local.ps1
+   ```
+
+   The script reads `.env`, selects `local`, and runs the Maven wrapper. Visit `http://127.0.0.1:8080/swagger-ui/index.html`. When finished, stop the local process; `docker compose --env-file .env -p fleetflow start app` restores the Compose app.
+
+4. Run the integration suite:
+
+   ```powershell
+   .\mvnw.cmd clean verify
+   ```
+
+   Stop the stack with `docker compose --env-file .env -p fleetflow down`; keep the named database volumes unless you deliberately intend to erase local data.
+
+### Local OIDC setup
+
+Keycloak imports the versioned `fleetflow` realm and `fleetflow-cli` development client. Create a local Keycloak user, copy its UUID subject, then run `.\scripts\Bootstrap-LocalAdmin.ps1 -Subject <Keycloak-user-id>` once to create an active FleetFlow administrator actor. Identity and FleetFlow roles are separate: signed token claims identify the subject, while PostgreSQL determines current actor status, roles, customer ownership, and branch membership. The [security design](docs/architecture/ADR-0003-oidc-and-object-scope.md) and [Phase 2 evidence](docs/phases/PHASE_2.md) describe the trust boundary. Keep development access tokens and private `.env` values out of screenshots and commits.
+
+### Optional monitoring
+
+The [monitoring runbook](docs/operations/MONITORING.md) covers the `compose.monitoring.yaml` overlay, its private management port, file-backed Grafana credential, and alert exercises. Prometheus and Grafana are a synthetic local operations view, not a public service deployment.
+
+## Security and scope
+
+- **Authorization:** Spring Security validates signed Keycloak JWTs, issuer, audience, and time claims. FleetFlow resolves an active actor and roles from PostgreSQL on each request. The role set is `CUSTOMER`, `MERCHANT`, `DRIVER`, `DISPATCHER`, `ADMIN`, and `SUPPORT`; SUPPORT has no business route. Customer order access is ownership-scoped; merchant actions require current membership of the exact branch. A dispatcher or administrator role does not inherit those object scopes.
+- **Pricing and intake:** `POST /api/v1/orders` exists only in loopback `local`/`test` and accepts caller-submitted prices. There is no trusted catalog/pricing source or production public-order-intake endpoint.
+- **Payments and deployment:** There is no payment flow or internet-facing deployment claim. Compose uses Keycloak development mode and local-only topology. Phase 11 operational and security acceptance remains incomplete.
+- **Derived data:** Redis position and Kafka projections can be stale or unavailable. Durable PostgreSQL state decides business outcomes; a notification is not proof that an offer is still valid.
+
+## Verification and status
+
+The Maven wrapper runs unit and Testcontainers-backed PostgreSQL/PostGIS, Redis, Kafka, and Keycloak tests. On 2026-10-10, `clean verify` passed **122 tests, 0 failures, 0 errors, 0 skips** on this checkout. The [assignment evidence](docs/phases/PHASE_6.md), [tracking evidence](docs/phases/Phase9.md), [zone evidence](docs/phases/Phase10.md), and [Phase 11 record](docs/phases/phase11.md) contain the scenario-level results and limits. GitHub Actions runs a tracked-credential preflight and `mvnw verify` in [the verification workflow](.github/workflows/verify.yml).
+
+**Phase 11: `IN_PROGRESS` on this checkout.** The repository records local signed demo, monitoring, load, and restore exercises, including an independently retrieved remote archive restored into a fresh local target. This branch's phase record still lists scheduled-backup reliability, host-loss recovery, operational drills, security disposition, sustained business-transition load, and final integration/review as open gates. Those partial results do not establish production readiness.
+
+For implementation and operational detail, start with the [roadmap](docs/ROADMAP.md), [architecture plan](docs/architecture/ARCHITECTURE_PLAN.md), [security ADR](docs/architecture/ADR-0003-oidc-and-object-scope.md), [monitoring runbook](docs/operations/MONITORING.md), and [backup/restore runbook](docs/operations/BACKUP_RESTORE.md).
