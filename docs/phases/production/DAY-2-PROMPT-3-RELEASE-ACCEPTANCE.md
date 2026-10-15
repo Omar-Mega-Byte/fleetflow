@@ -1,7 +1,7 @@
 # Day 2 Prompt 3 — release acceptance
 
 **Date:** 2026-10-15 (Africa/Cairo)<br>
-**Status before corrective remote rerun:** local release checks pass; the prior PR run exposed browser, scan-policy and CodeQL gates. Local fixes are verified; exact-head CI, merge and repository cleanup remain pending.<br>
+**Status at this ledger revision:** corrective CI passed on PR head `f2e01363f6cd25175e4893eed14baab1e9f0c489`; merge and repository cleanup remain pending.<br>
 **Deployment boundary:** private local rehearsals only. No public deployment was made.
 
 This ledger ties the Prompt 1 backend contract and Prompt 2 browser workflow to a reproducible release path. Phase 11 remains `CLOSED_PARTIAL`; this document does not claim production readiness or immutable candidate approval.
@@ -10,7 +10,7 @@ This ledger ties the Prompt 1 backend contract and Prompt 2 browser workflow to 
 
 - Repository: `Omar-Mega-Byte/fleetflow`; target branch: `main`.
 - Working branch: `codex/day2-release-closeout`; base: `4efc0b0067ff451d4328761fd04597d2a4d05493`.
-- The previous remote run used `a9c4813bde6bd13a39a094f504ba12c1d73ce11e`. Local corrective changes are currently uncommitted on top of that branch head; the corrective push SHA and its CI/SBOM identities will be recorded after the run completes.
+- The prior failed run used `a9c4813bde6bd13a39a094f504ba12c1d73ce11e`. Corrective PR head: `f2e01363f6cd25175e4893eed14baab1e9f0c489`. Successful GitHub Actions run: `38755514793`; its tested PR merge ref was `33b5e00273bc1193eb4639f497bd80d92330ff72` (base `4efc0b0067ff451d4328761fd04597d2a4d05493` plus the PR head).
 - The intended Day 1 and Day 2 changes were preserved together. No unrelated tracked changes were present at initial inspection.
 
 ## CI and release tooling
@@ -20,11 +20,13 @@ This ledger ties the Prompt 1 backend contract and Prompt 2 browser workflow to 
 - **Backend, migrations and API contracts:** repository credential preflight, Day 1 safety, Day 2 trace-sanitizer and Trivy policy-gate tests, local and production Compose validation, and clean Maven verification with Testcontainers.
 - **Frontend checks and browser smoke:** clean `npm ci`, `npm audit --audit-level=high`, lint, typecheck, component/unit tests, production build and fixture Playwright tests.
 - **Source security:** Trivy filesystem dependency, configuration and secret scan emits full-severity SARIF. A repository gate blocks HIGH/CRITICAL findings, secrets and unclassified results, while preserving a sanitized SARIF inventory for review.
-- **Source SBOM:** CycloneDX JSON.
+- **Source SBOM:** CycloneDX JSON with its project identity and version taken from the Maven POM.
 - **Runtime images:** build six release images, run the Day 1 private-edge smoke and the Day 2 real signed journey, scan all six images, emit image SBOMs and record immutable local image IDs. Build metadata is explicitly `BUILD_METADATA_ONLY` and `candidateApproved: false`.
 - **CodeQL:** Java/Kotlin and JavaScript/TypeScript.
 
 The live browser config retains traces and screenshots on failure. Before artifact upload, the harness removes authorization/cookie data, OAuth secrets, request bodies and captured network resources; sanitizer tests cover JWTs, code/state values, headers, post data and response bodies. Raw Trivy reports stay on the ephemeral runner; secret results are removed before safe reports are archived. Scanner execution and policy failures remain failures. No environment file is uploaded.
+
+The corrective run passed all PR checks: backend/migrations, frontend and signed browser smoke, runtime image build and real browser journeys, source and image Trivy policy gates, source SBOM, Java/Kotlin and JavaScript/TypeScript CodeQL, GitGuardian, and the GitHub Advanced Security `CodeQL` alert aggregator. GitHub reported zero open code-scanning alerts after the CSRF correction. This run validates the code-bearing PR head above; the ledger-only update is also required to pass CI before merge.
 
 ## Local verification evidence
 
@@ -54,9 +56,39 @@ The live driver flow initially failed because the edge sent `Permissions-Policy:
 
 Production credentials are file-backed through the configured secret directory; templates remain placeholders. The committed-file credential preflight passed. `npm audit` reported zero vulnerabilities. Trivy, CodeQL, and Syft were not available as local executables; the pinned CI jobs provide scan and SBOM evidence.
 
-The first remote run (`38745117962`, branch SHA `a9c4813`) reported 57 Trivy findings across source and six images: 26 MEDIUM, 31 LOW, zero HIGH/CRITICAL, zero secret findings and zero unclassified results. The source report contains six LOW `DS-0026` Dockerfile HEALTHCHECK notices; Compose health checks are defined and are checked in the production rehearsal. The app image contains `CVE-2026-46675`, MEDIUM, `libpng` `1.6.58-r1`, with fixed version `1.6.59-r0`; runtime/platform owner to validate the base-package applicability and update path. Keycloak has 25 MEDIUM and 25 LOW RHEL/JDK package findings with no fixed versions in that scan; identity/platform owner to check vendor backports and applicability per finding in the preserved SARIF. Other four images had no findings. None were suppressed. The previous SARIF action failed on MEDIUM/LOW because it emitted all severities despite the configured filter; the new explicit gate preserves inventory and blocks HIGH/CRITICAL, secrets and unclassified results.
+The successful corrective run (`38755514793`) reported the same 57 Trivy findings across source and six images: **26 MEDIUM, 31 LOW, zero HIGH/CRITICAL, zero secrets and zero unclassified results**. Source and image SARIF were archived after secret-result redaction; downloaded copies are retained outside Git under `%LOCALAPPDATA%\FleetFlowDay2Audit\2026-10-15\remote-ci-38755514793\`.
 
-The same PR run reported CodeQL's HIGH `java/spring-disabled-csrf-protection` alert at the global `csrf.disable()` call. The configuration now keeps Spring CSRF enabled and excludes only stateless, bearer-only `/api/**` endpoints; local Phase 2 tests and the full Maven suite pass. The exact corrective CodeQL result is pending remote rerun. No applicable HIGH/CRITICAL finding may remain before merge.
+| Scan finding | Installed component / version | Severity and advisory | Affected status / fix version | Owner and disposition |
+|---|---|---|---|---|
+| Source Dockerfile policy (6 occurrences) | `Dockerfile`, `ops/production/kafka.Dockerfile`, `ops/production/keycloak.Dockerfile`, `ops/production/postgis.Dockerfile`, `ops/production/redis.Dockerfile`, `web/Dockerfile.release` | LOW `DS-0026` | Trivy reports no Dockerfile `HEALTHCHECK`; production Compose health checks exist and passed validation. No package fix applies. | Release/platform. Informational for the current Compose deployment; retain in SARIF and decide whether image-level checks are also required. |
+| Application image | `libpng` `1.6.58-r1` | MEDIUM `CVE-2026-46675` | Package is present and Trivy marks it affected; fixed version `1.6.59-r0`. Application-level exploitability not separately assessed. | Runtime/platform. OPEN; validate base-image update path and rebuild. |
+| Keycloak image | `coreutils-single` `8.32-41.el9_8.1` | MEDIUM `CVE-2026-56391` | Package is present and Trivy matches the advisory; vendor applicability/backport not verified. No fixed version reported. | Identity/platform. OPEN; review vendor status and record remediation or not-affected rationale. |
+| Keycloak image | `glibc` `2.34-283.el9_8`; `glibc-common` `2.34-283.el9_8`; `glibc-langpack-en` `2.34-283.el9_8` | MEDIUM `CVE-2026-8674`, `CVE-2026-86805`, `CVE-2026-89092`, `CVE-2026-95818`; LOW `CVE-2026-97399` (each advisory matches all three packages) | Components are present and Trivy matches the advisories; vendor applicability/backport not verified. No fixed versions reported. | Identity/platform. OPEN; check Red Hat package advisories/backports for each component and record disposition. |
+| Keycloak image | `java-21-openjdk-headless` `1:21.0.12.1.1-1.2.el9` | MEDIUM `CVE-2025-28164`, `CVE-2025-64505`, `CVE-2025-64506`, `CVE-2026-22693`, `CVE-2026-34757`, `CVE-2026-40930`, `CVE-2026-49919`, `CVE-2026-95512`; LOW `CVE-2026-27171` | Component is present and Trivy matches the advisories; vendor applicability/backport not verified. No fixed versions reported. | Identity/platform. OPEN; check vendor advisories and the supported Keycloak runtime update path. |
+| Keycloak image | `libgcc` `11.5.0-14.el9` | MEDIUM `CVE-2026-102010`, `CVE-2026-95619`; LOW `CVE-2021-46195`, `CVE-2022-27943` | Component is present and Trivy matches the advisories; vendor applicability/backport not verified. No fixed versions reported. | Identity/platform. OPEN; verify vendor status for each advisory. |
+| Keycloak image | `ncurses-base` and `ncurses-libs` `6.2-12.20210508.el9` | LOW `CVE-2023-50495` (both packages) | Components are present and Trivy matches the advisory; vendor applicability/backport not verified. No fixed version reported. | Identity/platform. OPEN; verify vendor status for both packages. |
+| Keycloak image | `nspr` `4.39.0-5.el9_6`; `nss`, `nss-softokn`, `nss-softokn-freebl`, `nss-sysinit`, `nss-util` `3.124.0-5.el9_6` | LOW `CVE-2020-12413`, `CVE-2024-7531` (both advisories match each of the six packages) | Components are present and Trivy matches the advisories; vendor applicability/backport not verified. No fixed versions reported. | Identity/platform. OPEN; verify vendor status for each package/advisory pair. |
+| Keycloak image | `pcre2` and `pcre2-syntax` `10.40-7.el9_8` | LOW `CVE-2022-41409` (both packages) | Components are present and Trivy matches the advisory; vendor applicability/backport not verified. No fixed version reported. | Identity/platform. OPEN; verify vendor status for both packages. |
+| Keycloak image | `sed` `4.8-10.el9` | MEDIUM `CVE-2026-5958` | Package is present and Trivy matches the advisory; vendor applicability/backport not verified. No fixed version reported. | Identity/platform. OPEN; verify vendor status and runtime update path. |
+| Keycloak image | `sqlite-libs` `3.34.1-11.el9_8` | MEDIUM `CVE-2026-50812`; LOW `CVE-2024-0232`, `CVE-2025-70873` | Package is present and Trivy matches the advisories; vendor applicability/backport not verified. No fixed versions reported. | Identity/platform. OPEN; verify vendor status for each advisory. |
+| Keycloak image | `zlib` `1.2.11-40.el9` | LOW `CVE-2026-27171` | Package is present and Trivy matches the advisory; vendor applicability/backport not verified. No fixed version reported. | Identity/platform. OPEN; verify vendor status and update path. |
+
+The grouped Keycloak rows account for 50 package/advisory findings (25 MEDIUM, 25 LOW). Other four runtime images had zero findings. These scanner matches establish package presence and advisory matching, not exploitability; none is marked not-affected without vendor evidence. The Day 2 policy gate blocks HIGH/CRITICAL, secrets and unclassified results, so these MEDIUM/LOW findings remain explicitly owned rather than suppressed.
+
+The previous PR run reported CodeQL's HIGH `java/spring-disabled-csrf-protection` alert at the global `csrf.disable()` call. The configuration now keeps Spring CSRF enabled and excludes only stateless, bearer-only `/api/**` endpoints; local Phase 2 tests and the full Maven suite pass. The corrective CodeQL analyses and alert aggregator passed, with no open code-scanning alerts. CodeQL documents this rule as risky when CSRF is disabled for browser-facing services; API-only bearer routes remain excluded while CSRF protects non-API routes. [CodeQL rule guidance](https://codeql.github.com/codeql-query-help/java/java-spring-disabled-csrf-protection/).
+
+Trivy's pinned action emitted MEDIUM/LOW SARIF despite the earlier severity input, so the gate now inventories all severities and applies policy separately. Only sanitized SARIF is uploaded; Trivy's SARIF represents secret matches under the `Secret` rule and includes match data in result content, which the checker removes before archival. [Trivy SARIF reporting](https://github.com/aquasecurity/trivy/blob/main/docs/guide/configuration/reporting.md), [Trivy SARIF implementation](https://github.com/aquasecurity/trivy/blob/main/pkg/report/sarif.go), [pinned Trivy Action source](https://github.com/aquasecurity/trivy-action/blob/ed142fd0673e97e23eac54620cfb913e5ce36c25/entrypoint.sh).
+
+The run generated one CycloneDX source SBOM and six image CycloneDX SBOMs, plus sanitized source/image SARIF and the browser/build evidence. Application version is `0.0.1-SNAPSHOT` from `pom.xml`. The first source SBOM's metadata component was `.` with no version, so the source-SBOM job now supplies the project name/version from the POM through Syft configuration, and image-build metadata now records the same version; the next exact-head CI artifact must confirm this correction. Build identity metadata remains `BUILD_METADATA_ONLY`, `candidateApproved: false`; it contains local image IDs but no registry digests and is not immutable release provenance. The first run's image IDs and creation time are recorded in `image-builds.json`; it used source merge-ref `33b5e00273bc1193eb4639f497bd80d92330ff72` and completed at `2026-10-15T14:56:02Z`.
+
+| Image | CI image ID |
+|---|---|
+| app | `sha256:094402c6ca45067521bd25a23bf799c8c30c2069df94a9b9b3668002508cd7dc` |
+| Keycloak runtime | `sha256:50bca805144b340e7370006c0aea2597c564f25009a213e24c89d4e93492e452` |
+| edge | `sha256:89f0362c6af03396b06a49bee2ac1d5f75224b5c410b98846165ab5d69b186d2` |
+| PostGIS | `sha256:af09b7874068f449d8bb851c8a9814eececd50566972edd0225aeac8671db72d` |
+| Redis | `sha256:2004d07cd91d9887d558e099e6975a7a48cc31f6b52aa8c8917707de7789de19` |
+| Kafka | `sha256:d526bd0b6c1044bc7771ca84c2c977778f0740a7f57254ef2b0c664686255671` |
 
 ## Repository hygiene
 
@@ -70,10 +102,11 @@ The same PR run reported CodeQL's HIGH `java/spring-disabled-csrf-protection` al
 
 | Issue | Owner | Status / next gate |
 |---|---|---|
-| App `libpng` MEDIUM CVE and Keycloak package MEDIUM/LOW inventory | Runtime/platform and identity owners | Prior-run findings are in the run-bound Trivy SARIF; confirm applicability/vendor backports and record the disposition on the corrective PR run. |
-| Six source LOW Dockerfile HEALTHCHECK notices | Release/platform owner | Informational `DS-0026`; Compose-level health checks are configured and the local production topology passed. |
-| Trivy, CodeQL and secret-scan gates | Release/security owner | Corrected locally; exact corrective PR CI result pending. No HIGH/CRITICAL or secret finding may remain. |
-| Preliminary source and six-image SBOMs, image IDs and build identity | Release engineering | Prior-run artifacts exist; regenerate/bind to the corrective commit. Metadata must remain `BUILD_METADATA_ONLY`. |
+| App `libpng` MEDIUM CVE | Runtime/platform owner | Corrective run `38755514793` found `CVE-2026-46675` in `1.6.58-r1`, fixed version `1.6.59-r0`; OPEN to update/rebuild or record a justified disposition. |
+| Keycloak package MEDIUM/LOW inventory (50 findings) | Identity/platform owner | Corrective run SARIF lists component, installed version, severity and CVE above; no fixed versions were reported. OPEN to verify vendor backports/applicability for each package/advisory pair and record remediation or not-affected evidence. |
+| Six source LOW Dockerfile HEALTHCHECK notices | Release/platform owner | Corrective run `38755514793`; informational `DS-0026`. Compose-level health checks are configured and passed; decide whether image-level checks are also required. |
+| Trivy, CodeQL and credential-scan gates | Release/security owner | PASS on corrective run `38755514793`; no HIGH/CRITICAL, secret, unclassified, or open CodeQL alert findings. |
+| Preliminary source and six-image SBOMs, image IDs and build identity | Release engineering | Run `38755514793` retained all seven CycloneDX artifacts and `BUILD_METADATA_ONLY` IDs, but the source SBOM root lacked name/version. The workflow now supplies Maven project identity and adds `applicationVersion`; confirm the next exact-head artifacts. No registry digest or candidate approval is claimed. |
 | Remaining real persona journeys, UI failure/empty/recovery states and full Playwright suite | UI/API owners | Day 3 work; this gate proves one real signed customer-to-delivery path only. |
 | Target DNS, certificate, approved secret delivery, firewall/NSG and notification destination | Deployment/operations owner | External provisioning and review remain open. No public deployment was authorized or attempted. |
 | Sustained backup schedule/RPO and replacement-host restore | Operations owner | Open under Phase 11 `CLOSED_PARTIAL`; the local 56-second smoke is not target-host evidence. |
@@ -89,8 +122,15 @@ The same PR run reported CodeQL's HIGH `java/spring-disabled-csrf-protection` al
 | Phase 5 — synthetic seed/reset and async safety slice | PASS | Guarded seed/reset plus outbox and event recovery tests. |
 | Phase 6 — vertical-client readiness | PASS | Implemented role workspaces and clean frontend/browser checks; the whole product is not yet live-journey complete. |
 | Phase 7 — first vertical workflow | PASS | One real browser flow completes through all four operational personas. |
-| Phase 8 — release preparation | OPEN | Local rehearsal passed; remote scans, SBOM and exact-commit CI are pending. |
+| Phase 8 — release preparation | OPEN | Local rehearsal, CI, scan policy and preliminary SBOM gates passed; full roadmap acceptance remains open, including medium/low vulnerability disposition, target deployment controls and immutable candidate provenance. |
 | Git/repository integration | OPEN | Commit, push, PR, CI review, merge and clean target verification remain. |
+
+## Git integration
+
+- Working branch: `codex/day2-release-closeout`; target: `main`; PR #23.
+- Four corrective commits are pushed after `a9c4813`: `85200c8` browser location gate, `e081e9b` sanitized Trivy policy, `8509661` scoped CSRF, and `f2e0136` release ledger update.
+- PR run `38755514793` passed every listed required check against head `f2e01363f6cd25175e4893eed14baab1e9f0c489` and merge ref `33b5e00273bc1193eb4639f497bd80d92330ff72`.
+- The source-SBOM identity and image-metadata correction are in the current follow-up; exact-head rerun, merge, branch cleanup, merged-target smoke and final clean-tree verification are pending.
 
 ## Day 3 handoff
 

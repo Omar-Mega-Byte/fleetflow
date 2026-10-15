@@ -139,10 +139,28 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+      - name: Prepare source SBOM identity
+        run: |
+          python3 - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+          from xml.etree import ElementTree
+
+          namespace = "{http://maven.apache.org/POM/4.0.0}"
+          pom = ElementTree.parse("pom.xml").getroot()
+          version = pom.findtext(f"{namespace}version")
+          if not version:
+              raise SystemExit("FleetFlow Maven project version is missing")
+          config = "source:\n  name: FleetFlow\n  version: " + json.dumps(version) + "\n"
+          Path(os.environ["RUNNER_TEMP"], "syft-source-config.yaml").write_text(config, encoding="utf-8")
+          print(f"Source SBOM identity: FleetFlow {version}")
+          PY
       - name: Generate CycloneDX source SBOM
         uses: anchore/sbom-action@f8bdd1d8ac5e901a77a92f111440fdb1b593736b # v0.20.6
         with:
           path: .
+          config: ${{ runner.temp }}/syft-source-config.yaml
           syft-version: v1.54.1
           format: cyclonedx-json
           output-file: fleetflow-source-sbom.cdx.json
@@ -185,11 +203,18 @@ jobs:
           import json, os, subprocess
           from datetime import datetime, timezone
           from pathlib import Path
+          from xml.etree import ElementTree
+          namespace = "{http://maven.apache.org/POM/4.0.0}"
+          pom = ElementTree.parse("pom.xml").getroot()
+          application_version = pom.findtext(f"{namespace}version")
+          if not application_version:
+              raise SystemExit("FleetFlow Maven project version is missing")
           images = {}
           for name in ("app", "keycloak-runtime", "edge", "postgis", "redis", "kafka"):
               image = json.loads(subprocess.check_output(["docker", "image", "inspect", f"fleetflow-{name}:ci"]))[0]
               images[name] = {"imageId": image["Id"], "registryDigests": image.get("RepoDigests", [])}
           metadata = {"kind": "BUILD_METADATA_ONLY", "candidateApproved": False,
+              "application": "FleetFlow", "applicationVersion": application_version,
               "sourceCommit": os.environ["GITHUB_SHA"], "createdAtUtc": datetime.now(timezone.utc).isoformat(),
               "ciRun": f'{os.environ["GITHUB_SERVER_URL"]}/{os.environ["GITHUB_REPOSITORY"]}/actions/runs/{os.environ["GITHUB_RUN_ID"]}',
               "images": images, "notes": "Local image IDs are immutable, but publication and approved registry digests remain separate release gates."}
