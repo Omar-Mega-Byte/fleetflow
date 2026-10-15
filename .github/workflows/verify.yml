@@ -31,6 +31,8 @@ jobs:
         run: python3 -m unittest discover -s scripts -p test_day1_preparation.py -v
       - name: Verify Playwright trace secret scrubbing
         run: python3 -m unittest discover -s scripts -p test_day2_trace_sanitizer.py -v
+      - name: Verify Trivy SARIF policy and redaction
+        run: python3 -m unittest discover -s scripts -p test_trivy_sarif_gate.py -v
       - name: Validate local Compose
         run: docker compose --env-file .env.example -f compose.yaml config --quiet
       - name: Validate production Compose isolation
@@ -113,11 +115,14 @@ jobs:
           scan-type: fs
           scan-ref: .
           scanners: vuln,misconfig,secret
-          severity: HIGH,CRITICAL
           ignore-unfixed: false
-          exit-code: '1'
+          # SARIF keeps all severities for disposition; the following gate enforces release policy.
+          exit-code: '0'
           format: sarif
-          output: trivy-results.sarif
+          output: trivy-results.raw.sarif
+      - name: Enforce source scan policy and redact secret evidence
+        if: always()
+        run: python3 scripts/check_trivy_sarif.py --report trivy-results.raw.sarif=trivy-results.sarif
       - name: Preserve scan report
         if: always()
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
@@ -241,10 +246,16 @@ jobs:
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
         with:
           name: live-browser-${{ github.sha }}
-          path: ${{ runner.temp }}/fleetflow-audit/browser/
+          path: |
+            ${{ runner.temp }}/fleetflow-audit/browser/
+            web/test-results/live/
           if-no-files-found: ignore
           retention-days: 14
+      - name: Prepare private image scan report directory
+        if: always() && steps.build_images.outcome == 'success'
+        run: mkdir -p trivy-raw
       - name: Scan FleetFlow application image
+        id: scan_app
         if: always() && steps.build_images.outcome == 'success'
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25
         with:
@@ -253,12 +264,12 @@ jobs:
           scan-type: image
           image-ref: fleetflow-app:ci
           scanners: vuln,secret
-          severity: HIGH,CRITICAL
           ignore-unfixed: false
-          exit-code: '1'
+          exit-code: '0'
           format: sarif
-          output: trivy-app.sarif
+          output: trivy-raw/app.sarif
       - name: Scan Keycloak runtime image
+        id: scan_keycloak
         if: always() && steps.build_images.outcome == 'success'
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25
         with:
@@ -267,12 +278,12 @@ jobs:
           scan-type: image
           image-ref: fleetflow-keycloak-runtime:ci
           scanners: vuln,secret
-          severity: HIGH,CRITICAL
           ignore-unfixed: false
-          exit-code: '1'
+          exit-code: '0'
           format: sarif
-          output: trivy-keycloak.sarif
+          output: trivy-raw/keycloak.sarif
       - name: Scan web and reverse proxy image
+        id: scan_edge
         if: always() && steps.build_images.outcome == 'success'
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25
         with:
@@ -281,12 +292,12 @@ jobs:
           scan-type: image
           image-ref: fleetflow-edge:ci
           scanners: vuln,secret
-          severity: HIGH,CRITICAL
           ignore-unfixed: false
-          exit-code: '1'
+          exit-code: '0'
           format: sarif
-          output: trivy-edge.sarif
+          output: trivy-raw/edge.sarif
       - name: Scan PostGIS image
+        id: scan_postgis
         if: always() && steps.build_images.outcome == 'success'
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25
         with:
@@ -295,12 +306,12 @@ jobs:
           scan-type: image
           image-ref: fleetflow-postgis:ci
           scanners: vuln,secret
-          severity: HIGH,CRITICAL
           ignore-unfixed: false
-          exit-code: '1'
+          exit-code: '0'
           format: sarif
-          output: trivy-postgis.sarif
+          output: trivy-raw/postgis.sarif
       - name: Scan Redis image
+        id: scan_redis
         if: always() && steps.build_images.outcome == 'success'
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25
         with:
@@ -309,12 +320,12 @@ jobs:
           scan-type: image
           image-ref: fleetflow-redis:ci
           scanners: vuln,secret
-          severity: HIGH,CRITICAL
           ignore-unfixed: false
-          exit-code: '1'
+          exit-code: '0'
           format: sarif
-          output: trivy-redis.sarif
+          output: trivy-raw/redis.sarif
       - name: Scan Kafka image
+        id: scan_kafka
         if: always() && steps.build_images.outcome == 'success'
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25
         with:
@@ -323,11 +334,20 @@ jobs:
           scan-type: image
           image-ref: fleetflow-kafka:ci
           scanners: vuln,secret
-          severity: HIGH,CRITICAL
           ignore-unfixed: false
-          exit-code: '1'
+          exit-code: '0'
           format: sarif
-          output: trivy-kafka.sarif
+          output: trivy-raw/kafka.sarif
+      - name: Enforce image scan policy and redact secret evidence
+        if: always() && steps.build_images.outcome == 'success'
+        run: >-
+          python3 scripts/check_trivy_sarif.py
+          --report trivy-raw/app.sarif=trivy-app.sarif
+          --report trivy-raw/keycloak.sarif=trivy-keycloak.sarif
+          --report trivy-raw/edge.sarif=trivy-edge.sarif
+          --report trivy-raw/postgis.sarif=trivy-postgis.sarif
+          --report trivy-raw/redis.sarif=trivy-redis.sarif
+          --report trivy-raw/kafka.sarif=trivy-kafka.sarif
       - name: Generate app image CycloneDX SBOM
         if: always() && steps.build_images.outcome == 'success'
         uses: anchore/sbom-action@f8bdd1d8ac5e901a77a92f111440fdb1b593736b # v0.20.6
@@ -387,7 +407,13 @@ jobs:
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
         with:
           name: trivy-images-${{ github.sha }}
-          path: trivy-*.sarif
+          path: |
+            trivy-app.sarif
+            trivy-keycloak.sarif
+            trivy-edge.sarif
+            trivy-postgis.sarif
+            trivy-redis.sarif
+            trivy-kafka.sarif
           if-no-files-found: ignore
           retention-days: 30
       - name: Preserve immutable build identities
