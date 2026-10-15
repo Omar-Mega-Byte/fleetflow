@@ -1,0 +1,1856 @@
+{
+  "day1Status": "DAY 1 CONDITIONALLY COMPLETE — EXTERNAL DEPENDENCY",
+  "createdAtUtc": "2026-10-14T15:21:44.408178+00:00",
+  "source": {
+    "baseCommit": "4efc0b0067ff451d4328761fd04597d2a4d05493",
+    "branch": "codex/phase11-acceptance-closeout",
+    "dirty": true,
+    "sourceSha256": "a9e676bd9b200122176783324567c53701195ab65f96d9d2df505acc2615c3ba",
+    "kind": "AUDIT_ONLY",
+    "scope": "nonignored repository files excluding docs; not a release candidate"
+  },
+  "sourceManifest": "C:\\Users\\Tolis\\AppData\\Local\\FleetFlowDay1Audit\\2026-10-14\\source-manifest.json",
+  "backend": {
+    "totals": {
+      "tests": 143,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    "suites": [
+      {
+        "suite": "com.fleetflow.api.ApiErrorsTests",
+        "tests": 1,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "cases": [
+          "unexpectedErrorsUseTheProblemContractAndNeverLogExceptionParameters"
+        ]
+      },
+      {
+        "suite": "com.fleetflow.CorrelationIdFilterTests",
+        "tests": 3,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "cases": [
+          "replacesUnsafeId",
+          "keepsValidIdForLogsAndResponseThenClearsIt",
+          "structuredRequestLogDoesNotCopyCredentialsAddressesLocationsGeometryOrFreeText"
+        ]
+      },
+      {
+        "suite": "com.fleetflow.DatabaseOutageTests",
+        "tests": 1,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "cases": [
+          "stoppedPostgresReturnsSafeCorrelated503ForSignedBusinessRequest"
+        ]
+      },
+      {
+        "suite": "com.fleetflow.DefaultProfileRoutesTests",
+        "tests": 1,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "cases": [
+          "defaultRegistersOnlySecuredReadsAndNoOrderWrite"
+        ]
+      },
+      {
+        "suite": "com.fleetflow.DemoResetSafetyTests",
+        "tests": 6,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "cases": [
+          "mutationsRequireCurrentAdminRoleAndEnforceTheFivePerMinuteBudget",
+          "resetRestoresOwnedZoneAndPolicyWithoutReusingOptimisticVersions",
+          "existingUnownedIdentityIsNeverAdoptedOrOverwritten",
+          "interruptedInitialSeedRollsBackOwnershipPersonasAndAuditThenCanRepeatTheSameKey",
+          "distinctConcurrentResetsSerializeAndLeaveOneActiveBaseline",
+          "busyDriverPreventsResetAndRecordsFailureWithoutArchivingTheOrder"
+        ]
+      },
+      {
+        "suite": "com.fleetflow.DemoSeedTests",
+        "tests": 1,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "cases": [
+          "deterministicSeedResetAuthorizationAuditTrackingConcurrencyAndInterruption"
+        ]
+      },
+      {
+        "suite": "com.fleetflow.DriverLifecycleTests",
+        "tests": 3,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "cases": [
+          "onlyAuthenticatedSelfDriverCanChangeState",
+          "vehicleAndProfileEligibilityAreRequired",
+          "selfTransitionsAreGuardedDurableAndAudited"
+        ]
+      },
+      {
+        "suite": "com.fleetflow.events.EventListenerStartupTests",
+        "tests": 1,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "cases": [
+          "failedConstructionBacksOffThenStartsOnceAndStopsRetryingOnShutdown"
+        ]
+      },
+      {
+        "suite": "com.fleetflow.FleetFlowApplicationTests",
+        "tests": 4,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "cases": [
+          "instantRoundTripsWithNonUtcJvmZone",
+          "listIndexExists",
+          "contextConnectsToPostgresAndValidatesFirstMigration",
+          "databaseEnforcesIdentityReferencesAndChecks"
+        ]
+      },
+      {
+        "suite": "com.fleetflow.KeycloakProviderTests",
+        "tests": 3,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "cases": [
+          "disablingProviderUserRequiresLocalActorDeactivationToRevokeIssuedJwt",
+          "keycloakSignedDriverCanReachAvailableAndPublishOwnLocation",
+          "keycloakIssuedAccessTokenPassesResourceServerOnlyAfterExplicitProvisioning"
+        ]
+      },
+      {
+        "suite": "com.fleetflow.LifecycleRulesTests",
+        "tests": 2,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "cases": [
+          "driverEdgesRejectSkippedBackwardAndDuplicateCommands",
+          "orderEdgesMatchThePhase3ContractIncludingTerminalAndCutoff"
+        ]
+      },
+      {
+        "suite": "com.fleetflow.LocalApiBoundaryTests",
+        "tests": 3,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "cases": [
+          "localPlusProdFailsClosed",
+          "publicLocalBindingFailsClosed",
+          "loopbackLocalProfileStarts"
+        ]
+      },
+      {
+        "suite": "com.fleetflow.LocalProfileRoutesTests",
+        "tests": 2,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "cases": [
+          "localOnboardingAcceptsFixtureOnLoopback",
+          "loopbackLocalRegistersPhase1Routes"
+        ]
+      },
+      {
+        "suite": "com.fleetflow.MatchingScoreTests",
+        "tests": 3,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "cases": [
+          "normalizedFactorsClampingPrecisionAndEstimate",
+          "invalidConfigurationAndInputsFail",
+          "reversedInputCannotChangeScoreDistanceAndUuidTieBreak"
+        ]
+      },
+      {
+        "suite": "com.fleetflow.MigrationUpgradeTests",
+        "tests": 3,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "cases": [
+          "existingPhase1ActorUpgradesWithoutImplicitRoles",
+          "phase2RowsReceiveHonestLifecycleBaselinesOnUpgrade",
+          "populatedPhase11SchemaUpgradesToZonesWithoutChangingHistoricalOrders"
+        ]
+      },
+      {
+        "suite": "com.fleetflow.OidcOutageTests",
+        "tests": 1,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "cases": [
+          "uncachedKeysFailClosedCachedTokensRemainValidAndCurrentRolesStillApply"
+        ]
+      },
+      {
+        "suite": "com.fleetflow.OidcStartupTests",
+        "tests": 1,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "cases": [
+          "everyProfileFailsClosedWhenIssuerAudienceOrJwksIsMissing"
+        ]
+      },
+      {
+        "suite": "com.fleetflow.OpenApiDocsTests",
+        "tests": 1,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "cases": [
+          "localSwaggerDocumentsEveryRegisteredBusinessOperation"
+        ]
+      },
+      {
+        "suite": "com.fleetflow.operations.OperationalMetersTests",
+        "tests": 1,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "cases": [
+          "publishesLowCardinalityOperationalSnapshotsAndMarksRedisOutageWithoutDbReadinessLoss"
+        ]
+      },
+      {
+        "suite": "com.fleetflow.Phase10UpgradeRestoreTests",
+        "tests": 1,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "cases": [
+          "phase11DataBackedUpOnPlainPostgresRestoresAndUpgradesOnPostgis"
+        ]
+      },
+      {
+        "suite": "com.fleetflow.Phase10ZoneTests",
+        "tests": 6,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "cases": [
+          "serviceabilityPreviewUsesExpensiveReadBudget",
+          "zoneCreateReplaysSameKeyAndRejectsDifferentPayloadWithoutSideEffects",
+          "zoneEditBlocksMatchAndOfferWithoutReservingDriver",
+          "concurrentZoneChangeSerializesWithOfferAndKeepsAcceptedWork",
+          "overlappingZonesHaveStableEvidenceAndMembershipRevocationTakesEffect",
+          "signedManagementAndSpatialBoundaryPolicyControlOrderIntake"
+        ]
+      },
+      {
+        "suite": "com.fleetflow.Phase11RouteBoundaryTests",
+        "tests": 1,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "cases": [
+          "everyBusinessRouteRejectsAnonymousAndAValidActorWithTheWrongRole"
+        ]
+      },
+      {
+        "suite": "com.fleetflow.Phase1ApiTests",
+        "tests": 12,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "cases": [
+          "validationUsesStableErrorAndCorrelationId",
+          "coordinateBoundariesAreAccepted",
+          "invalidOrderAndListInputsReturnBadRequest",
+          "inactiveAndMissingReferencesFailWithoutWrites",
+          "databaseItemFailureReturnsConflictAndRollsBackHttpCommand",
+          "duplicateExternalIdentityIsConflict",
+          "orderCreateIdempotencyReplaysTheOriginalResultAndRejectsKeyReuse",
+          "snapshotsSurviveProfileEditsAndDatabaseFailureRollsBack",
+          "paginationIsScopedStableAndUsesBoundedQueries",
+          "databaseChecksOrderCoordinatesAndMoney",
+          "simultaneousOrderCreateRetriesCommitOneOrderAndBodyLimitReturnsStable413",
+          "onboardingOrderIntakeDetailAndScopedList"
+        ]
+      },
+      {
+        "suite": "com.fleetflow.Phase2SecurityTests",
+        "tests": 7,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "cases": [
+          "actorDatabaseOutageProducesSafeCorrelated503",
+          "jwtValidationRejectsUntrustedOrOutOfTimeTokens",
+          "anonymousHealthAndInfoExposeNoBusinessData",
+          "actorLookupAndRolesAreExplicitAndRevocable",
+          "customerOrdersAreScopedInSqlAndSpoofedHeadersCannotSelectOwner",
+          "merchantRequiresCurrentExactBranchMembership",
+          "driverSelfOnlyAndAdminFixtureRoutes"
+        ]
+      },
+      {
+        "suite": "com.fleetflow.Phase3LifecycleTests",
+        "tests": 9,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "cases": [
+          "driverStateVehicleSuspensionAndSelfScope",
+          "concurrentCancellationAndPreparationHaveOneWinner",
+          "remainingOrderCancellationAndDriverEdgesAreExplicit",
+          "merchantNeedsCurrentExactBranchMembership",
+          "orderTransitionsAreGuardedAuditedAndCreateNoDelivery",
+          "customerCancellationAndReasonValidationAreScoped",
+          "concurrentDuplicateMerchantAndDriverCommandsCreateOneEvent",
+          "wrongRolesAndMalformedIdsNeverChangeState",
+          "failedHistoryInsertRollsBackOrderState"
+        ]
+      },
+      {
+        "suite": "com.fleetflow.Phase4LocationTests",
+        "tests": 11,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "cases": [
+          "expiredHeartbeatAndLocationNeverReappearFromGeoAlone",
+          "slowRedisCommandTimesOutWithinBudgetAndDoesNotChangeDurableState",
+          "redisOutageFailsClosedAndRecoveryRequiresNewFix",
+          "commandExpensiveReadAndStreamBudgetsRejectWithoutChangingDriverState",
+          "atomicOrderingHeartbeatAndRateLimit",
+          "freshlyReceivedButOldReportedFixCannotBecomeEligible",
+          "sharedRouteBudgetReturnsRetryAfterAfterRoleCheck",
+          "nearbyRechecksRedisAndPostgresFacts",
+          "signedSelfAuthorizationAndInputValidation",
+          "concurrentFixesKeepTheNewestReportedTimestamp",
+          "locationBodyLimitAlsoRejectsUnknownContentLength"
+        ]
+      },
+      {
+        "suite": "com.fleetflow.Phase5MatchingTests",
+        "tests": 10,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "cases": [
+          "missingAndNonReadyOrdersNeverStartSearchOrWriteAnAttempt",
+          "merchantGuardsAndSignedDispatcherRankedFlowPreserveCustomerPrivacy",
+          "emptyAndRejectedPoolsCommitDifferentOutcomesWithNoScoresForRejected",
+          "durableAndRedisReasonsHavePrecedenceAndNoRejectedRanking",
+          "failedHistoryAttemptOrCandidateInsertRollsBackEntireClaim",
+          "snapshotConstraintsAndImmutableRowsAreEnforcedByPostgres",
+          "exactWgs84RadiusAndBatchRecheckRejectChangedState",
+          "candidateLimitKeepsOverflowUnrankedAndReadLimitIsValidated",
+          "concurrentStartsHaveOnePostgresWinnerAndOneConflict",
+          "redisOutageLeavesReadyOrderAndAttemptTableUntouched"
+        ]
+      },
+      {
+        "suite": "com.fleetflow.Phase6AssignmentTests",
+        "tests": 13,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "cases": [
+          "rejectionAndDeadlinePreventLaterAcceptance",
+          "acceptanceRollbackAndConflictingResponsesHaveOneTerminalWinner",
+          "lockWaitCrossingDeadlineCannotAccept",
+          "twoWorkersCannotFinalizeTheSameExpiredOfferTwice",
+          "expiredOfferReleasesReservationOnceWithSystemHistory",
+          "databaseConstraintAndFailedInsertRollbackProtectReservation",
+          "signedOfferAndAcceptKeepTheFourStatesAndHistoriesAtomic",
+          "twoOffersForOneOrderHaveOneWinner",
+          "failedExpiryHistoryInsertRollsBackTheOfferAndReservation",
+          "oneHundredContendersHaveOneCommittedWinnerAndNinetyNineConflictsTwice",
+          "pauseVersusReserveSerializesOnDriverRow",
+          "staleAndLostEligibilityFailWithoutAnyAssignmentWrites",
+          "staleRankingAndRedisOutageLeaveDatabaseUntouched"
+        ]
+      },
+      {
+        "suite": "com.fleetflow.Phase7RecoveryTests",
+        "tests": 13,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "cases": [
+          "dispatcherFailureAndReasonedResolutionKeepOrderTerminal",
+          "merchantCancellationClosesOfferAndAssignedDeliveryBeforePickup",
+          "exactDriverProgressesDeliveryAndFailureCreatesIncident",
+          "expiredWorkerLeaseIsReclaimedAfterAProcessStops",
+          "timeoutAdvancesAndTwoWorkersDoNotDuplicateTheOffer",
+          "prePickupReassignmentPreservesOldDeliveryAndCreatesSequenceTwo",
+          "expiredAcceptanceRacingTheTimeoutWorkerCannotReserveADriver",
+          "automaticRetriesStopAtThreeAttemptsAndDispatcherCanRetryWithReason",
+          "pickupAndReassignmentRaceAtThePrePickupCutoff",
+          "redisTimeoutLeavesRecoveryPendingWithoutSkippingCandidate",
+          "rejectedOfferAdvancesToNextRankedDriverAndReusesPendingDelivery",
+          "cancellationAndAcceptanceRaceToOneTerminalOrder",
+          "staleNextCandidateIsSkippedAndExhaustionIsVisible"
+        ]
+      },
+      {
+        "suite": "com.fleetflow.Phase8AsyncEventsTests",
+        "tests": 11,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "cases": [
+          "rollbackAndRejectedCommandLeaveNoExtraOutboxEvent",
+          "failedOutboxReplayIsAdminOnlyAuditedIdempotentAndUsesNormalConsumerDedupe",
+          "duplicateKafkaDeliveryHasOneEffectAndPoisonPayloadIsQuarantined",
+          "acknowledgementBeforePublisherMarkerCanRetryWithoutDuplicateEffects",
+          "retentionRemovesOnlyOldFullyProjectedPublishedRows",
+          "committedLifecycleEventReachesBothIdempotentViewsAndAuthorizedReads",
+          "publisherDrainsSuccessiveOrderVersionsInSequence",
+          "failedConsumerProjectionExhaustsRetriesThenAuditedReplayUsesTheSameDedupePath",
+          "orderClaimsWaitForEarlierPublishAndExpiredLeaseCanBeReclaimed",
+          "brokerSendFailureDoesNotUndoBusinessCommitAndRetryDrains",
+          "failedNotificationProjectionRollsBackItsProcessedMarker"
+        ]
+      },
+      {
+        "suite": "com.fleetflow.Phase9TrackingTests",
+        "tests": 5,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "cases": [
+          "streamStartsWithSnapshotThenMovementAndClosesAfterDelivery",
+          "idleHeartbeatAndRevokedCustomerRoleCloseTheStream",
+          "reconnectGetsLatestSnapshotAndConnectionLimitReleasesOnDisconnect",
+          "signedOwnershipAndFreshAssignmentControlCoordinates",
+          "cancellationAndFailureHideCoordinatesAndCloseStreams"
+        ]
+      },
+      {
+        "suite": "com.fleetflow.ProdProfileRoutesTests",
+        "tests": 1,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "cases": [
+          "prodRegistersOnlySecuredReadsAndNoOrderWrite"
+        ]
+      },
+      {
+        "suite": "com.fleetflow.tracking.TrackingHubBoundsTests",
+        "tests": 1,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "cases": [
+          "stalledClientWorkIsEvictedWithoutGrowingPerClientBacklog"
+        ]
+      },
+      {
+        "suite": "com.fleetflow.Wgs84DistanceTests",
+        "tests": 1,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "cases": [
+          "equatorialDegreeAndSymmetryUseEllipsoid"
+        ]
+      }
+    ]
+  },
+  "focusedRegression": {
+    "tests": 20,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "frontend": {
+    "unitTests": 39,
+    "testFiles": 9,
+    "signedOidcSmoke": 1,
+    "realKeycloakBrowserSmoke": 1,
+    "npmAuditFindings": 0,
+    "build": "PASS"
+  },
+  "preparationTests": 8,
+  "browserRecovery": {
+    "result": "PASS",
+    "project": "fleetflow-day1-audit-399a70c7c8",
+    "images": {
+      "app": "fleetflow-app@sha256:1256bc208b93651696318b260718ab4fcfb8be57d3e9d31f62ae2317f3dcbcb5",
+      "keycloak": "fleetflow-keycloak-runtime@sha256:7d21a71a82946bbb9d8b2f1db248bcdf8808d7156ff091b3b637cbb2a80577bb",
+      "edge": "fleetflow-edge@sha256:02212f88db0b45cb86aaccb228cd922d5d8130a3644498794432da48ef327206",
+      "postgres": "fleetflow-postgis@sha256:6d953a35ba6b716b09c9657ef57ed009dd029a86bb67fa3ffeea21e798616d7e",
+      "redis": "fleetflow-redis@sha256:0b1e3ae852568c0c4b6ec0192b7c568aed9eff2b17871544a1385521b4236d67",
+      "kafka": "fleetflow-kafka@sha256:f00e45ee3c511050f150b171baf512db7c888901fcd1add0d3c3af2739003c13"
+    },
+    "orderStatus": "CONFIRMED",
+    "hostBinding": "127.0.0.1",
+    "identity": "real disposable Keycloak",
+    "database": "isolated PostgreSQL/PostGIS",
+    "appDatabaseRole": "non-superuser",
+    "edgeBodyLimit": 413,
+    "edgePressureRejections": 49,
+    "issuerSpoofingBlocked": true,
+    "brokerOutageBusinessCommit": true,
+    "restartRetainedGeneration": 2,
+    "optionalDependencyLivenessReadiness": "UP",
+    "outboxRemaining": 0,
+    "processedMarkers": 4,
+    "expectedProcessedMarkers": 4,
+    "publicDeployment": false
+  },
+  "dashboard": {
+    "panels": 15,
+    "queries": 26,
+    "result": "PASS",
+    "metricChecks": [
+      {
+        "panel": 2,
+        "metric": "fleetflow_operations_database_available",
+        "liveScrape": true,
+        "sourceMeter": true
+      },
+      {
+        "panel": 3,
+        "metric": "fleetflow_operations_redis_available",
+        "liveScrape": true,
+        "sourceMeter": true
+      },
+      {
+        "panel": 4,
+        "metric": "fleetflow_outbox_oldest_seconds",
+        "liveScrape": true,
+        "sourceMeter": true
+      },
+      {
+        "panel": 5,
+        "metric": "fleetflow_outbox_failed",
+        "liveScrape": true,
+        "sourceMeter": true
+      },
+      {
+        "panel": 6,
+        "metric": "fleetflow_tracking_active",
+        "liveScrape": true,
+        "sourceMeter": true
+      },
+      {
+        "panel": 7,
+        "metric": "http_server_requests_seconds_bucket",
+        "liveScrape": true,
+        "sourceMeter": false
+      },
+      {
+        "panel": 8,
+        "metric": "http_server_requests_seconds_count",
+        "liveScrape": true,
+        "sourceMeter": false
+      },
+      {
+        "panel": 8,
+        "metric": "http_server_requests_seconds_count",
+        "liveScrape": true,
+        "sourceMeter": false
+      },
+      {
+        "panel": 9,
+        "metric": "fleetflow_outbox_pending",
+        "liveScrape": true,
+        "sourceMeter": true
+      },
+      {
+        "panel": 9,
+        "metric": "kafka_consumer_fetch_manager_records_lag_max",
+        "liveScrape": true,
+        "sourceMeter": false
+      },
+      {
+        "panel": 10,
+        "metric": "fleetflow_events_projected_total",
+        "liveScrape": false,
+        "sourceMeter": true
+      },
+      {
+        "panel": 11,
+        "metric": "fleetflow_offers_overdue",
+        "liveScrape": true,
+        "sourceMeter": true
+      },
+      {
+        "panel": 11,
+        "metric": "fleetflow_recovery_due",
+        "liveScrape": true,
+        "sourceMeter": true
+      },
+      {
+        "panel": 12,
+        "metric": "fleetflow_incidents_open",
+        "liveScrape": true,
+        "sourceMeter": true
+      },
+      {
+        "panel": 12,
+        "metric": "fleetflow_events_quarantined_rows",
+        "liveScrape": true,
+        "sourceMeter": true
+      },
+      {
+        "panel": 12,
+        "metric": "fleetflow_incidents_oldest_seconds",
+        "liveScrape": true,
+        "sourceMeter": true
+      },
+      {
+        "panel": 13,
+        "metric": "fleetflow_dispatch_outcomes_total",
+        "liveScrape": false,
+        "sourceMeter": true
+      },
+      {
+        "panel": 13,
+        "metric": "fleetflow_offer_outcomes_total",
+        "liveScrape": false,
+        "sourceMeter": true
+      },
+      {
+        "panel": 13,
+        "metric": "fleetflow_offer_responses_total",
+        "liveScrape": false,
+        "sourceMeter": true
+      },
+      {
+        "panel": 14,
+        "metric": "fleetflow_tracking_position_total",
+        "liveScrape": true,
+        "sourceMeter": true
+      },
+      {
+        "panel": 14,
+        "metric": "fleetflow_tracking_connections_total",
+        "liveScrape": true,
+        "sourceMeter": true
+      },
+      {
+        "panel": 15,
+        "metric": "hikaricp_connections_active",
+        "liveScrape": true,
+        "sourceMeter": false
+      },
+      {
+        "panel": 15,
+        "metric": "hikaricp_connections_idle",
+        "liveScrape": true,
+        "sourceMeter": false
+      },
+      {
+        "panel": 15,
+        "metric": "hikaricp_connections_pending",
+        "liveScrape": true,
+        "sourceMeter": false
+      },
+      {
+        "panel": 15,
+        "metric": "hikaricp_connections_max",
+        "liveScrape": true,
+        "sourceMeter": false
+      }
+    ]
+  },
+  "alertRules": {
+    "rules": 9,
+    "syntax": "PASS",
+    "firingRecoveryFixtures": "PASS",
+    "notificationDelivery": "NOT_RUN"
+  },
+  "scans": [
+    {
+      "component": "source",
+      "result": "PASS",
+      "highCritical": 0,
+      "secrets": 0,
+      "highCriticalConfiguration": 0,
+      "report": "C:\\Users\\Tolis\\AppData\\Local\\FleetFlowDay1Audit\\2026-10-14\\scan-source-final.json",
+      "sha256": "1656ecd6007c1ea00809673f5e1480b40b8f32299bee79900278ac6c060bba62"
+    },
+    {
+      "component": "app",
+      "result": "PASS",
+      "highCritical": 0,
+      "secrets": 0,
+      "highCriticalConfiguration": 0,
+      "report": "C:\\Users\\Tolis\\AppData\\Local\\FleetFlowDay1Audit\\2026-10-14\\scan-app-final.json",
+      "sha256": "35f4d28c6550be12c6479f477ada2f4231adaed7f2eeba0eefe8ffa968f3ac50"
+    },
+    {
+      "component": "keycloak",
+      "result": "PASS",
+      "highCritical": 0,
+      "secrets": 0,
+      "highCriticalConfiguration": 0,
+      "report": "C:\\Users\\Tolis\\AppData\\Local\\FleetFlowDay1Audit\\2026-10-14\\scan-keycloak-final.json",
+      "sha256": "f463266e478159cdacd4179abe7ac2688defc51aeebb27fba682df05ac34e776"
+    },
+    {
+      "component": "edge",
+      "result": "PASS",
+      "highCritical": 0,
+      "secrets": 0,
+      "highCriticalConfiguration": 0,
+      "report": "C:\\Users\\Tolis\\AppData\\Local\\FleetFlowDay1Audit\\2026-10-14\\scan-edge-final.json",
+      "sha256": "0f20f3d3ac8a77e3ea62c6010e31921d52eca5b08e29cbdc7c60d8c799221587"
+    },
+    {
+      "component": "postgis",
+      "result": "PASS",
+      "highCritical": 0,
+      "secrets": 0,
+      "highCriticalConfiguration": 0,
+      "report": "C:\\Users\\Tolis\\AppData\\Local\\FleetFlowDay1Audit\\2026-10-14\\scan-postgis-final.json",
+      "sha256": "89704f2c6d565e71ab0108d880bf6e208a1bd80069c7bec182b5048078bb3547"
+    },
+    {
+      "component": "redis",
+      "result": "PASS",
+      "highCritical": 0,
+      "secrets": 0,
+      "highCriticalConfiguration": 0,
+      "report": "C:\\Users\\Tolis\\AppData\\Local\\FleetFlowDay1Audit\\2026-10-14\\scan-redis-final.json",
+      "sha256": "2ad2ebcd49c0e39ca5e91edf1eed4a02d6040f3ef376b68ed4af8c9f6d2a8a0b"
+    },
+    {
+      "component": "kafka",
+      "result": "PASS",
+      "highCritical": 0,
+      "secrets": 0,
+      "highCriticalConfiguration": 0,
+      "report": "C:\\Users\\Tolis\\AppData\\Local\\FleetFlowDay1Audit\\2026-10-14\\scan-kafka-final.json",
+      "sha256": "e327ca5c39e878ba988bb7ba8c1521925a7677f6dc0263263b16bd3fd7f0cdc0"
+    }
+  ],
+  "sboms": [
+    {
+      "component": "source",
+      "format": "CycloneDX",
+      "specVersion": "1.7",
+      "components": 181,
+      "path": "C:\\Users\\Tolis\\AppData\\Local\\FleetFlowDay1Audit\\2026-10-14\\source-final-sbom.cdx.json",
+      "sha256": "7ad20640ad2ee66f67e70968a1c00e3fe70e8aaf403e11c7f1e957e402360455"
+    },
+    {
+      "component": "app",
+      "format": "CycloneDX",
+      "specVersion": "1.7",
+      "components": 1443,
+      "path": "C:\\Users\\Tolis\\AppData\\Local\\FleetFlowDay1Audit\\2026-10-14\\app-final-sbom.cdx.json",
+      "sha256": "38c36fbb8bf335417a552050c79b6199f3d7dff4cb046922b278e79f4d67b48c"
+    },
+    {
+      "component": "keycloak",
+      "format": "CycloneDX",
+      "specVersion": "1.7",
+      "components": 4605,
+      "path": "C:\\Users\\Tolis\\AppData\\Local\\FleetFlowDay1Audit\\2026-10-14\\keycloak-final-sbom.cdx.json",
+      "sha256": "ef75eb1c77619768444706863094d4c28ff99655fe3badd1da9f7c4e8ce150e6"
+    },
+    {
+      "component": "edge",
+      "format": "CycloneDX",
+      "specVersion": "1.7",
+      "components": 1285,
+      "path": "C:\\Users\\Tolis\\AppData\\Local\\FleetFlowDay1Audit\\2026-10-14\\edge-final-sbom.cdx.json",
+      "sha256": "365fa165b18923978faaa6dd640f7b1acfe7b796cf6fa4fad3356506346acdfa"
+    },
+    {
+      "component": "postgis",
+      "format": "CycloneDX",
+      "specVersion": "1.7",
+      "components": 1620,
+      "path": "C:\\Users\\Tolis\\AppData\\Local\\FleetFlowDay1Audit\\2026-10-14\\postgis-final-sbom.cdx.json",
+      "sha256": "ffd7052b4cc23535d0febb6eed2599f6040afa2741e8c7a82fcc22ff0318c4e2"
+    },
+    {
+      "component": "redis",
+      "format": "CycloneDX",
+      "specVersion": "1.7",
+      "components": 710,
+      "path": "C:\\Users\\Tolis\\AppData\\Local\\FleetFlowDay1Audit\\2026-10-14\\redis-final-sbom.cdx.json",
+      "sha256": "50473bb29c5772ed12c114992c12f77b37f0a0604b49188e6aed6c385f3b86ec"
+    },
+    {
+      "component": "kafka",
+      "format": "CycloneDX",
+      "specVersion": "1.7",
+      "components": 1593,
+      "path": "C:\\Users\\Tolis\\AppData\\Local\\FleetFlowDay1Audit\\2026-10-14\\kafka-final-sbom.cdx.json",
+      "sha256": "44982da0e26d600933cb655375eb32a398c1e84485e84c8abb7fbea848815cfa"
+    }
+  ],
+  "actionPins": [
+    {
+      "action": "actions/checkout",
+      "sha": "3d3c42e5aac5ba805825da76410c181273ba90b1",
+      "result": "PASS"
+    },
+    {
+      "action": "actions/setup-java",
+      "sha": "de7274f081f381c8f8158605e0321c36c376e2e6",
+      "result": "PASS"
+    },
+    {
+      "action": "actions/setup-node",
+      "sha": "949feb2413d6458794dcd2491c4babbbce0c15c1",
+      "result": "PASS"
+    },
+    {
+      "action": "actions/upload-artifact",
+      "sha": "b7c566a772e6b6bfb58ed0dc250532a479d7789f",
+      "result": "PASS"
+    },
+    {
+      "action": "anchore/sbom-action",
+      "sha": "f8bdd1d8ac5e901a77a92f111440fdb1b593736b",
+      "result": "PASS"
+    },
+    {
+      "action": "aquasecurity/trivy-action",
+      "sha": "ed142fd0673e97e23eac54620cfb913e5ce36c25",
+      "result": "PASS"
+    },
+    {
+      "action": "github/codeql-action",
+      "sha": "24c54180a607b1449ed407dd24f251e4e9147c8d",
+      "result": "PASS"
+    }
+  ],
+  "artifacts": [
+    {
+      "path": "C:\\Users\\Tolis\\AppData\\Local\\FleetFlowDay1Audit\\2026-10-14\\action-pins.json",
+      "sha256": "b1c3002f4dc9af4d940f059237c2126054914a1165a36f429b6b357d68473a13",
+      "completedAtUtc": "2026-10-14T15:16:13.619811+00:00"
+    },
+    {
+      "path": "C:\\Users\\Tolis\\AppData\\Local\\FleetFlowDay1Audit\\2026-10-14\\actionlint-final.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "completedAtUtc": "2026-10-14T15:26:51.465135+00:00"
+    },
+    {
+      "path": "C:\\Users\\Tolis\\AppData\\Local\\FleetFlowDay1Audit\\2026-10-14\\app-build-final.log",
+      "sha256": "6298c9a43d1ab9c86b5f2589d14458df2fac688686a97262fe3285951e1ac153",
+      "completedAtUtc": "2026-10-14T13:52:02.245619+00:00"
+    },
+    {
+      "path": "C:\\Users\\Tolis\\AppData\\Local\\FleetFlowDay1Audit\\2026-10-14\\app-final-sbom.cdx.json",
+      "sha256": "38c36fbb8bf335417a552050c79b6199f3d7dff4cb046922b278e79f4d67b48c",
+      "completedAtUtc": "2026-10-14T14:59:37.507368+00:00"
+    },
+    {
+      "path": "C:\\Users\\Tolis\\AppData\\Local\\FleetFlowDay1Audit\\2026-10-14\\backend-results.json",
+      "sha256": "082a6bd27b14909128ff015770025f584f029e0c665ef8ea9333fbcbfaecf68c",
+      "completedAtUtc": "2026-10-14T15:08:17.367476+00:00"
+    },
+    {
+      "path": "C:\\Users\\Tolis\\AppData\\Local\\FleetFlowDay1Audit\\2026-10-14\\bash-syntax-final.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "completedAtUtc": "2026-10-14T14:53:09.621831+00:00"
+    },
+    {
+      "path": "C:\\Users\\Tolis\\AppData\\Local\\FleetFlowDay1Audit\\2026-10-14\\browser\\cleanup.log",
+      "sha256": "342a548e23a7c323bbd76029ebff282792c310412b683ab742bff7ef242feae2",
+      "completedAtUtc": "2026-10-14T14:57:18.643337+00:00"
+    },
+    {
+      "path": "C:\\Users\\Tolis\\AppData\\Local\\FleetFlowDay1Audit\\2026-10-14\\browser\\customer-desktop.png",
+      "sha256": "b0ee96086012c02b225743c98a439d6fc72aab737d948ad531dfa482b2411d3c",
+      "completedAtUtc": "2026-10-14T14:55:03.715671+00:00"
+    },
+    {
+      "path": "C:\\Users\\Tolis\\AppData\\Local\\FleetFlowDay1Audit\\2026-10-14\\browser\\customer-mobile.png",
+      "sha256": "47bc32b218ce8b4b83e6a93452dc3ec07c267da80f2a22de036bd889806ab844",
+      "completedAtUtc": "2026-10-14T14:55:03.605210+00:00"
+    },
+    {
+      "path": "C:\\Users\\Tolis\\AppData\\Local\\FleetFlowDay1Audit\\2026-10-14\\browser\\healthy.prom",
+      "sha256": "d93d096409a36aa0fa5944ab38cee3206116dc3aeb03f4054dd362abcf92ec65",
+      "completedAtUtc": "2026-10-14T14:55:06.017866+00:00"
+    },
+    {
+      "path": "C:\\Users\\Tolis\\AppData\\Local\\FleetFlowDay1Audit\\2026-10-14\\browser\\optional-outage.prom",
+      "sha256": "8400fdf2a5df26b4f5367192ffcc403cc0685697e58d90725154ef830e3cb5be",
+      "completedAtUtc": "2026-10-14T14:56:05.872125+00:00"
+    },
+    {
+      "path": "C:\\Users\\Tolis\\AppData\\Local\\FleetFlowDay1Audit\\2026-10-14\\browser\\playwright.log",
+      "sha256": "b2c596dce2b5b879b6731d807dff70b3aaa74b398f65bebab48329922293e646",
+      "completedAtUtc": "2026-10-14T14:55:04.906405+00:00"
+    },
+    {
+      "path": "C:\\Users\\Tolis\\AppData\\Local\\FleetFlowDay1Audit\\2026-10-14\\browser\\result.json",
+      "sha256": "16f0d0238b350463b9903b26cd9890b870d8360f33c2e5b677ad6d90de75b3ed",
+      "completedAtUtc": "2026-10-14T14:57:11.779371+00:00"
+    },
+    {
+      "path": "C:\\Users\\Tolis\\AppData\\Local\\FleetFlowDay1Audit\\2026-10-14\\browser-smoke-final.log",
+      "sha256": "98a45519b4a64d85f32c4298e92c447432e6fe891e5c911f13481d59eb30dab3",
+      "completedAtUtc": "2026-10-14T14:20:06.167967+00:00"
+    },
+    {
+      "path": "C:\\Users\\Tolis\\AppData\\Local\\FleetFlowDay1Audit\\2026-10-14\\clean-verify-consolidated.log",
+      "sha256": "562073e97a6c0ab5c97dbaa5c488f037e38613fc863c80ee864f96647e890c7b",
+      "completedAtUtc": "2026-10-14T15:04:14.076643+00:00"
+    },
+    {
+      "path": "C:\\Users\\Tolis\\AppData\\Local\\FleetFlowDay1Audit\\2026-10-14\\clean-verify-final.log",
+      "sha256": "81ba02f0e2116fe36cc7b4e2e9e759019cdb1024fc2136476d6f469cc87b9e91",
+      "completedAtUtc": "2026-10-14T14:10:19.628154+00:00"
+    },
+    {
+      "path": "C:\\Users\\Tolis\\AppData\\Local\\FleetFlowDay1Audit\\2026-10-14\\crypto-preflight-final.log",
+      "sha256": "2aa50698b1ccde62828d2c47f533d7958feb2450b62f09ac8e945a883531da29",
+      "completedAtUtc": "2026-10-14T14:53:08.806998+00:00"
+    },
+    {
+      "path": "C:\\Users\\Tolis\\AppData\\Local\\FleetFlowDay1Audit\\2026-10-14\\dashboard-signals.json",
+      "sha256": "387d812b20ab447ae64f336e062498b659d807b4cf6b58c51f89638b9d2a7930",
+      "completedAtUtc": "2026-10-14T15:13:51.521630+00:00"
+    },
+    {
+      "path": "C:\\Users\\Tolis\\AppData\\Local\\FleetFlowDay1Audit\\2026-10-14\\diff-check-final.log",
+      "sha256": "9204265cb710e7647d8a966fdf34d5a333399f0bd90e70e1223670eb2409d6e0",
+      "completedAtUtc": "2026-10-14T15:33:22.452363+00:00"
+    },
+    {
+      "path": "C:\\Users\\Tolis\\AppData\\Local\\FleetFlowDay1Audit\\2026-10-14\\edge-build-final.log",
+      "sha256": "00ffacae4967426fbce04553d62e4a54cea894e6d6ebcc2e45b4e404f86ab13b",
+      "completedAtUtc": "2026-10-14T13:57:54.009162+00:00"
+    },
+    {
+      "path": "C:\\Users\\Tolis\\AppData\\Local\\FleetFlowDay1Audit\\2026-10-14\\edge-final-build.log",
+      "sha256": "ebc91f0b586ebb2472150d35f4969267717e3c1d574c96f4114763b8bccc09c8",
+      "completedAtUtc": "2026-10-14T14:53:25.436474+00:00"
+    },
+    {
+      "path": "C:\\Users\\Tolis\\AppData\\Local\\FleetFlowDay1Audit\\2026-10-14\\edge-final-sbom.cdx.json",
+      "sha256": "365fa165b18923978faaa6dd640f7b1acfe7b796cf6fa4fad3356506346acdfa",
+      "completedAtUtc": "2026-10-14T15:00:49.026865+00:00"
+    },
+    {
+      "path": "C:\\Users\\Tolis\\AppData\\Local\\FleetFlowDay1Audit\\2026-10-14\\final-focused.log",
+      "sha256": "d2e45e683d82f3b7bc9c5d0166cb308e6d0572f61a825faec93df809ef83014c",
+      "completedAtUtc": "2026-10-14T13:47:03.996665+00:00"
+    },
+    {
+      "path": "C:\\Users\\Tolis\\AppData\\Local\\FleetFlowDay1Audit\\2026-10-14\\focused-backend-final.log",
+      "sha256": "cdb0464fdf2fcf255c211da660e6f53d4266f57d98bcffa5d854fa02e4e7552b",
+      "completedAtUtc": "2026-10-14T13:16:17.076509+00:00"
+    },
+    {
+      "path": "C:\\Users\\Tolis\\AppData\\Local\\FleetFlowDay1Audit\\2026-10-14\\frontend-build-final.log",
+      "sha256": "149f1a3d6efe4f3cee820c26d0ec29a55790d6952d807e085e53350d26a279fd",
+      "completedAtUtc": "2026-10-14T15:15:59.266680+00:00"
+    },
+    {
+      "path": "C:\\Users\\Tolis\\AppData\\Local\\FleetFlowDay1Audit\\2026-10-14\\frontend-lint-final.log",
+      "sha256": "4946ed202d156318425c806c3ffab01f897458887f58c960c15a1e4186590d1a",
+      "completedAtUtc": "2026-10-14T15:15:42.077731+00:00"
+    },
+    {
+      "path": "C:\\Users\\Tolis\\AppData\\Local\\FleetFlowDay1Audit\\2026-10-14\\frontend-test-final.log",
+      "sha256": "da957507f515803d3aca327bed3d8735c77cb0afff0921b0bd1929c253e8aa46",
+      "completedAtUtc": "2026-10-14T15:15:55.860185+00:00"
+    },
+    {
+      "path": "C:\\Users\\Tolis\\AppData\\Local\\FleetFlowDay1Audit\\2026-10-14\\frontend-test:e2e-final.log",
+      "sha256": "18b28c42d84005395aafecb2867dfc1c53ced9efea0d0683058f840e4c5c81f1",
+      "completedAtUtc": "2026-10-14T15:16:04.764230+00:00"
+    },
+    {
+      "path": "C:\\Users\\Tolis\\AppData\\Local\\FleetFlowDay1Audit\\2026-10-14\\frontend-typecheck-final.log",
+      "sha256": "cd18ef3d29810045b4b1ddc8310acad2b2c2afa1ab07b3399e66478f2ffbf046",
+      "completedAtUtc": "2026-10-14T15:15:47.269692+00:00"
+    },
+    {
+      "path": "C:\\Users\\Tolis\\AppData\\Local\\FleetFlowDay1Audit\\2026-10-14\\git-status-final.txt",
+      "sha256": "2d1105c6452c73d89f5402a330ff9dc3664c88b2d36582be5cbdb498781912a1",
+      "completedAtUtc": "2026-10-14T15:33:22.833122+00:00"
+    },
+    {
+      "path": "C:\\Users\\Tolis\\AppData\\Local\\FleetFlowDay1Audit\\2026-10-14\\kafka-final-sbom.cdx.json",
+      "sha256": "44982da0e26d600933cb655375eb32a398c1e84485e84c8abb7fbea848815cfa",
+      "completedAtUtc": "2026-10-14T15:01:57.240529+00:00"
+    },
+    {
+      "path": "C:\\Users\\Tolis\\AppData\\Local\\FleetFlowDay1Audit\\2026-10-14\\keycloak-final-sbom.cdx.json",
+      "sha256": "ef75eb1c77619768444706863094d4c28ff99655fe3badd1da9f7c4e8ce150e6",
+      "completedAtUtc": "2026-10-14T15:00:39.733966+00:00"
+    },
+    {
+      "path": "C:\\Users\\Tolis\\AppData\\Local\\FleetFlowDay1Audit\\2026-10-14\\local-compose-final.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "completedAtUtc": "2026-10-14T14:53:07.976192+00:00"
+    },
+    {
+      "path": "C:\\Users\\Tolis\\AppData\\Local\\FleetFlowDay1Audit\\2026-10-14\\maven-version.log",
+      "sha256": "a7e095059b3140d2bff2ff9b13b39c7a583b757d13ec4b740417684d86f6218a",
+      "completedAtUtc": "2026-10-14T15:24:08.334928+00:00"
+    },
+    {
+      "path": "C:\\Users\\Tolis\\AppData\\Local\\FleetFlowDay1Audit\\2026-10-14\\npm-audit-final.log",
+      "sha256": "4b02d4a3c23d969c46bd2041360f80bfcb1fe760d9db864009acdd710f9de601",
+      "completedAtUtc": "2026-10-14T15:16:06.965357+00:00"
+    },
+    {
+      "path": "C:\\Users\\Tolis\\AppData\\Local\\FleetFlowDay1Audit\\2026-10-14\\npm-ci-final.log",
+      "sha256": "831ee8e519d294aad772f2989ba513b578056133852a66ac6ce75748d50861f8",
+      "completedAtUtc": "2026-10-14T15:15:41.436023+00:00"
+    },
+    {
+      "path": "C:\\Users\\Tolis\\AppData\\Local\\FleetFlowDay1Audit\\2026-10-14\\postgis-final-sbom.cdx.json",
+      "sha256": "ffd7052b4cc23535d0febb6eed2599f6040afa2741e8c7a82fcc22ff0318c4e2",
+      "completedAtUtc": "2026-10-14T15:01:22.284989+00:00"
+    },
+    {
+      "path": "C:\\Users\\Tolis\\AppData\\Local\\FleetFlowDay1Audit\\2026-10-14\\pre-final-focused.log",
+      "sha256": "db873cbf7862dd0df477d5f437af0aed150abc8bafa97191fce345182ec34318",
+      "completedAtUtc": "2026-10-14T13:52:28.063483+00:00"
+    },
+    {
+      "path": "C:\\Users\\Tolis\\AppData\\Local\\FleetFlowDay1Audit\\2026-10-14\\preparation-tests-final.log",
+      "sha256": "79ad190da1adfdf41f56886b9f7b20fcb53054baad1d13f3246d3a8f425d24d6",
+      "completedAtUtc": "2026-10-14T15:07:50.463241+00:00"
+    },
+    {
+      "path": "C:\\Users\\Tolis\\AppData\\Local\\FleetFlowDay1Audit\\2026-10-14\\production-compose-final.log",
+      "sha256": "fcde3b5674f6722c6dbf384ffd2928950ebe6a5ef76a108640258be2dd0447ab",
+      "completedAtUtc": "2026-10-14T14:53:07.872394+00:00"
+    },
+    {
+      "path": "C:\\Users\\Tolis\\AppData\\Local\\FleetFlowDay1Audit\\2026-10-14\\promtool-test.log",
+      "sha256": "97155500dfaeb03dbcded24ae1575a3347e64600777edd46154817c2a56ae07b",
+      "completedAtUtc": "2026-10-14T14:07:01.667459+00:00"
+    },
+    {
+      "path": "C:\\Users\\Tolis\\AppData\\Local\\FleetFlowDay1Audit\\2026-10-14\\redis-final-sbom.cdx.json",
+      "sha256": "50473bb29c5772ed12c114992c12f77b37f0a0604b49188e6aed6c385f3b86ec",
+      "completedAtUtc": "2026-10-14T15:01:31.067021+00:00"
+    },
+    {
+      "path": "C:\\Users\\Tolis\\AppData\\Local\\FleetFlowDay1Audit\\2026-10-14\\regression-final.log",
+      "sha256": "27139d7363e2affa32b800430f19e7c7bcb994538c52669f4b575bcb0d38e958",
+      "completedAtUtc": "2026-10-14T15:21:01.858135+00:00"
+    },
+    {
+      "path": "C:\\Users\\Tolis\\AppData\\Local\\FleetFlowDay1Audit\\2026-10-14\\retention-final.log",
+      "sha256": "28adcdec54750fbd4b1049529b930dc2d9daf973f6578495d2c0382ff339b3f6",
+      "completedAtUtc": "2026-10-14T14:53:08.950750+00:00"
+    },
+    {
+      "path": "C:\\Users\\Tolis\\AppData\\Local\\FleetFlowDay1Audit\\2026-10-14\\scan-app-final.json",
+      "sha256": "35f4d28c6550be12c6479f477ada2f4231adaed7f2eeba0eefe8ffa968f3ac50",
+      "completedAtUtc": "2026-10-14T14:59:03.672057+00:00"
+    },
+    {
+      "path": "C:\\Users\\Tolis\\AppData\\Local\\FleetFlowDay1Audit\\2026-10-14\\scan-app-final.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "completedAtUtc": "2026-10-14T14:58:50.329775+00:00"
+    },
+    {
+      "path": "C:\\Users\\Tolis\\AppData\\Local\\FleetFlowDay1Audit\\2026-10-14\\scan-edge-final.json",
+      "sha256": "0f20f3d3ac8a77e3ea62c6010e31921d52eca5b08e29cbdc7c60d8c799221587",
+      "completedAtUtc": "2026-10-14T15:00:42.909173+00:00"
+    },
+    {
+      "path": "C:\\Users\\Tolis\\AppData\\Local\\FleetFlowDay1Audit\\2026-10-14\\scan-edge-final.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "completedAtUtc": "2026-10-14T15:00:39.879060+00:00"
+    },
+    {
+      "path": "C:\\Users\\Tolis\\AppData\\Local\\FleetFlowDay1Audit\\2026-10-14\\scan-kafka-final.json",
+      "sha256": "e327ca5c39e878ba988bb7ba8c1521925a7677f6dc0263263b16bd3fd7f0cdc0",
+      "completedAtUtc": "2026-10-14T15:01:32.449387+00:00"
+    },
+    {
+      "path": "C:\\Users\\Tolis\\AppData\\Local\\FleetFlowDay1Audit\\2026-10-14\\scan-kafka-final.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "completedAtUtc": "2026-10-14T15:01:31.115568+00:00"
+    },
+    {
+      "path": "C:\\Users\\Tolis\\AppData\\Local\\FleetFlowDay1Audit\\2026-10-14\\scan-keycloak-final.json",
+      "sha256": "f463266e478159cdacd4179abe7ac2688defc51aeebb27fba682df05ac34e776",
+      "completedAtUtc": "2026-10-14T14:59:56.847183+00:00"
+    },
+    {
+      "path": "C:\\Users\\Tolis\\AppData\\Local\\FleetFlowDay1Audit\\2026-10-14\\scan-keycloak-final.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "completedAtUtc": "2026-10-14T14:59:37.643662+00:00"
+    },
+    {
+      "path": "C:\\Users\\Tolis\\AppData\\Local\\FleetFlowDay1Audit\\2026-10-14\\scan-postgis-final.json",
+      "sha256": "89704f2c6d565e71ab0108d880bf6e208a1bd80069c7bec182b5048078bb3547",
+      "completedAtUtc": "2026-10-14T15:00:49.423129+00:00"
+    },
+    {
+      "path": "C:\\Users\\Tolis\\AppData\\Local\\FleetFlowDay1Audit\\2026-10-14\\scan-postgis-final.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "completedAtUtc": "2026-10-14T15:00:49.106027+00:00"
+    },
+    {
+      "path": "C:\\Users\\Tolis\\AppData\\Local\\FleetFlowDay1Audit\\2026-10-14\\scan-redis-final.json",
+      "sha256": "2ad2ebcd49c0e39ca5e91edf1eed4a02d6040f3ef376b68ed4af8c9f6d2a8a0b",
+      "completedAtUtc": "2026-10-14T15:01:23.985239+00:00"
+    },
+    {
+      "path": "C:\\Users\\Tolis\\AppData\\Local\\FleetFlowDay1Audit\\2026-10-14\\scan-redis-final.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "completedAtUtc": "2026-10-14T15:01:22.397228+00:00"
+    },
+    {
+      "path": "C:\\Users\\Tolis\\AppData\\Local\\FleetFlowDay1Audit\\2026-10-14\\scan-source-final.json",
+      "sha256": "1656ecd6007c1ea00809673f5e1480b40b8f32299bee79900278ac6c060bba62",
+      "completedAtUtc": "2026-10-14T15:29:47.040822+00:00"
+    },
+    {
+      "path": "C:\\Users\\Tolis\\AppData\\Local\\FleetFlowDay1Audit\\2026-10-14\\scan-source-final.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "completedAtUtc": "2026-10-14T15:29:41.816247+00:00"
+    },
+    {
+      "path": "C:\\Users\\Tolis\\AppData\\Local\\FleetFlowDay1Audit\\2026-10-14\\secret-preflight-final.log",
+      "sha256": "2f5200ca6f7eb83a79230cd47129bdc613c3fcf27ff9383a1b62595efa5baaa2",
+      "completedAtUtc": "2026-10-14T15:33:22.361182+00:00"
+    },
+    {
+      "path": "C:\\Users\\Tolis\\AppData\\Local\\FleetFlowDay1Audit\\2026-10-14\\source-final-sbom.cdx.json",
+      "sha256": "7ad20640ad2ee66f67e70968a1c00e3fe70e8aaf403e11c7f1e957e402360455",
+      "completedAtUtc": "2026-10-14T15:18:19.124417+00:00"
+    },
+    {
+      "path": "C:\\Users\\Tolis\\AppData\\Local\\FleetFlowDay1Audit\\2026-10-14\\source-manifest.json",
+      "sha256": "3650cf2ea08bb0d50a1a868a04be4b1203ca25e0456efd1f22f9acb4c209d7ef",
+      "completedAtUtc": "2026-10-14T15:27:28.270556+00:00"
+    },
+    {
+      "path": "C:\\Users\\Tolis\\AppData\\Local\\FleetFlowDay1Audit\\2026-10-14\\syft-app-final.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "completedAtUtc": "2026-10-14T14:59:03.722208+00:00"
+    },
+    {
+      "path": "C:\\Users\\Tolis\\AppData\\Local\\FleetFlowDay1Audit\\2026-10-14\\syft-edge-final.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "completedAtUtc": "2026-10-14T15:00:42.932705+00:00"
+    },
+    {
+      "path": "C:\\Users\\Tolis\\AppData\\Local\\FleetFlowDay1Audit\\2026-10-14\\syft-kafka-final.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "completedAtUtc": "2026-10-14T15:01:32.472344+00:00"
+    },
+    {
+      "path": "C:\\Users\\Tolis\\AppData\\Local\\FleetFlowDay1Audit\\2026-10-14\\syft-keycloak-final.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "completedAtUtc": "2026-10-14T14:59:56.876890+00:00"
+    },
+    {
+      "path": "C:\\Users\\Tolis\\AppData\\Local\\FleetFlowDay1Audit\\2026-10-14\\syft-postgis-final.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "completedAtUtc": "2026-10-14T15:00:49.438800+00:00"
+    },
+    {
+      "path": "C:\\Users\\Tolis\\AppData\\Local\\FleetFlowDay1Audit\\2026-10-14\\syft-redis-final.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "completedAtUtc": "2026-10-14T15:01:24.007688+00:00"
+    },
+    {
+      "path": "C:\\Users\\Tolis\\AppData\\Local\\FleetFlowDay1Audit\\2026-10-14\\syft-source-final.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "completedAtUtc": "2026-10-14T15:15:46.433380+00:00"
+    },
+    {
+      "path": "C:\\Users\\Tolis\\AppData\\Local\\FleetFlowDay1Audit\\2026-10-14\\trivy-edge-final.json",
+      "sha256": "78c23765fd195aa8796d52db24f2d4f4e120af2ae236ab99099f1350c8d7453d",
+      "completedAtUtc": "2026-10-14T14:25:48.294226+00:00"
+    },
+    {
+      "path": "C:\\Users\\Tolis\\AppData\\Local\\FleetFlowDay1Audit\\2026-10-14\\trivy-edge-final.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "completedAtUtc": "2026-10-14T14:25:46.026064+00:00"
+    },
+    {
+      "path": "C:\\Users\\Tolis\\AppData\\Local\\FleetFlowDay1Audit\\2026-10-14\\trivy-kafka-final.json",
+      "sha256": "94b689d405b1996a29dbec89b459219d1b8e26e2864855eed97650ab311645d9",
+      "completedAtUtc": "2026-10-14T14:30:53.262527+00:00"
+    },
+    {
+      "path": "C:\\Users\\Tolis\\AppData\\Local\\FleetFlowDay1Audit\\2026-10-14\\trivy-kafka-final.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "completedAtUtc": "2026-10-14T14:30:39.192769+00:00"
+    },
+    {
+      "path": "C:\\Users\\Tolis\\AppData\\Local\\FleetFlowDay1Audit\\2026-10-14\\trivy-redis-final.json",
+      "sha256": "29c080df43c027eb810fa46b290a71fa6b9708cf11b6fae41a7614959d1c4683",
+      "completedAtUtc": "2026-10-14T14:29:50.289286+00:00"
+    },
+    {
+      "path": "C:\\Users\\Tolis\\AppData\\Local\\FleetFlowDay1Audit\\2026-10-14\\trivy-redis-final.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "completedAtUtc": "2026-10-14T14:29:48.696883+00:00"
+    },
+    {
+      "path": "C:\\Users\\Tolis\\AppData\\Local\\FleetFlowDay1Audit\\2026-10-14\\trivy-source-final.json",
+      "sha256": "d22869947c832fb3d297c9c87d5a7bed66e2d6f7fd6daf005517338254632464",
+      "completedAtUtc": "2026-10-14T14:46:32.056188+00:00"
+    },
+    {
+      "path": "C:\\Users\\Tolis\\AppData\\Local\\FleetFlowDay1Audit\\2026-10-14\\trivy-source-final.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "completedAtUtc": "2026-10-14T14:46:08.457741+00:00"
+    },
+    {
+      "path": "C:\\Users\\Tolis\\AppData\\Local\\FleetFlowDay1Audit\\2026-10-14\\workflow-image-builds-local.json",
+      "sha256": "170a2251ac5f3aa9b711b9a7d74ed81cbf4e7afead2897ae3a7065a084a5acc8",
+      "completedAtUtc": "2026-10-14T15:27:27.951103+00:00"
+    }
+  ],
+  "filesChangedAgainstBase": [
+    ".dockerignore",
+    ".env.example",
+    ".env.production.example",
+    ".github/dependabot.yml",
+    ".github/workflows/verify.yml",
+    ".gitignore",
+    "Dockerfile",
+    "PROJECT_CONTEXT.md",
+    "README.md",
+    "compose.yaml",
+    "docs/PRODUCTION-ROADMAP.md",
+    "docs/ROADMAP.md",
+    "docs/operations/BACKUP_RESTORE.md",
+    "docs/operations/MONITORING.md",
+    "docs/operations/PHASE11_BASELINE.md",
+    "docs/operations/PHASE11_SECURITY_AUDIT.md",
+    "docs/operations/PHASE11_TARGET_QUALIFICATION.md",
+    "docs/phases/phase11.md",
+    "docs/phases/production/CANDIDATE-METADATA.md",
+    "docs/phases/production/DAY-1-CONSOLIDATION-AUDIT.md",
+    "docs/phases/production/DAY-1-EVIDENCE-LEDGER.md",
+    "docs/phases/production/EXECUTION-SCHEDULE-5-DAY.md",
+    "docs/phases/production/README.md",
+    "docs/phases/production/day-1-backend-contract-evidence.md",
+    "docs/phases/production/day-1-frontend-design-decision.md",
+    "docs/phases/production/evidence/DAY-1-PROMPT-3-SNAPSHOT.md",
+    "docs/phases/production/evidence/day1-consolidation-2026-10-14.json",
+    "docs/phases/production/evidence/day1-security-disposition-2026-10-14.json",
+    "docs/phases/production/phase-00-baseline-and-product-contract.md",
+    "docs/phases/production/phase-01-core-correctness-and-command-contracts.md",
+    "docs/phases/production/phase-02-identity-and-object-authorization.md",
+    "docs/phases/production/phase-03-api-abuse-and-error-contract.md",
+    "docs/phases/production/phase-04-observability-and-operator-signals.md",
+    "docs/phases/production/phase-05-async-recovery-and-demo-data.md",
+    "docs/phases/production/phase-06-frontend-foundation-and-auth.md",
+    "docs/phases/production/phase-07-persona-workflows-and-browser-acceptance.md",
+    "docs/phases/production/phase-08-ci-release-and-supply-chain.md",
+    "docs/phases/production/phase-09-azure-public-deployment.md",
+    "docs/phases/production/phase-10-target-operations-backup-and-recovery.md",
+    "docs/phases/production/phase-11-target-performance-and-failure-qualification.md",
+    "docs/phases/production/phase-12-final-public-demo-acceptance.md",
+    "ops/monitoring/alerts.test.yml",
+    "ops/monitoring/alerts.yml",
+    "ops/monitoring/grafana/fleetflow.json",
+    "ops/production/README.md",
+    "ops/production/RESTORE.md",
+    "ops/production/app-entrypoint.sh",
+    "ops/production/backup.sh",
+    "ops/production/check-backup-age.sh",
+    "ops/production/compose.production.yaml",
+    "ops/production/fleetflow.sh",
+    "ops/production/kafka.Dockerfile",
+    "ops/production/keycloak-entrypoint.sh",
+    "ops/production/keycloak.Dockerfile",
+    "ops/production/postgis.Dockerfile",
+    "ops/production/postgres-app-role.sh",
+    "ops/production/redis.Dockerfile",
+    "ops/production/render-realm.py",
+    "scripts/Backup-FleetFlow.ps1",
+    "scripts/Invoke-Phase11ScheduledBackup.ps1",
+    "scripts/Phase11-Breadth.py",
+    "scripts/Phase11-Load.py",
+    "scripts/Phase11-Results.py",
+    "scripts/Phase11-Secret-Audit.py",
+    "scripts/Record-Day1Source.py",
+    "scripts/Restore-FleetFlow.ps1",
+    "scripts/Run-Day1BrowserSmoke.py",
+    "scripts/Validate-ProductionCompose.ps1",
+    "scripts/Validate-ProductionCompose.py",
+    "scripts/test_day1_preparation.py",
+    "src/main/java/com/fleetflow/api/ApiErrors.java",
+    "src/main/java/com/fleetflow/api/ApiFailure.java",
+    "src/main/java/com/fleetflow/api/OpenApiConfiguration.java",
+    "src/main/java/com/fleetflow/demo/DemoController.java",
+    "src/main/java/com/fleetflow/demo/DemoSeedService.java",
+    "src/main/java/com/fleetflow/dispatch/AssignmentService.java",
+    "src/main/java/com/fleetflow/dispatch/DispatchService.java",
+    "src/main/java/com/fleetflow/events/EventKafkaConfiguration.java",
+    "src/main/java/com/fleetflow/events/EventListenerStartup.java",
+    "src/main/java/com/fleetflow/events/EventProjector.java",
+    "src/main/java/com/fleetflow/events/OutboxPublisher.java",
+    "src/main/java/com/fleetflow/events/OutboxRecoveryController.java",
+    "src/main/java/com/fleetflow/events/OutboxRecoveryService.java",
+    "src/main/java/com/fleetflow/events/QuarantineInspectionController.java",
+    "src/main/java/com/fleetflow/identity/SessionController.java",
+    "src/main/java/com/fleetflow/lifecycle/RecoveryTransitions.java",
+    "src/main/java/com/fleetflow/location/LocationBodyLimitFilter.java",
+    "src/main/java/com/fleetflow/location/LocationService.java",
+    "src/main/java/com/fleetflow/operations/OperationalMeters.java",
+    "src/main/java/com/fleetflow/operations/RouteRateLimits.java",
+    "src/main/java/com/fleetflow/order/OrderController.java",
+    "src/main/java/com/fleetflow/order/OrderModel.java",
+    "src/main/java/com/fleetflow/order/OrderService.java",
+    "src/main/java/com/fleetflow/security/IdentityAvailabilityFilter.java",
+    "src/main/java/com/fleetflow/security/SecurityConfiguration.java",
+    "src/main/java/com/fleetflow/tracking/TrackingHub.java",
+    "src/main/java/com/fleetflow/tracking/TrackingSnapshotReader.java",
+    "src/main/java/com/fleetflow/zone/ZoneController.java",
+    "src/main/java/com/fleetflow/zone/ZonePolicyHistory.java",
+    "src/main/java/com/fleetflow/zone/ZoneService.java",
+    "src/main/resources/application-local.yml",
+    "src/main/resources/application-prod.yml",
+    "src/main/resources/application.yml",
+    "src/main/resources/db/migration/V13__order_create_idempotency.sql",
+    "src/main/resources/db/migration/V14__demo_and_operator_recovery.sql",
+    "src/main/resources/oidc/fleetflow-realm.json",
+    "src/test/java/com/fleetflow/CorrelationIdFilterTests.java",
+    "src/test/java/com/fleetflow/DatabaseOutageTests.java",
+    "src/test/java/com/fleetflow/DemoResetSafetyTests.java",
+    "src/test/java/com/fleetflow/DemoSeedTests.java",
+    "src/test/java/com/fleetflow/FleetFlowApplicationTests.java",
+    "src/test/java/com/fleetflow/KeycloakProviderTests.java",
+    "src/test/java/com/fleetflow/MigrationUpgradeTests.java",
+    "src/test/java/com/fleetflow/OidcOutageTests.java",
+    "src/test/java/com/fleetflow/OpenApiDocsTests.java",
+    "src/test/java/com/fleetflow/Phase10UpgradeRestoreTests.java",
+    "src/test/java/com/fleetflow/Phase10ZoneTests.java",
+    "src/test/java/com/fleetflow/Phase11RouteBoundaryTests.java",
+    "src/test/java/com/fleetflow/Phase1ApiTests.java",
+    "src/test/java/com/fleetflow/Phase2SecurityTests.java",
+    "src/test/java/com/fleetflow/Phase3LifecycleTests.java",
+    "src/test/java/com/fleetflow/Phase4LocationTests.java",
+    "src/test/java/com/fleetflow/Phase5MatchingTests.java",
+    "src/test/java/com/fleetflow/Phase6AssignmentTests.java",
+    "src/test/java/com/fleetflow/Phase7RecoveryTests.java",
+    "src/test/java/com/fleetflow/Phase8AsyncEventsTests.java",
+    "src/test/java/com/fleetflow/Phase9TrackingTests.java",
+    "src/test/java/com/fleetflow/api/ApiErrorsTests.java",
+    "src/test/java/com/fleetflow/events/EventListenerStartupTests.java",
+    "src/test/java/com/fleetflow/operations/OperationalMetersTests.java",
+    "src/test/java/com/fleetflow/tracking/TrackingHubBoundsTests.java",
+    "web/.dockerignore",
+    "web/.env.example",
+    "web/Dockerfile.release",
+    "web/README.md",
+    "web/e2e/auth-smoke.spec.ts",
+    "web/e2e/live/customer.spec.ts",
+    "web/eslint.config.js",
+    "web/index.html",
+    "web/nginx/fleetflow.conf.template",
+    "web/nginx/proxy-headers.conf",
+    "web/package-lock.json",
+    "web/package.json",
+    "web/playwright.config.ts",
+    "web/playwright.live.config.ts",
+    "web/src/App.test.tsx",
+    "web/src/App.tsx",
+    "web/src/api/async.ts",
+    "web/src/api/client.test.ts",
+    "web/src/api/client.ts",
+    "web/src/api/decoders.test.ts",
+    "web/src/api/decoders.ts",
+    "web/src/auth/AuthContext.tsx",
+    "web/src/auth/auth.test.ts",
+    "web/src/auth/context.test.tsx",
+    "web/src/auth/oidc.ts",
+    "web/src/components/AppShell.tsx",
+    "web/src/components/States.tsx",
+    "web/src/components/states.test.tsx",
+    "web/src/contracts.ts",
+    "web/src/main.tsx",
+    "web/src/pages/AuthCallbackPage.tsx",
+    "web/src/pages/CustomerOrderDetailPage.tsx",
+    "web/src/pages/CustomerOrdersPage.test.tsx",
+    "web/src/pages/CustomerOrdersPage.tsx",
+    "web/src/pages/LoginPage.test.tsx",
+    "web/src/pages/LoginPage.tsx",
+    "web/src/sse/tracking.test.ts",
+    "web/src/sse/tracking.ts",
+    "web/src/styles.css",
+    "web/src/test/setup.ts",
+    "web/tsconfig.app.json",
+    "web/tsconfig.json",
+    "web/vite.config.ts"
+  ],
+  "notRun": [
+    "Remote GitHub Actions/CodeQL on a committed candidate",
+    "Registry publication and attestation",
+    "Azure/DNS/TLS/firewall/cost qualification",
+    "Production age/rclone archive, schedule/delivery and fresh-host restore",
+    "30-minute Azure load/failure qualification"
+  ],
+  "externalDependencies": [
+    "Azure subscription and current credit",
+    "Approved region/SKU estimate",
+    "DNS and certificate/renewal control",
+    "Private runtime secret delivery",
+    "Reachable target alert destination"
+  ],
+  "publicDeployment": false,
+  "candidateCommit": null,
+  "checks": [
+    {
+      "phase": "1–5",
+      "requirement": "Full backend, concurrency/auth/limits/migrations/recovery",
+      "status": "PASS",
+      "owner": "Engineering",
+      "command": ".\\mvnw.cmd clean verify --batch-mode --no-transfer-progress",
+      "sourceCommit": "4efc0b0067ff451d4328761fd04597d2a4d05493",
+      "sourceSha256": "a9e676bd9b200122176783324567c53701195ab65f96d9d2df505acc2615c3ba",
+      "timestampUtc": "2026-10-14T15:04:14.076643+00:00",
+      "evidencePath": "C:\\Users\\Tolis\\AppData\\Local\\FleetFlowDay1Audit\\2026-10-14\\clean-verify-consolidated.log",
+      "notes": "143 tests; 0 failures/errors/skips; BUILD SUCCESS; 6:18 elapsed"
+    },
+    {
+      "phase": "2/5",
+      "requirement": "Final reset/async/JWKS/OpenAPI/listener regression",
+      "status": "PASS",
+      "owner": "Engineering",
+      "command": ".\\mvnw.cmd -Dtest=DemoResetSafetyTests,Phase8AsyncEventsTests,OidcOutageTests,OpenApiDocsTests,EventListenerStartupTests test --batch-mode --no-transfer-progress",
+      "sourceCommit": "4efc0b0067ff451d4328761fd04597d2a4d05493",
+      "sourceSha256": "a9e676bd9b200122176783324567c53701195ab65f96d9d2df505acc2615c3ba",
+      "timestampUtc": "2026-10-14T15:21:01.858135+00:00",
+      "evidencePath": "C:\\Users\\Tolis\\AppData\\Local\\FleetFlowDay1Audit\\2026-10-14\\regression-final.log",
+      "notes": "20 tests; 0 failures/errors/skips; 1:04 elapsed"
+    },
+    {
+      "phase": "1",
+      "requirement": "Fresh and supported-v11 schema upgrade",
+      "status": "PASS",
+      "owner": "Engineering",
+      "command": "MigrationUpgradeTests, FleetFlowApplicationTests, Phase10UpgradeRestoreTests in clean verify",
+      "sourceCommit": "4efc0b0067ff451d4328761fd04597d2a4d05493",
+      "sourceSha256": "a9e676bd9b200122176783324567c53701195ab65f96d9d2df505acc2615c3ba",
+      "timestampUtc": "2026-10-14T15:08:17.367476+00:00",
+      "evidencePath": "C:\\Users\\Tolis\\AppData\\Local\\FleetFlowDay1Audit\\2026-10-14\\backend-results.json",
+      "notes": "14 migrations; forward-only V13/V14; historical migration files unchanged"
+    },
+    {
+      "phase": "2/3",
+      "requirement": "Route/object/JWT/role matrix and OpenAPI",
+      "status": "PASS",
+      "owner": "Engineering",
+      "command": "Phase1ApiTests, Phase2SecurityTests, Phase11RouteBoundaryTests, OpenApiDocsTests, OidcOutageTests in clean verify",
+      "sourceCommit": "4efc0b0067ff451d4328761fd04597d2a4d05493",
+      "sourceSha256": "a9e676bd9b200122176783324567c53701195ab65f96d9d2df505acc2615c3ba",
+      "timestampUtc": "2026-10-14T15:08:17.367476+00:00",
+      "evidencePath": "C:\\Users\\Tolis\\AppData\\Local\\FleetFlowDay1Audit\\2026-10-14\\backend-results.json",
+      "notes": "64 enabled test-profile operations; unknown/foreign/inactive/revoked/wrong-role/issuer/audience/expiry boundaries"
+    },
+    {
+      "phase": "4",
+      "requirement": "Health/metric/log privacy semantics",
+      "status": "PASS",
+      "owner": "Engineering",
+      "command": "DatabaseOutageTests, OperationalMetersTests, CorrelationIdFilterTests, ApiErrorsTests; real private scrape",
+      "sourceCommit": "4efc0b0067ff451d4328761fd04597d2a4d05493",
+      "sourceSha256": "a9e676bd9b200122176783324567c53701195ab65f96d9d2df505acc2615c3ba",
+      "timestampUtc": "2026-10-14T14:55:06.017866+00:00",
+      "evidencePath": "C:\\Users\\Tolis\\AppData\\Local\\FleetFlowDay1Audit\\2026-10-14\\browser\\healthy.prom",
+      "notes": "DB readiness is DOWN/503; liveness process-only; optional outage restart UP; fixed labels and safe request logs"
+    },
+    {
+      "phase": "4",
+      "requirement": "Alert syntax and firing/recovery fixtures",
+      "status": "PASS",
+      "owner": "Engineering",
+      "command": "Prometheus 3.15.0 promtool check rules /rules/alerts.yml; promtool test rules /rules/alerts.test.yml",
+      "sourceCommit": "4efc0b0067ff451d4328761fd04597d2a4d05493",
+      "sourceSha256": "a9e676bd9b200122176783324567c53701195ab65f96d9d2df505acc2615c3ba",
+      "timestampUtc": "2026-10-14T14:07:01.667459+00:00",
+      "evidencePath": "C:\\Users\\Tolis\\AppData\\Local\\FleetFlowDay1Audit\\2026-10-14\\promtool-test.log",
+      "notes": "9 rules; DB/outbox/application-5xx/quarantine firing and clearing; not notification delivery"
+    },
+    {
+      "phase": "4",
+      "requirement": "Dashboard query and signal mapping",
+      "status": "PASS",
+      "owner": "Engineering",
+      "command": "Promtool PromQL parser plus live-scrape/source-meter reconciliation",
+      "sourceCommit": "4efc0b0067ff451d4328761fd04597d2a4d05493",
+      "sourceSha256": "a9e676bd9b200122176783324567c53701195ab65f96d9d2df505acc2615c3ba",
+      "timestampUtc": "2026-10-14T15:13:51.521630+00:00",
+      "evidencePath": "C:\\Users\\Tolis\\AppData\\Local\\FleetFlowDay1Audit\\2026-10-14\\dashboard-signals.json",
+      "notes": "15 panels; 26 queries parse; native consumer lag present; unused counters may be absent before first operation"
+    },
+    {
+      "phase": "5/6/9",
+      "requirement": "Real HTTPS Keycloak/customer/SSE and outage restart",
+      "status": "PASS",
+      "owner": "Engineering",
+      "command": "python scripts/Run-Day1BrowserSmoke.py",
+      "sourceCommit": "4efc0b0067ff451d4328761fd04597d2a4d05493",
+      "sourceSha256": "a9e676bd9b200122176783324567c53701195ab65f96d9d2df505acc2615c3ba",
+      "timestampUtc": "2026-10-14T14:57:11.779371+00:00",
+      "evidencePath": "C:\\Users\\Tolis\\AppData\\Local\\FleetFlowDay1Audit\\2026-10-14\\browser\\result.json",
+      "notes": "1 real browser test; scoped authorization; storage/reload/logout/privacy; 413; 49/100 edge-pressure rejections; generation 2 retained; outbox 0 and 4/4 processed markers"
+    },
+    {
+      "phase": "6",
+      "requirement": "Clean locked install and dependency audit",
+      "status": "PASS",
+      "owner": "Engineering",
+      "command": "cd web; npm ci; npm audit --audit-level=high",
+      "sourceCommit": "4efc0b0067ff451d4328761fd04597d2a4d05493",
+      "sourceSha256": "a9e676bd9b200122176783324567c53701195ab65f96d9d2df505acc2615c3ba",
+      "timestampUtc": "2026-10-14T15:16:06.965357+00:00",
+      "evidencePath": "C:\\Users\\Tolis\\AppData\\Local\\FleetFlowDay1Audit\\2026-10-14\\npm-audit-final.log",
+      "notes": "240 packages installed; 0 audit findings"
+    },
+    {
+      "phase": "6",
+      "requirement": "Frontend lint",
+      "status": "PASS",
+      "owner": "Engineering",
+      "command": "cd web; npm run lint",
+      "sourceCommit": "4efc0b0067ff451d4328761fd04597d2a4d05493",
+      "sourceSha256": "a9e676bd9b200122176783324567c53701195ab65f96d9d2df505acc2615c3ba",
+      "timestampUtc": "2026-10-14T15:15:42.077731+00:00",
+      "evidencePath": "C:\\Users\\Tolis\\AppData\\Local\\FleetFlowDay1Audit\\2026-10-14\\frontend-lint-final.log",
+      "notes": "ESLint passed"
+    },
+    {
+      "phase": "6",
+      "requirement": "Frontend typecheck",
+      "status": "PASS",
+      "owner": "Engineering",
+      "command": "cd web; npm run typecheck",
+      "sourceCommit": "4efc0b0067ff451d4328761fd04597d2a4d05493",
+      "sourceSha256": "a9e676bd9b200122176783324567c53701195ab65f96d9d2df505acc2615c3ba",
+      "timestampUtc": "2026-10-14T15:15:47.269692+00:00",
+      "evidencePath": "C:\\Users\\Tolis\\AppData\\Local\\FleetFlowDay1Audit\\2026-10-14\\frontend-typecheck-final.log",
+      "notes": "TypeScript passed"
+    },
+    {
+      "phase": "6",
+      "requirement": "Frontend behavior tests",
+      "status": "PASS",
+      "owner": "Engineering",
+      "command": "cd web; npm run test",
+      "sourceCommit": "4efc0b0067ff451d4328761fd04597d2a4d05493",
+      "sourceSha256": "a9e676bd9b200122176783324567c53701195ab65f96d9d2df505acc2615c3ba",
+      "timestampUtc": "2026-10-14T15:15:55.860185+00:00",
+      "evidencePath": "C:\\Users\\Tolis\\AppData\\Local\\FleetFlowDay1Audit\\2026-10-14\\frontend-test-final.log",
+      "notes": "39 tests in 9 files; auth/storage/guards/API/SSE/customer/states"
+    },
+    {
+      "phase": "6",
+      "requirement": "Production frontend build",
+      "status": "PASS",
+      "owner": "Engineering",
+      "command": "cd web; npm run build",
+      "sourceCommit": "4efc0b0067ff451d4328761fd04597d2a4d05493",
+      "sourceSha256": "a9e676bd9b200122176783324567c53701195ab65f96d9d2df505acc2615c3ba",
+      "timestampUtc": "2026-10-14T15:15:59.266680+00:00",
+      "evidencePath": "C:\\Users\\Tolis\\AppData\\Local\\FleetFlowDay1Audit\\2026-10-14\\frontend-build-final.log",
+      "notes": "357.99 kB JS / 108.40 kB gzip; 12.49 kB CSS / 3.71 kB gzip"
+    },
+    {
+      "phase": "6",
+      "requirement": "Transient signed PKCE smoke",
+      "status": "PASS",
+      "owner": "Engineering",
+      "command": "cd web; npm run test:e2e",
+      "sourceCommit": "4efc0b0067ff451d4328761fd04597d2a4d05493",
+      "sourceSha256": "a9e676bd9b200122176783324567c53701195ab65f96d9d2df505acc2615c3ba",
+      "timestampUtc": "2026-10-14T15:16:04.764230+00:00",
+      "evidencePath": "C:\\Users\\Tolis\\AppData\\Local\\FleetFlowDay1Audit\\2026-10-14\\frontend-test:e2e-final.log",
+      "notes": "1 passed; intercepted API is clearly separate from the real provider/backend test"
+    },
+    {
+      "phase": "8",
+      "requirement": "Workflow syntax and pinned actions",
+      "status": "PASS",
+      "owner": "Engineering",
+      "command": "actionlint 1.7.12 .github/workflows/verify.yml; official GitHub commit lookups",
+      "sourceCommit": "4efc0b0067ff451d4328761fd04597d2a4d05493",
+      "sourceSha256": "a9e676bd9b200122176783324567c53701195ab65f96d9d2df505acc2615c3ba",
+      "timestampUtc": "2026-10-14T15:16:13.619811+00:00",
+      "evidencePath": "C:\\Users\\Tolis\\AppData\\Local\\FleetFlowDay1Audit\\2026-10-14\\action-pins.json",
+      "notes": "7 unique pinned action commits verified; Trivy 0.76.0 and Syft 1.54.1 pinned"
+    },
+    {
+      "phase": "8",
+      "requirement": "Credential preflight",
+      "status": "PASS",
+      "owner": "Engineering",
+      "command": "python scripts/Phase11-Secret-Audit.py",
+      "sourceCommit": "4efc0b0067ff451d4328761fd04597d2a4d05493",
+      "sourceSha256": "a9e676bd9b200122176783324567c53701195ab65f96d9d2df505acc2615c3ba",
+      "timestampUtc": "2026-10-14T15:33:22.361182+00:00",
+      "evidencePath": "C:\\Users\\Tolis\\AppData\\Local\\FleetFlowDay1Audit\\2026-10-14\\secret-preflight-final.log",
+      "notes": "No credential/private artifact finding; final path count is retained in the log"
+    },
+    {
+      "phase": "8",
+      "requirement": "Strict scan: source",
+      "status": "PASS",
+      "owner": "Engineering",
+      "command": "trivy 0.76.0 fs --scanners vuln,misconfig,secret --severity HIGH,CRITICAL --exit-code 1 --format json",
+      "sourceCommit": "4efc0b0067ff451d4328761fd04597d2a4d05493",
+      "sourceSha256": "a9e676bd9b200122176783324567c53701195ab65f96d9d2df505acc2615c3ba",
+      "timestampUtc": "2026-10-14T15:29:47.040822+00:00",
+      "evidencePath": "C:\\Users\\Tolis\\AppData\\Local\\FleetFlowDay1Audit\\2026-10-14\\scan-source-final.json",
+      "notes": "0 high/critical vulnerabilities, detected secrets and high/critical source misconfigurations; no ignore policy"
+    },
+    {
+      "phase": "8",
+      "requirement": "Strict scan: app",
+      "status": "PASS",
+      "owner": "Engineering",
+      "command": "trivy 0.76.0 image --scanners vuln,secret --severity HIGH,CRITICAL --exit-code 1 --format json",
+      "sourceCommit": "4efc0b0067ff451d4328761fd04597d2a4d05493",
+      "sourceSha256": "a9e676bd9b200122176783324567c53701195ab65f96d9d2df505acc2615c3ba",
+      "timestampUtc": "2026-10-14T14:59:03.672057+00:00",
+      "evidencePath": "C:\\Users\\Tolis\\AppData\\Local\\FleetFlowDay1Audit\\2026-10-14\\scan-app-final.json",
+      "notes": "0 high/critical vulnerabilities, detected secrets and high/critical source misconfigurations; no ignore policy"
+    },
+    {
+      "phase": "8",
+      "requirement": "Strict scan: keycloak",
+      "status": "PASS",
+      "owner": "Engineering",
+      "command": "trivy 0.76.0 image --scanners vuln,secret --severity HIGH,CRITICAL --exit-code 1 --format json",
+      "sourceCommit": "4efc0b0067ff451d4328761fd04597d2a4d05493",
+      "sourceSha256": "a9e676bd9b200122176783324567c53701195ab65f96d9d2df505acc2615c3ba",
+      "timestampUtc": "2026-10-14T14:59:56.847183+00:00",
+      "evidencePath": "C:\\Users\\Tolis\\AppData\\Local\\FleetFlowDay1Audit\\2026-10-14\\scan-keycloak-final.json",
+      "notes": "0 high/critical vulnerabilities, detected secrets and high/critical source misconfigurations; no ignore policy"
+    },
+    {
+      "phase": "8",
+      "requirement": "Strict scan: edge",
+      "status": "PASS",
+      "owner": "Engineering",
+      "command": "trivy 0.76.0 image --scanners vuln,secret --severity HIGH,CRITICAL --exit-code 1 --format json",
+      "sourceCommit": "4efc0b0067ff451d4328761fd04597d2a4d05493",
+      "sourceSha256": "a9e676bd9b200122176783324567c53701195ab65f96d9d2df505acc2615c3ba",
+      "timestampUtc": "2026-10-14T15:00:42.909173+00:00",
+      "evidencePath": "C:\\Users\\Tolis\\AppData\\Local\\FleetFlowDay1Audit\\2026-10-14\\scan-edge-final.json",
+      "notes": "0 high/critical vulnerabilities, detected secrets and high/critical source misconfigurations; no ignore policy"
+    },
+    {
+      "phase": "8",
+      "requirement": "Strict scan: postgis",
+      "status": "PASS",
+      "owner": "Engineering",
+      "command": "trivy 0.76.0 image --scanners vuln,secret --severity HIGH,CRITICAL --exit-code 1 --format json",
+      "sourceCommit": "4efc0b0067ff451d4328761fd04597d2a4d05493",
+      "sourceSha256": "a9e676bd9b200122176783324567c53701195ab65f96d9d2df505acc2615c3ba",
+      "timestampUtc": "2026-10-14T15:00:49.423129+00:00",
+      "evidencePath": "C:\\Users\\Tolis\\AppData\\Local\\FleetFlowDay1Audit\\2026-10-14\\scan-postgis-final.json",
+      "notes": "0 high/critical vulnerabilities, detected secrets and high/critical source misconfigurations; no ignore policy"
+    },
+    {
+      "phase": "8",
+      "requirement": "Strict scan: redis",
+      "status": "PASS",
+      "owner": "Engineering",
+      "command": "trivy 0.76.0 image --scanners vuln,secret --severity HIGH,CRITICAL --exit-code 1 --format json",
+      "sourceCommit": "4efc0b0067ff451d4328761fd04597d2a4d05493",
+      "sourceSha256": "a9e676bd9b200122176783324567c53701195ab65f96d9d2df505acc2615c3ba",
+      "timestampUtc": "2026-10-14T15:01:23.985239+00:00",
+      "evidencePath": "C:\\Users\\Tolis\\AppData\\Local\\FleetFlowDay1Audit\\2026-10-14\\scan-redis-final.json",
+      "notes": "0 high/critical vulnerabilities, detected secrets and high/critical source misconfigurations; no ignore policy"
+    },
+    {
+      "phase": "8",
+      "requirement": "Strict scan: kafka",
+      "status": "PASS",
+      "owner": "Engineering",
+      "command": "trivy 0.76.0 image --scanners vuln,secret --severity HIGH,CRITICAL --exit-code 1 --format json",
+      "sourceCommit": "4efc0b0067ff451d4328761fd04597d2a4d05493",
+      "sourceSha256": "a9e676bd9b200122176783324567c53701195ab65f96d9d2df505acc2615c3ba",
+      "timestampUtc": "2026-10-14T15:01:32.449387+00:00",
+      "evidencePath": "C:\\Users\\Tolis\\AppData\\Local\\FleetFlowDay1Audit\\2026-10-14\\scan-kafka-final.json",
+      "notes": "0 high/critical vulnerabilities, detected secrets and high/critical source misconfigurations; no ignore policy"
+    },
+    {
+      "phase": "8",
+      "requirement": "Source and all runtime SBOMs",
+      "status": "PASS",
+      "owner": "Engineering",
+      "command": "Syft 1.54.1 dir:. / docker:<audit-image> -o cyclonedx-json=<file>",
+      "sourceCommit": "4efc0b0067ff451d4328761fd04597d2a4d05493",
+      "sourceSha256": "a9e676bd9b200122176783324567c53701195ab65f96d9d2df505acc2615c3ba",
+      "timestampUtc": "2026-10-14T15:18:19.124417+00:00",
+      "evidencePath": "C:\\Users\\Tolis\\AppData\\Local\\FleetFlowDay1Audit\\2026-10-14\\source-final-sbom.cdx.json",
+      "notes": "7 valid CycloneDX artifacts; exact paths/hashes and image digests are in machine evidence"
+    },
+    {
+      "phase": "8",
+      "requirement": "Remote Actions/CodeQL/candidate attestation",
+      "status": "NOT_RUN",
+      "owner": "Release",
+      "command": "No commit/push or remote workflow dispatch performed",
+      "sourceCommit": "4efc0b0067ff451d4328761fd04597d2a4d05493",
+      "sourceSha256": "a9e676bd9b200122176783324567c53701195ab65f96d9d2df505acc2615c3ba",
+      "timestampUtc": "2026-10-14T14:35:39.476753+00:00",
+      "evidencePath": "C:\\Users\\Tolis\\Desktop\\Java\\Fleetflow\\docs\\phases\\production\\CANDIDATE-METADATA.md",
+      "notes": "Current tree is uncommitted; local checks do not prove remote CI or SAST findings"
+    },
+    {
+      "phase": "9",
+      "requirement": "Local and production Compose render/isolation",
+      "status": "PASS",
+      "owner": "Engineering",
+      "command": ".\\scripts\\Validate-ProductionCompose.ps1; docker compose --env-file .env.example -f compose.yaml config --quiet",
+      "sourceCommit": "4efc0b0067ff451d4328761fd04597d2a4d05493",
+      "sourceSha256": "a9e676bd9b200122176783324567c53701195ab65f96d9d2df505acc2615c3ba",
+      "timestampUtc": "2026-10-14T14:53:07.872394+00:00",
+      "evidencePath": "C:\\Users\\Tolis\\AppData\\Local\\FleetFlowDay1Audit\\2026-10-14\\production-compose-final.log",
+      "notes": "Only edge 80/443 published; internal services private; CPU/memory/log bounds; actual disposable startup also passed"
+    },
+    {
+      "phase": "9",
+      "requirement": "Azure/DNS/certificate/secret/alert prerequisites",
+      "status": "BLOCKED",
+      "owner": "Release owner",
+      "command": "Owner subscription/region/SKU/DNS/certificate/secret/alert checklist; no cloud command executed",
+      "sourceCommit": "4efc0b0067ff451d4328761fd04597d2a4d05493",
+      "sourceSha256": "a9e676bd9b200122176783324567c53701195ab65f96d9d2df505acc2615c3ba",
+      "timestampUtc": "2026-10-14T15:18:27.308458+00:00",
+      "evidencePath": "C:\\Users\\Tolis\\Desktop\\Java\\Fleetflow\\docs\\phases\\production\\phase-09-azure-public-deployment.md",
+      "notes": "Access and approved account/region cost inputs are unavailable; blocks provisioning/public acceptance, not local Day 2 persona work"
+    },
+    {
+      "phase": "10",
+      "requirement": "Local encryption/tamper and retention integrity",
+      "status": "PASS",
+      "owner": "Engineering",
+      "command": ".\\scripts\\Test-Phase11-Recovery-Preflight.ps1; .\\scripts\\Test-Phase11-RemoteRetention.ps1",
+      "sourceCommit": "4efc0b0067ff451d4328761fd04597d2a4d05493",
+      "sourceSha256": "a9e676bd9b200122176783324567c53701195ab65f96d9d2df505acc2615c3ba",
+      "timestampUtc": "2026-10-14T14:53:08.806998+00:00",
+      "evidencePath": "C:\\Users\\Tolis\\AppData\\Local\\FleetFlowDay1Audit\\2026-10-14\\crypto-preflight-final.log",
+      "notes": "AES-GCM round trip/tamper rejection; exact expired-project remote selector passed; no normal database restored"
+    },
+    {
+      "phase": "10/11",
+      "requirement": "Realm/backup age/provenance/measurement guards",
+      "status": "PASS",
+      "owner": "Engineering",
+      "command": "python -m unittest discover -s scripts -p test_day1_preparation.py -v",
+      "sourceCommit": "4efc0b0067ff451d4328761fd04597d2a4d05493",
+      "sourceSha256": "a9e676bd9b200122176783324567c53701195ab65f96d9d2df505acc2615c3ba",
+      "timestampUtc": "2026-10-14T15:07:50.463241+00:00",
+      "evidencePath": "C:\\Users\\Tolis\\AppData\\Local\\FleetFlowDay1Audit\\2026-10-14\\preparation-tests-final.log",
+      "notes": "8 tests passed; unsafe candidate cannot stop services/create backup; age, hosts, expected rejection and percentile/signal accounting"
+    },
+    {
+      "phase": "9/10",
+      "requirement": "Production shell syntax",
+      "status": "PASS",
+      "owner": "Engineering",
+      "command": "bash -n ops/production/{fleetflow,backup,check-backup-age,app-entrypoint,keycloak-entrypoint,postgres-app-role}.sh",
+      "sourceCommit": "4efc0b0067ff451d4328761fd04597d2a4d05493",
+      "sourceSha256": "a9e676bd9b200122176783324567c53701195ab65f96d9d2df505acc2615c3ba",
+      "timestampUtc": "2026-10-14T14:53:09.621831+00:00",
+      "evidencePath": "C:\\Users\\Tolis\\AppData\\Local\\FleetFlowDay1Audit\\2026-10-14\\bash-syntax-final.log",
+      "notes": "All prepared shell scripts parse"
+    },
+    {
+      "phase": "10",
+      "requirement": "Production age/rclone pipeline, schedule and fresh-host restore",
+      "status": "NOT_RUN",
+      "owner": "Operations",
+      "command": "Prepared backup/age-check/isolated restore runbooks; no production credential execution",
+      "sourceCommit": "4efc0b0067ff451d4328761fd04597d2a4d05493",
+      "sourceSha256": "a9e676bd9b200122176783324567c53701195ab65f96d9d2df505acc2615c3ba",
+      "timestampUtc": "2026-10-14T15:18:27.308458+00:00",
+      "evidencePath": "C:\\Users\\Tolis\\Desktop\\Java\\Fleetflow\\docs\\phases\\production\\phase-10-target-operations-backup-and-recovery.md",
+      "notes": "Target credentials, exact candidate and isolated restore destination required"
+    },
+    {
+      "phase": "11",
+      "requirement": "30-minute Azure load and public failure qualification",
+      "status": "NOT_RUN",
+      "owner": "Operations",
+      "command": "Phase11-Breadth.py --duration-seconds 1800 --reviewer-sessions 2 --business-transitions (future isolated target execution)",
+      "sourceCommit": "4efc0b0067ff451d4328761fd04597d2a4d05493",
+      "sourceSha256": "a9e676bd9b200122176783324567c53701195ab65f96d9d2df505acc2615c3ba",
+      "timestampUtc": "2026-10-14T15:10:09.566691+00:00",
+      "evidencePath": "C:\\Users\\Tolis\\Desktop\\Java\\Fleetflow\\docs\\phases\\production\\phase-11-target-performance-and-failure-qualification.md",
+      "notes": "10 drivers/10 streams/>=100 operations prepared; current loopback harness is not an Azure/public adapter result"
+    },
+    {
+      "phase": "4",
+      "requirement": "Target alert delivery and certificate/backup integration",
+      "status": "BLOCKED",
+      "owner": "Operations",
+      "command": "Configure approved target notification destination and TLS/backup sentinel after provisioning",
+      "sourceCommit": "4efc0b0067ff451d4328761fd04597d2a4d05493",
+      "sourceSha256": "a9e676bd9b200122176783324567c53701195ab65f96d9d2df505acc2615c3ba",
+      "timestampUtc": "2026-10-14T15:21:11.360918+00:00",
+      "evidencePath": "C:\\Users\\Tolis\\Desktop\\Java\\Fleetflow\\docs\\phases\\production\\phase-04-observability-and-operator-signals.md",
+      "notes": "Rule evaluation and private signals pass; no target notification or certificate-expiry proof exists"
+    }
+  ],
+  "phaseStatuses": {
+    "1": "COMPLETE",
+    "2": "COMPLETE",
+    "3": "COMPLETE",
+    "4": "PARTIAL",
+    "5 Day-1 slice": "COMPLETE",
+    "6 Day-1 slice": "COMPLETE",
+    "8 Day-1 foundation": "COMPLETE",
+    "9 preparation": "PARTIAL",
+    "10 preparation": "READY",
+    "11 preparation": "READY"
+  },
+  "tools": {
+    "java": "21.0.12",
+    "node": "24.19.0",
+    "npm": "11.17.0",
+    "trivy": "0.76.0",
+    "syft": "1.54.1",
+    "actionlint": "1.7.12",
+    "prometheus": "3.15.0",
+    "maven": "3.9.16",
+    "dockerServer": "29.6.2"
+  },
+  "ciBuildMetadataLocalCheck": {
+    "result": "PASS",
+    "images": 6,
+    "candidateApproved": false,
+    "path": "C:\\Users\\Tolis\\AppData\\Local\\FleetFlowDay1Audit\\2026-10-14\\workflow-image-builds-local.json",
+    "remoteCiRun": "NOT_RUN"
+  },
+  "finalRegression": {
+    "backend": 143,
+    "focusedBackend": 20,
+    "frontend": 39,
+    "preparation": 8,
+    "signedOidcBrowser": 1,
+    "realKeycloakBrowser": 1,
+    "sourceUnchangedAfterRelevantTests": true,
+    "diffCheck": "PASS",
+    "credentialPreflight": "PASS",
+    "disposableProjectsCleaned": true
+  }
+}

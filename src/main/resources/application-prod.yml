@@ -8,7 +8,9 @@ spring:
     admin:
       auto-create: true
     listener:
-      auto-startup: true
+      auto-startup: false
 fleetflow:
+  events:
+    deferred-start: true
   outbox:
     enabled: ${OUTBOX_ENABLED:true}

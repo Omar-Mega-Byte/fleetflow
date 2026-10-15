@@ -15,6 +15,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import org.junit.jupiter.api.Test;
 
 class TrackingHubBoundsTests {
@@ -33,7 +34,8 @@ class TrackingHubBoundsTests {
             release.await();
             return snapshot;
         });
-        TrackingHub hub = new TrackingHub(reader, clock);
+        SimpleMeterRegistry metrics = new SimpleMeterRegistry();
+        TrackingHub hub = new TrackingHub(reader, clock, metrics);
         try {
             hub.open(order, actor, clock.instant().plusSeconds(60));
             for (int i = 0; i < 20; i++) hub.refreshOrder(order);
@@ -43,9 +45,12 @@ class TrackingHubBoundsTests {
             clock.advanceSeconds(11);
             hub.tick();
             assertThat(hub.activeStreams()).isZero();
+            assertThat(metrics.get("fleetflow.tracking.connections").tag("outcome", "slow_client_evicted")
+                    .counter().count()).isEqualTo(1);
         } finally {
             release.countDown();
             hub.stop();
+            metrics.close();
         }
     }
 

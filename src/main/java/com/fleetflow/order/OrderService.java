@@ -5,8 +5,10 @@ import java.math.RoundingMode;
 import java.time.Clock;
 import java.time.Instant;
 import java.util.Currency;
+import java.util.HexFormat;
 import java.util.List;
 import java.util.UUID;
+import java.security.MessageDigest;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 
@@ -28,6 +30,7 @@ import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
@@ -35,6 +38,7 @@ import org.springframework.data.jpa.domain.Specification;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import tools.jackson.databind.ObjectMapper;
 
 @Service
 public class OrderService {
@@ -46,10 +50,12 @@ public class OrderService {
     private final ActorAccess access;
     private final LifecycleHistory history;
     private final ZoneService zones;
+    private final JdbcTemplate jdbc;
+    private final ObjectMapper objectMapper;
 
     OrderService(OrderRepository orders, CustomerService customers, MerchantService merchants,
                  EntityManager entityManager, Clock clock, ActorAccess access, LifecycleHistory history,
-                 ZoneService zones) {
+                 ZoneService zones, JdbcTemplate jdbc, ObjectMapper objectMapper) {
         this.orders = orders;
         this.customers = customers;
         this.merchants = merchants;
@@ -58,11 +64,45 @@ public class OrderService {
         this.access = access;
         this.history = history;
         this.zones = zones;
+        this.jdbc = jdbc;
+        this.objectMapper = objectMapper;
     }
 
     @Transactional
-    public OrderView create(CreateRequest request) {
-        CustomerService.CustomerView customer = customers.forActor(access.require(Role.CUSTOMER).id());
+    public OrderView create(CreateRequest request, String idempotencyKey) {
+        UUID actorId = access.require(Role.CUSTOMER).id();
+        if (idempotencyKey == null || !idempotencyKey.matches("[A-Za-z0-9._~-]{1,128}")) {
+            throw invalid("Idempotency-Key must contain 1 to 128 letters, digits, dots, underscores, tildes, or hyphens");
+        }
+        String requestHash = requestHash(request);
+        int reserved = jdbc.update("""
+                insert into command_idempotency
+                  (actor_id, operation, idempotency_key, request_hash, created_at)
+                values (?, 'ORDER_CREATE', ?, ?, clock_timestamp())
+                on conflict (actor_id, operation, idempotency_key) do nothing
+                """, actorId, idempotencyKey, requestHash);
+        if (reserved == 0) {
+            var existing = jdbc.query("""
+                    select request_hash, order_id, response_body::text
+                    from command_idempotency
+                    where actor_id = ? and operation = 'ORDER_CREATE' and idempotency_key = ?
+                    for update
+                    """, (rs, row) -> new IdempotencyResult(rs.getString(1),
+                    (UUID) rs.getObject(2), rs.getString(3)), actorId, idempotencyKey);
+            if (existing.isEmpty()) throw new IllegalStateException("Idempotency reservation disappeared");
+            IdempotencyResult prior = existing.getFirst();
+            if (!prior.requestHash().equals(requestHash)) {
+                throw new ApiFailure(HttpStatus.CONFLICT, "IDEMPOTENCY_KEY_REUSED",
+                        "Idempotency-Key was already used with a different request");
+            }
+            if (prior.resourceId() == null || prior.responseBody() == null) {
+                throw new ApiFailure(HttpStatus.SERVICE_UNAVAILABLE, "IDEMPOTENCY_RESULT_UNAVAILABLE",
+                        "The original command result is not available");
+            }
+            return readOrderResult(prior.responseBody());
+        }
+
+        CustomerService.CustomerView customer = customers.forActor(actorId);
         MerchantService.BranchView branch = merchants.branchForOrder(request.branchId());
         Currency.getInstance(request.currency());
         ZoneService.Decision coverage = zones.forNewOrder(branch.id(), request.delivery().latitude(),
@@ -78,7 +118,8 @@ public class OrderService {
                     input.quantity(), unit, line));
         }
         Instant now = clock.instant();
-        OrderEntity order = new OrderEntity(UUID.randomUUID(), customer.id(), branch.id(),
+        UUID orderId = UUID.randomUUID();
+        OrderEntity order = new OrderEntity(orderId, customer.id(), branch.id(),
                 customer.displayName(), branch.merchantName(), branch.name(), branch.pickupLine1(),
                 branch.pickupCity(), branch.pickupLatitude(), branch.pickupLongitude(),
                 request.delivery().line1().strip(), request.delivery().city().strip(),
@@ -88,14 +129,62 @@ public class OrderService {
         entityManager.persist(order);
         entityManager.flush();
         history.order(order.id, 0, null, "CREATED", "CREATE", now,
-                access.require(Role.CUSTOMER).id(), null);
-        return detail(order);
+                actorId, null);
+        OrderView created = detail(order);
+        int stored = jdbc.update("""
+                update command_idempotency set order_id = ?, response_body = cast(? as jsonb)
+                where actor_id = ? and operation = 'ORDER_CREATE' and idempotency_key = ?
+                  and order_id is null and zone_id is null and response_body is null
+                """, order.id, writeOrderResult(created), actorId, idempotencyKey);
+        if (stored != 1) throw new IllegalStateException("Could not store idempotent order result");
+        return created;
     }
+
+    private String requestHash(CreateRequest request) {
+        CanonicalOrder canonical = new CanonicalOrder(request.branchId(),
+                new CanonicalAddress(request.delivery().line1().strip(), request.delivery().city().strip(),
+                        decimal(request.delivery().latitude()), decimal(request.delivery().longitude())),
+                request.currency(), request.items().stream().map(item -> new CanonicalItem(
+                        item.description().strip(), item.quantity(), decimal(item.unitAmount()))).toList());
+        try {
+            return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256")
+                    .digest(objectMapper.writeValueAsBytes(canonical)));
+        } catch (Exception failure) {
+            throw new IllegalStateException("Could not fingerprint order request", failure);
+        }
+    }
+
+    private static String decimal(BigDecimal value) {
+        return value.stripTrailingZeros().toPlainString();
+    }
+
+    private String writeOrderResult(OrderView result) {
+        try {
+            return objectMapper.writeValueAsString(result);
+        } catch (Exception failure) {
+            throw new IllegalStateException("Could not store order result", failure);
+        }
+    }
+
+    private OrderView readOrderResult(String json) {
+        try {
+            return objectMapper.readValue(json, OrderView.class);
+        } catch (Exception failure) {
+            throw new ApiFailure(HttpStatus.SERVICE_UNAVAILABLE, "IDEMPOTENCY_RESULT_UNAVAILABLE",
+                    "The original command result is not available");
+        }
+    }
+
+    private record IdempotencyResult(String requestHash, UUID resourceId, String responseBody) { }
+    private record CanonicalAddress(String line1, String city, String latitude, String longitude) { }
+    private record CanonicalItem(String description, int quantity, String unitAmount) { }
+    private record CanonicalOrder(UUID branchId, CanonicalAddress delivery, String currency,
+                                  List<CanonicalItem> items) { }
 
     @Transactional(readOnly = true)
     public OrderView get(UUID id) {
         UUID customerId = customers.forActor(access.require(Role.CUSTOMER).id()).id();
-        OrderEntity order = orders.findDetail(id, customerId).orElseThrow(() -> notFound());
+        OrderEntity order = orders.findDetail(id, customerId, activeDemoGeneration()).orElseThrow(() -> notFound());
         return detail(order);
     }
 
@@ -103,6 +192,7 @@ public class OrderService {
     public PageView list(UUID branchId, String status, Instant from, Instant to,
                          int page, int size, String sort) {
         UUID customerId = customers.forActor(access.require(Role.CUSTOMER).id()).id();
+        long activeGeneration = activeDemoGeneration();
         if (page < 0 || size < 1 || size > 100) {
             throw invalid("Page must be nonnegative and size must be between 1 and 100");
         }
@@ -111,11 +201,13 @@ public class OrderService {
         }
         if (status != null && !java.util.Set.of("CREATED", "CONFIRMED", "PREPARING",
                 "READY_FOR_PICKUP", "CANCELLED", "DISPATCHING", "DISPATCH_FAILED",
-                "DRIVER_ASSIGNED").contains(status)) {
+                "DRIVER_ASSIGNED", "PICKED_UP", "IN_TRANSIT", "DELIVERED", "DELIVERY_FAILED").contains(status)) {
             throw invalid("Unsupported status");
         }
         Sort requestedSort = sortOrder(sort);
         Specification<OrderEntity> scope = (root, query, cb) -> cb.equal(root.get("customerId"), customerId);
+        scope = scope.and((root, query, cb) -> cb.or(cb.isNull(root.get("demoGeneration")),
+                cb.equal(root.get("demoGeneration"), activeGeneration)));
         if (branchId != null) {
             scope = scope.and((root, query, cb) -> cb.equal(root.get("branchId"), branchId));
         }
@@ -131,6 +223,11 @@ public class OrderService {
         Page<OrderEntity> found = orders.findAll(scope, PageRequest.of(page, size, requestedSort));
         return new PageView(found.getContent().stream().map(this::summary).toList(), page, size,
                 found.getTotalElements(), found.getTotalPages());
+    }
+
+    private long activeDemoGeneration() {
+        Long generation = jdbc.queryForObject("select generation from synthetic_demo_state where id = true", Long.class);
+        return generation == null ? 0L : generation;
     }
 
     private Sort sortOrder(String value) {
@@ -199,7 +296,7 @@ public class OrderService {
     public record CreateRequest(@Schema(description = "Target merchant branch ID.") @NotNull UUID branchId,
                                 @NotNull @Valid Address delivery,
                                 @Schema(example = "USD") @NotBlank @Pattern(regexp = "[A-Z]{3}") String currency,
-                                @NotEmpty List<@Valid ItemInput> items) { }
+                                @NotEmpty @Size(max = 100) List<@Valid ItemInput> items) { }
     public record ItemView(int lineNumber, String description, int quantity,
                            BigDecimal unitAmount, BigDecimal lineAmount) { }
     public record PublicAddress(String line1, String city) { }

@@ -7,6 +7,7 @@ import java.util.UUID;
 
 import tools.jackson.databind.JsonNode;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -27,6 +28,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -56,13 +58,17 @@ class ZoneController {
     }
 
     @PostMapping("/zones")
-    @Operation(summary = "Create a validated branch delivery zone")
+    @Operation(summary = "Create a validated branch delivery zone",
+            description = "Requires an actor-scoped Idempotency-Key; same-key retries replay the original result.")
     @ApiResponse(responseCode = "201", description = "Created zone.",
             content = @Content(mediaType = "application/json",
                     schema = @Schema(implementation = ZoneService.ZoneView.class)))
     ResponseEntity<ZoneService.ZoneView> create(@PathVariable UUID branchId,
+                                                 @Parameter(description = "Stable client-generated key for this zone creation.",
+                                                         required = true)
+                                                 @RequestHeader("Idempotency-Key") String idempotencyKey,
                                                  @Valid @RequestBody ZoneInput request) {
-        var created = zones.create(branchId, request.name(), request.geometry(), request.active());
+        var created = zones.create(branchId, request.name(), request.geometry(), request.active(), idempotencyKey);
         return ResponseEntity.created(URI.create("/api/v1/merchant-branches/" + branchId
                 + "/zones/" + created.id())).body(created);
     }

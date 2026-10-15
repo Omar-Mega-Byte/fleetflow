@@ -30,6 +30,7 @@ public class RouteRateLimits implements HandlerInterceptor {
     private final int expensiveReadLimit;
     private final int commandLimit;
     private final int streamLimit;
+    private final int demoWriteLimit;
     private final boolean localFixtures;
     private final ConcurrentHashMap<String, LocalWindow> fallback = new ConcurrentHashMap<>();
     private static final Set<String> FIXTURE_COMMANDS = Set.of("/api/v1/orders",
@@ -41,8 +42,10 @@ public class RouteRateLimits implements HandlerInterceptor {
                            @Value("${fleetflow.rate.read-limit:60}") int readLimit,
                            @Value("${fleetflow.rate.expensive-read-limit:30}") int expensiveReadLimit,
                            @Value("${fleetflow.rate.command-limit:30}") int commandLimit,
-                           @Value("${fleetflow.rate.stream-limit:6}") int streamLimit) {
-        if (readLimit < 1 || expensiveReadLimit < 1 || commandLimit < 1 || streamLimit < 1) {
+                           @Value("${fleetflow.rate.stream-limit:6}") int streamLimit,
+                           @Value("${fleetflow.rate.demo-write-limit:5}") int demoWriteLimit) {
+        if (readLimit < 1 || expensiveReadLimit < 1 || commandLimit < 1 || streamLimit < 1
+                || demoWriteLimit < 1) {
             throw new IllegalArgumentException("Route rate limits must be positive");
         }
         this.redis = redis;
@@ -51,6 +54,7 @@ public class RouteRateLimits implements HandlerInterceptor {
         this.expensiveReadLimit = expensiveReadLimit;
         this.commandLimit = commandLimit;
         this.streamLimit = streamLimit;
+        this.demoWriteLimit = demoWriteLimit;
         Set<String> profiles = Set.of(environment.getActiveProfiles());
         this.localFixtures = profiles.equals(Set.of("local")) || profiles.equals(Set.of("test"));
         script = new DefaultRedisScript<>();
@@ -122,6 +126,13 @@ public class RouteRateLimits implements HandlerInterceptor {
     }
 
     private ClassPolicy policy(String method, String path) {
+        if ("POST".equals(method) && (path.equals("/api/v1/demo/seed")
+                || path.equals("/api/v1/demo/reset"))) {
+            return new ClassPolicy("demo_write", demoWriteLimit, Duration.ofMinutes(1));
+        }
+        if ("POST".equals(method) && path.endsWith("/serviceability")) {
+            return new ClassPolicy("expensive_read", expensiveReadLimit, Duration.ofSeconds(10));
+        }
         if ("GET".equals(method)) {
             if (path.endsWith("/tracking/stream")) {
                 return new ClassPolicy("stream", streamLimit, Duration.ofMinutes(1));

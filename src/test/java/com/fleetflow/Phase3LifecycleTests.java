@@ -91,11 +91,20 @@ class Phase3LifecycleTests extends ProfileTestDatabase {
         customer(owner); customer(outsider);
         UUID order = createOrder(owner, branch());
         String path = "/api/v1/orders/" + order + "/cancel";
+        int historyBeforeForeign = jdbc.queryForObject(
+                "select count(*) from order_lifecycle_history where order_id = ?", Integer.class, order);
+        int outboxBeforeForeign = jdbc.queryForObject(
+                "select count(*) from outbox_events where aggregate_id = ?", Integer.class, order);
         mvc.perform(post(path).contentType(MediaType.APPLICATION_JSON).content("{\"reason\":\"x\"}"))
                 .andExpect(status().isUnauthorized());
         mvc.perform(post(path).header("Authorization", bearer(outsider))
                         .contentType(MediaType.APPLICATION_JSON).content("{\"reason\":\"x\"}"))
                 .andExpect(status().isNotFound()).andExpect(jsonPath("$.code").value("RESOURCE_NOT_FOUND"));
+        assertOrder(order, "CREATED", 0, 1);
+        assertThat(jdbc.queryForObject("select count(*) from order_lifecycle_history where order_id = ?",
+                Integer.class, order)).isEqualTo(historyBeforeForeign);
+        assertThat(jdbc.queryForObject("select count(*) from outbox_events where aggregate_id = ?",
+                Integer.class, order)).isEqualTo(outboxBeforeForeign);
         for (String bad : List.of("{}", "{\"reason\":\"   \"}",
                 "{\"reason\":\"" + "a".repeat(501) + "\"}")) {
             mvc.perform(post(path).header("Authorization", bearer(owner))
@@ -364,7 +373,7 @@ class Phase3LifecycleTests extends ProfileTestDatabase {
                 "latitude":30,"longitude":31},"currency":"EGP",
                 "items":[{"description":"Item","quantity":1,"unitAmount":1.00}]}
                 """.formatted(branch);
-        MvcResult result = mvc.perform(post("/api/v1/orders").header("Authorization", bearer(customer))
+        MvcResult result = mvc.perform(orderPost(customer)
                         .contentType(MediaType.APPLICATION_JSON).content(body))
                 .andExpect(status().isCreated()).andReturn();
         return UUID.fromString(JsonPath.read(result.getResponse().getContentAsString(), "$.id"));
@@ -385,6 +394,12 @@ class Phase3LifecycleTests extends ProfileTestDatabase {
     }
 
     private String bearer(Actor actor) { return "Bearer " + TestOidc.token(actor.subject); }
+
+    private org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder orderPost(Actor actor) {
+        return post("/api/v1/orders").header("Authorization", bearer(actor))
+                .header("Idempotency-Key", UUID.randomUUID().toString());
+    }
+
     private record Actor(UUID id, String subject) { }
     @FunctionalInterface private interface Action { int run() throws Exception; }
 }

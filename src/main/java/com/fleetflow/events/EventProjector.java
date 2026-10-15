@@ -105,6 +105,20 @@ public class EventProjector {
         }
     }
 
+    @Transactional
+    public void quarantineProjection(String consumer, String topic, int partition, long offset, String json) {
+        EventEnvelope event = decode(json);
+        quarantine(consumer, topic, partition, offset, "PROJECTION_FAILED");
+        // The known envelope stays in PostgreSQL. The existing audited replay path can resend it;
+        // processed markers protect consumers that already committed their projection.
+        jdbc.update("""
+                update outbox_events set status = 'FAILED', published_at = null,
+                  lease_token = null, lease_until = null, last_error = 'PROJECTION_FAILED'
+                where id = ? and not exists(select 1 from processed_events
+                  where consumer_name = ? and event_id = ?)
+                """, event.eventId(), consumer, event.eventId());
+    }
+
     private EventEnvelope decode(String json) {
         EventEnvelope event;
         try {

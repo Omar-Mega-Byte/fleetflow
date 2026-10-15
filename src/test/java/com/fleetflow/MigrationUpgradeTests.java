@@ -4,7 +4,17 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.util.UUID;
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
+import java.time.Duration;
+import java.util.Map;
 
+import org.springframework.boot.WebApplicationType;
+import org.springframework.boot.builder.SpringApplicationBuilder;
+import org.springframework.boot.web.server.context.WebServerApplicationContext;
+import org.springframework.context.ConfigurableApplicationContext;
 import org.flywaydb.core.Flyway;
 import org.junit.jupiter.api.Test;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -13,7 +23,7 @@ import org.testcontainers.postgresql.PostgreSQLContainer;
 
 class MigrationUpgradeTests {
     @Test
-    void populatedPhase11SchemaUpgradesToZonesWithoutChangingHistoricalOrders() {
+    void populatedPhase11SchemaUpgradesAndStartsApplicationWithoutChangingHistoricalOrders() throws Exception {
         try (PostgreSQLContainer db = PostgisTestDatabase.create()) {
             db.start();
             var source = new DriverManagerDataSource(db.getJdbcUrl(), db.getUsername(), db.getPassword());
@@ -43,7 +53,7 @@ class MigrationUpgradeTests {
                       'Road', 'Cairo', 30.2, 31.2, 'EGP', 1.00, now(), now())
                     """, order, customer, branch);
             assertThat(Flyway.configure().dataSource(source).locations("classpath:db/migration")
-                    .load().migrate().migrationsExecuted).isEqualTo(1);
+                    .load().migrate().migrationsExecuted).isEqualTo(3);
             assertThat(jdbc.queryForObject("select serviceability_mode from merchant_branches where id = ?",
                     String.class, branch)).isEqualTo("UNRESTRICTED");
             assertThat(jdbc.queryForObject("select zone_policy_version from merchant_branches where id = ?",
@@ -54,6 +64,34 @@ class MigrationUpgradeTests {
                     java.math.BigDecimal.class, order)).isEqualByComparingTo("30.2");
             assertThat(jdbc.queryForObject("select extversion from pg_extension where extname = 'postgis'",
                     String.class)).isNotBlank();
+
+            try (ConfigurableApplicationContext context = new SpringApplicationBuilder(FleetFlowApplication.class)
+                    .web(WebApplicationType.SERVLET)
+                    .profiles("test")
+                    .properties(Map.of(
+                            "server.address", "127.0.0.1",
+                            "server.port", "0",
+                            "DB_URL", db.getJdbcUrl(),
+                            "DB_USER", db.getUsername(),
+                            "DB_PASSWORD", db.getPassword(),
+                            "OIDC_ISSUER", TestOidc.ISSUER,
+                            "OIDC_JWKS_URI", TestOidc.jwksUri(),
+                            "OIDC_AUDIENCE", TestOidc.AUDIENCE,
+                            "spring.main.banner-mode", "off"))
+                    .run()) {
+                assertThat(context.isRunning()).isTrue();
+                assertThat(context).isInstanceOf(WebServerApplicationContext.class);
+                var web = (WebServerApplicationContext) context;
+                var readiness = HttpRequest.newBuilder(URI.create("http://127.0.0.1:"
+                                + web.getWebServer().getPort() + "/actuator/health/readiness"))
+                        .timeout(Duration.ofSeconds(10)).GET().build();
+                var response = HttpClient.newHttpClient().send(readiness, HttpResponse.BodyHandlers.ofString());
+                assertThat(response.statusCode()).isEqualTo(200);
+                assertThat(context.getBean(Flyway.class).migrate().migrationsExecuted).isZero();
+                assertThat(new JdbcTemplate(context.getBean(javax.sql.DataSource.class))
+                        .queryForObject("select total_amount from orders where id = ?",
+                                java.math.BigDecimal.class, order)).isEqualByComparingTo("1.00");
+            }
         }
     }
 
@@ -95,7 +133,7 @@ class MigrationUpgradeTests {
                     """, order, customer, branch);
 
             Flyway upgraded = Flyway.configure().dataSource(source).locations("classpath:db/migration").load();
-            assertThat(upgraded.migrate().migrationsExecuted).isEqualTo(10);
+            assertThat(upgraded.migrate().migrationsExecuted).isEqualTo(12);
             assertThat(upgraded.migrate().migrationsExecuted).isZero();
             assertThat(jdbc.queryForObject("select version from orders where id = ?", Long.class, order)).isZero();
             assertThat(jdbc.queryForObject("select operational_status from drivers where id = ?", String.class, driver))
@@ -130,7 +168,7 @@ class MigrationUpgradeTests {
 
             Flyway upgraded = Flyway.configure().dataSource(db.getJdbcUrl(), db.getUsername(), db.getPassword())
                     .locations("classpath:db/migration").load();
-            assertThat(upgraded.migrate().migrationsExecuted).isEqualTo(11);
+            assertThat(upgraded.migrate().migrationsExecuted).isEqualTo(13);
             assertThat(upgraded.migrate().migrationsExecuted).isZero();
             assertThat(jdbc.queryForObject("select count(*) from actors where id = ?", Integer.class, actor))
                     .isEqualTo(1);

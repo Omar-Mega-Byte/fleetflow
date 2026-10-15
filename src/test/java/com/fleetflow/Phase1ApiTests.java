@@ -66,7 +66,9 @@ class Phase1ApiTests {
     @BeforeEach
     void setup() {
         mvc = MockMvcBuilders.webAppContextSetup(context)
-                .addFilters(new CorrelationIdFilter(), context.getBean("springSecurityFilterChain", Filter.class))
+                .addFilters(new CorrelationIdFilter(), context.getBean("springSecurityFilterChain", Filter.class),
+                        context.getBean("locationBodyLimit", org.springframework.boot.web.servlet.FilterRegistrationBean.class)
+                                .getFilter())
                 .build();
         jdbc.update("""
                 insert into actors (id, issuer, subject, active, created_at, updated_at)
@@ -113,7 +115,7 @@ class Phase1ApiTests {
                           {"description":"Tea","quantity":1,"unitAmount":2.00}]}
                 """.formatted(branch);
 
-        MvcResult created = mvc.perform(post("/api/v1/orders").header("Authorization", bearer(actor))
+        MvcResult created = mvc.perform(orderPost(actor)
                         .contentType(MediaType.APPLICATION_JSON).content(orderBody))
                 .andExpect(status().isCreated()).andExpect(jsonPath("$.status").value("CREATED"))
                 .andExpect(jsonPath("$.totalAmount").value(27.0))
@@ -132,6 +134,92 @@ class Phase1ApiTests {
         mvc.perform(get("/api/v1/orders/{id}", orderId).header("Authorization", bearer(otherActor)))
                 .andExpect(status().isNotFound());
         assertThat(customer).isNotBlank();
+    }
+
+    @Test
+    void orderCreateIdempotencyReplaysTheOriginalResultAndRejectsKeyReuse() throws Exception {
+        Fixture fixture = fixture();
+        String body = orderBody(fixture.branch(), "Bread", 1, "1.00");
+        String key = "order-create-" + UUID.randomUUID();
+        int ordersBefore = jdbc.queryForObject("select count(*) from orders", Integer.class);
+        int itemsBefore = jdbc.queryForObject("select count(*) from order_items", Integer.class);
+        int historyBefore = jdbc.queryForObject("select count(*) from order_lifecycle_history", Integer.class);
+        int outboxBefore = jdbc.queryForObject("select count(*) from outbox_events", Integer.class);
+
+        mvc.perform(post("/api/v1/orders").header("Authorization", bearer(fixture.actor()))
+                        .contentType(MediaType.APPLICATION_JSON).content(body))
+                .andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("INVALID_REQUEST"));
+        assertThat(jdbc.queryForObject("select count(*) from orders", Integer.class)).isEqualTo(ordersBefore);
+
+        MvcResult first = mvc.perform(orderPost(fixture.actor(), key)
+                        .contentType(MediaType.APPLICATION_JSON).content(body))
+                .andExpect(status().isCreated()).andReturn();
+        MvcResult replay = mvc.perform(orderPost(fixture.actor(), key)
+                        .contentType(MediaType.APPLICATION_JSON).content(body))
+                .andExpect(status().isCreated()).andReturn();
+        String orderId = id(first);
+        assertThat(id(replay)).isEqualTo(orderId);
+        assertThat(replay.getResponse().getHeader("Location")).isEqualTo(first.getResponse().getHeader("Location"));
+        assertThat(replay.getResponse().getContentAsString()).isEqualTo(first.getResponse().getContentAsString());
+        assertThat(jdbc.queryForObject("select count(*) from orders", Integer.class)).isEqualTo(ordersBefore + 1);
+        assertThat(jdbc.queryForObject("select count(*) from order_items", Integer.class)).isEqualTo(itemsBefore + 1);
+        assertThat(jdbc.queryForObject("select count(*) from order_lifecycle_history", Integer.class))
+                .isEqualTo(historyBefore + 1);
+        assertThat(jdbc.queryForObject("select count(*) from outbox_events", Integer.class)).isEqualTo(outboxBefore);
+
+        mvc.perform(orderPost(fixture.actor(), key).contentType(MediaType.APPLICATION_JSON)
+                        .content(orderBody(fixture.branch(), "Bread", 1, "2.00")))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("IDEMPOTENCY_KEY_REUSED"));
+        assertThat(jdbc.queryForObject("select count(*) from orders", Integer.class)).isEqualTo(ordersBefore + 1);
+
+        Fixture other = fixture();
+        MvcResult otherActor = mvc.perform(orderPost(other.actor(), key).contentType(MediaType.APPLICATION_JSON)
+                        .content(orderBody(fixture.branch(), "Bread", 1, "1.00")))
+                .andExpect(status().isCreated()).andReturn();
+        assertThat(id(otherActor)).isNotEqualTo(orderId);
+        assertThat(jdbc.queryForObject("select count(*) from orders", Integer.class)).isEqualTo(ordersBefore + 2);
+    }
+
+    @Test
+    void simultaneousOrderCreateRetriesCommitOneOrderAndBodyLimitReturnsStable413() throws Exception {
+        Fixture fixture = fixture();
+        String key = "concurrent-order-" + UUID.randomUUID();
+        String body = orderBody(fixture.branch(), "Bread", 1, "1.00");
+        java.util.concurrent.CountDownLatch ready = new java.util.concurrent.CountDownLatch(2);
+        java.util.concurrent.CountDownLatch start = new java.util.concurrent.CountDownLatch(1);
+        var first = java.util.concurrent.CompletableFuture.supplyAsync(() -> concurrentOrderPost(
+                fixture.actor(), key, body, ready, start));
+        var second = java.util.concurrent.CompletableFuture.supplyAsync(() -> concurrentOrderPost(
+                fixture.actor(), key, body, ready, start));
+        ready.await();
+        start.countDown();
+        MvcResult firstResult = first.join();
+        MvcResult secondResult = second.join();
+        assertThat(firstResult.getResponse().getStatus()).isEqualTo(201);
+        assertThat(secondResult.getResponse().getStatus()).isEqualTo(201);
+        assertThat(id(firstResult)).isEqualTo(id(secondResult));
+
+        int ordersBefore = jdbc.queryForObject("select count(*) from orders", Integer.class);
+        mvc.perform(orderPost(fixture.actor()).contentType(MediaType.APPLICATION_JSON)
+                        .content("x".repeat(1024 * 1024 + 1)))
+                .andExpect(status().isPayloadTooLarge())
+                .andExpect(jsonPath("$.code").value("PAYLOAD_TOO_LARGE"))
+                .andExpect(jsonPath("$.correlationId").isNotEmpty());
+        assertThat(jdbc.queryForObject("select count(*) from orders", Integer.class)).isEqualTo(ordersBefore);
+    }
+
+    private MvcResult concurrentOrderPost(String actorId, String key, String body,
+                                          java.util.concurrent.CountDownLatch ready,
+                                          java.util.concurrent.CountDownLatch start) {
+        ready.countDown();
+        try {
+            start.await();
+            return mvc.perform(orderPost(actorId, key).contentType(MediaType.APPLICATION_JSON).content(body))
+                    .andReturn();
+        } catch (Exception failure) {
+            throw new IllegalStateException(failure);
+        }
     }
 
     @Test
@@ -168,7 +256,8 @@ class Phase1ApiTests {
                 new AuthenticatedActor(UUID.fromString(fixture.actor()), Set.of(Role.CUSTOMER)), null,
                 List.of(new org.springframework.security.core.authority.SimpleGrantedAuthority("ROLE_CUSTOMER"))));
         try {
-            assertThatThrownBy(() -> orderService.create(invalid)).hasMessageContaining("ck_order_items_quantity");
+            assertThatThrownBy(() -> orderService.create(invalid, "invalid-" + UUID.randomUUID()))
+                    .hasMessageContaining("ck_order_items_quantity");
         } finally {
             SecurityContextHolder.clearContext();
         }
@@ -180,50 +269,59 @@ class Phase1ApiTests {
     void invalidOrderAndListInputsReturnBadRequest() throws Exception {
         Fixture fixture = fixture();
         String body = orderBody(fixture.branch(), "Bread", 0, "12.50");
-        mvc.perform(post("/api/v1/orders").header("Authorization", bearer(fixture.actor()))
+        mvc.perform(orderPost(fixture.actor())
                         .contentType(MediaType.APPLICATION_JSON).content(body))
                 .andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("INVALID_REQUEST"));
-        mvc.perform(post("/api/v1/orders").header("Authorization", bearer(fixture.actor()))
+        mvc.perform(orderPost(fixture.actor())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(orderBody(fixture.branch(), "Bread", -1, "12.50")))
                 .andExpect(status().isBadRequest());
-        mvc.perform(post("/api/v1/orders").header("Authorization", bearer(fixture.actor()))
+        mvc.perform(orderPost(fixture.actor())
                         .contentType(MediaType.APPLICATION_JSON).content(orderBody(fixture.branch(), "Bread", 1, "12.345")))
                 .andExpect(status().isBadRequest());
-        mvc.perform(post("/api/v1/orders").header("Authorization", bearer(fixture.actor()))
+        mvc.perform(orderPost(fixture.actor())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(orderBody(fixture.branch(), "Bread", 1, "1.00")
                                 .replace("\"currency\":\"EGP\"", "\"currency\":\"ZZZ\"")))
                 .andExpect(status().isBadRequest());
-        mvc.perform(post("/api/v1/orders").header("Authorization", bearer(fixture.actor()))
+        mvc.perform(orderPost(fixture.actor())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(orderBody(fixture.branch(), "Bread", 2147483647, "9999999999999999.99")))
                 .andExpect(status().isBadRequest());
-        mvc.perform(post("/api/v1/orders").header("Authorization", bearer(fixture.actor()))
+        mvc.perform(orderPost(fixture.actor())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(orderBody(fixture.branch(), "Bread", 1, "1.00")
                                 .replace("30.050000", "91.000000")))
                 .andExpect(status().isBadRequest());
-        mvc.perform(post("/api/v1/orders").header("Authorization", bearer(fixture.actor()))
+        mvc.perform(orderPost(fixture.actor())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(orderBody(fixture.branch(), "Bread", 1, "1.00")
                                 .replace("31.240000", "181.000000")))
                 .andExpect(status().isBadRequest());
-        mvc.perform(post("/api/v1/orders").header("Authorization", bearer(fixture.actor()))
+        mvc.perform(orderPost(fixture.actor())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(orderBody(fixture.branch(), "Bread", 1, "1.00")
                                 .replace("31.240000", "NaN")))
                 .andExpect(status().isBadRequest());
-        mvc.perform(post("/api/v1/orders").header("Authorization", bearer(fixture.actor()))
+        mvc.perform(orderPost(fixture.actor())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(orderBody(fixture.branch(), "Bread", 1, "1.00")
                                 .replace("31.240000", "Infinity")))
                 .andExpect(status().isBadRequest());
-        mvc.perform(post("/api/v1/orders").header("Authorization", bearer(fixture.actor()))
+        mvc.perform(orderPost(fixture.actor())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(orderBody(fixture.branch(), "Bread", 1, "1.00")
                                 .replace("\"items\":[{\"description\":\"Bread\",\"quantity\":1,\"unitAmount\":1.00}]",
                                         "\"items\":[]")))
+                .andExpect(status().isBadRequest());
+        String item = "{\"description\":\"Bread\",\"quantity\":1,\"unitAmount\":1.00}";
+        String tooManyItems = java.util.stream.IntStream.range(0, 101).mapToObj(ignored -> item)
+                .collect(java.util.stream.Collectors.joining(","));
+        mvc.perform(orderPost(fixture.actor())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(orderBody(fixture.branch(), "Bread", 1, "1.00")
+                                .replace("\"items\":[{" + "\"description\":\"Bread\",\"quantity\":1,\"unitAmount\":1.00}]",
+                                        "\"items\":[" + tooManyItems + "]")))
                 .andExpect(status().isBadRequest());
         mvc.perform(get("/api/v1/orders").header("Authorization", bearer(fixture.actor())).param("sort", "secret,desc"))
                 .andExpect(status().isBadRequest());
@@ -250,18 +348,18 @@ class Phase1ApiTests {
         Fixture fixture = fixture();
         int before = jdbc.queryForObject("select count(*) from orders", Integer.class);
         jdbc.update("update merchant_branches set active = false where id = ?", UUID.fromString(fixture.branch()));
-        mvc.perform(post("/api/v1/orders").header("Authorization", bearer(fixture.actor()))
+        mvc.perform(orderPost(fixture.actor())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(orderBody(fixture.branch(), "Bread", 1, "1.00")))
                 .andExpect(status().isConflict()).andExpect(jsonPath("$.code").value("BRANCH_INACTIVE"));
-        mvc.perform(post("/api/v1/orders").header("Authorization", bearer(fixture.actor()))
+        mvc.perform(orderPost(fixture.actor())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(orderBody(UUID.randomUUID().toString(), "Bread", 1, "1.00")))
                 .andExpect(status().isNotFound()).andExpect(jsonPath("$.code").value("BRANCH_NOT_FOUND"));
         String noCustomerActor = id(create("/api/v1/actors", """
                 {"issuer":"http://fleetflow-test-issuer","subject":"%s"}
                 """.formatted(UUID.randomUUID())));
-        mvc.perform(post("/api/v1/orders").header("Authorization", bearer(noCustomerActor))
+        mvc.perform(orderPost(noCustomerActor)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(orderBody(fixture.branch(), "Bread", 1, "1.00")))
                 .andExpect(status().isNotFound()).andExpect(jsonPath("$.code").value("CUSTOMER_NOT_FOUND"));
@@ -298,15 +396,27 @@ class Phase1ApiTests {
     @Test
     void databaseItemFailureReturnsConflictAndRollsBackHttpCommand() throws Exception {
         Fixture fixture = fixture();
+        String key = "rollback-" + UUID.randomUUID();
         int before = jdbc.queryForObject("select count(*) from orders", Integer.class);
+        int itemsBefore = jdbc.queryForObject("select count(*) from order_items", Integer.class);
+        int historyBefore = jdbc.queryForObject("select count(*) from order_lifecycle_history", Integer.class);
+        int outboxBefore = jdbc.queryForObject("select count(*) from outbox_events", Integer.class);
         jdbc.execute("alter table order_items add constraint ck_order_items_test_reject check (description_snapshot <> 'FAIL_DB')");
         try {
-            mvc.perform(post("/api/v1/orders").header("Authorization", bearer(fixture.actor()))
+            mvc.perform(orderPost(fixture.actor(), key)
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(orderBody(fixture.branch(), "FAIL_DB", 1, "1.00")))
                     .andExpect(status().isConflict())
                     .andExpect(jsonPath("$.code").value("DATA_CONFLICT"));
             assertThat(jdbc.queryForObject("select count(*) from orders", Integer.class)).isEqualTo(before);
+            assertThat(jdbc.queryForObject("select count(*) from order_items", Integer.class)).isEqualTo(itemsBefore);
+            assertThat(jdbc.queryForObject("select count(*) from order_lifecycle_history", Integer.class))
+                    .isEqualTo(historyBefore);
+            assertThat(jdbc.queryForObject("select count(*) from outbox_events", Integer.class)).isEqualTo(outboxBefore);
+            assertThat(jdbc.queryForObject("""
+                    select count(*) from command_idempotency
+                    where actor_id = ? and operation = 'ORDER_CREATE' and idempotency_key = ?
+                    """, Integer.class, UUID.fromString(fixture.actor()), key)).isZero();
         } finally {
             jdbc.execute("alter table order_items drop constraint ck_order_items_test_reject");
         }
@@ -317,7 +427,7 @@ class Phase1ApiTests {
         Fixture fixture = fixture();
         String boundary = orderBody(fixture.branch(), "Bread", 1, "1.00")
                 .replace("30.050000", "90.000000").replace("31.240000", "-180.000000");
-        mvc.perform(post("/api/v1/orders").header("Authorization", bearer(fixture.actor()))
+        mvc.perform(orderPost(fixture.actor())
                         .contentType(MediaType.APPLICATION_JSON).content(boundary))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.delivery.latitude").doesNotExist())
@@ -387,9 +497,18 @@ class Phase1ApiTests {
 
     private MvcResult createOrder(String actor, String branch, String description, int quantity, String amount)
             throws Exception {
-        return mvc.perform(post("/api/v1/orders").header("Authorization", bearer(actor))
+        return mvc.perform(orderPost(actor)
                         .contentType(MediaType.APPLICATION_JSON).content(orderBody(branch, description, quantity, amount)))
                 .andExpect(status().isCreated()).andReturn();
+    }
+
+    private MockHttpServletRequestBuilder orderPost(String actorId) {
+        return orderPost(actorId, UUID.randomUUID().toString());
+    }
+
+    private MockHttpServletRequestBuilder orderPost(String actorId, String key) {
+        return post("/api/v1/orders").header("Authorization", bearer(actorId))
+                .header("Idempotency-Key", key);
     }
 
     private String orderBody(String branch, String description, int quantity, String amount) {

@@ -49,7 +49,7 @@ public class LocationService {
             if (outcome == 2) {
                 count("location", "rate_limited");
                 throw new ApiFailure(HttpStatus.TOO_MANY_REQUESTS, "LOCATION_RATE_LIMITED",
-                        "Location update rate exceeded");
+                        "Location update rate exceeded", retryAfterSeconds(settings.updateWindow()));
             }
             if (outcome != 0) throw unavailable();
             count("location", "accepted");
@@ -67,7 +67,7 @@ public class LocationService {
             if (outcome == 2) {
                 count("heartbeat", "rate_limited");
                 throw new ApiFailure(HttpStatus.TOO_MANY_REQUESTS, "HEARTBEAT_RATE_LIMITED",
-                        "Heartbeat rate exceeded");
+                        "Heartbeat rate exceeded", retryAfterSeconds(settings.heartbeatWindow()));
             }
             if (outcome != 0) throw unavailable();
             count("heartbeat", "accepted");
@@ -194,6 +194,10 @@ public class LocationService {
 
     private boolean freshOrPresent(Instant time, Instant now, Duration maxAge) {
         return time != null && fresh(time, now, maxAge);
+    }
+
+    private long retryAfterSeconds(Duration window) {
+        return Math.max(1, window.getSeconds() + (window.getNano() > 0 ? 1 : 0));
     }
 
     public int geoCap(int limit) {

@@ -13,7 +13,6 @@ import time
 import urllib.error
 import urllib.request
 import uuid
-from collections import Counter
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -27,6 +26,8 @@ access_token = load["access_token"]
 request = load["request"]
 percentile = load["percentile"]
 container_stats = load["container_stats"]
+response_summary = runpy.run_path(str(ROOT / "scripts" / "Phase11-Results.py"))["response_summary"]
+operational_samples = runpy.run_path(str(ROOT / "scripts" / "Phase11-Results.py"))["operational_samples"]
 
 
 def create_identity(role, issuer, admin):
@@ -143,7 +144,7 @@ def prepare_business_transitions(project, env_file, values, issuer, count):
             "orders": orders, "marker": marker}
 
 
-def active_streams(project):
+def runtime_signals(project):
     app = subprocess.run(["docker", "ps", "-q", "--filter",
                           f"label=com.docker.compose.project={project}", "--filter",
                           "label=com.docker.compose.service=app"],
@@ -153,11 +154,14 @@ def active_streams(project):
     metrics = subprocess.run(["docker", "exec", app, "wget", "-q", "-O", "-",
                               "http://127.0.0.1:9095/actuator/prometheus"],
                              text=True, capture_output=True, check=True).stdout
-    match = re.search(r"^fleetflow_tracking_active(?:\{[^}]*\})?\s+(\d+(?:\.\d+)?)$",
-                      metrics, re.MULTILINE)
-    if not match:
+    return operational_samples(metrics)
+
+
+def active_streams(project):
+    active = runtime_signals(project)["sse_active"]
+    if active is None:
         raise RuntimeError("Private active-stream gauge is missing")
-    return int(float(match.group(1)))
+    return int(active)
 
 
 def stream_worker(customer, issuer, app, stop, ready, failures):
@@ -188,14 +192,16 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--project", required=True)
     parser.add_argument("--env-file", type=Path, required=True)
-    parser.add_argument("--duration-seconds", type=int, default=600)
+    parser.add_argument("--duration-seconds", type=int, default=1800)
+    parser.add_argument("--reviewer-sessions", type=int, choices=(2,), default=2,
+                        help="Run simultaneous signed customer reads for two distinct review sessions")
     parser.add_argument("--business-transitions", action="store_true",
                         help="Add one signed merchant order confirmation per second")
     args = parser.parse_args()
     if not re.fullmatch(r"fleetflow-phase11-[a-z0-9-]+", args.project):
         raise RuntimeError("Only a disposable Phase 11 Compose project is allowed")
-    if args.duration_seconds < 60:
-        raise RuntimeError("The breadth drill requires at least 60 seconds")
+    if not 60 <= args.duration_seconds <= 3600:
+        raise RuntimeError("The breadth drill requires 60 to 3600 seconds")
     env_file = args.env_file.resolve(strict=True)
     values = settings(env_file)
     issuer = values["OIDC_ISSUER"]
@@ -205,6 +211,7 @@ def main():
     if active_streams(args.project) != 0:
         raise RuntimeError("Wait for prior SSE sessions to expire or restart the disposable app")
     customers, drivers = bootstrap(args.project, env_file, values, issuer, 10)
+    reviewers = customers[:args.reviewer_sessions]
     business = (prepare_business_transitions(args.project, env_file, values, issuer,
                                              args.duration_seconds)
                 if args.business_transitions else None)
@@ -229,7 +236,7 @@ def main():
         stats_before = container_stats(args.project)
         start_utc = datetime.now(timezone.utc).isoformat()
         start = time.perf_counter()
-        results, gauges = [], []
+        results, gauges, resource_samples = [], [], []
         with concurrent.futures.ThreadPoolExecutor(max_workers=32) as pool:
             pending = []
             for second in range(args.duration_seconds):
@@ -239,15 +246,19 @@ def main():
                 if second and second % 120 == 0:
                     for user in customers + drivers + ([business] if business else []):
                         user["token"] = access_token(issuer, user["credentials"])
-                customer = customers[second % 10]
+                reviewer_pair = [reviewers[second % 2], reviewers[(second + 1) % 2]]
                 driver = drivers[second % 10]
-                paths = [
-                    ("read", app + "/api/v1/orders?page=0&size=10", customer["token"]),
-                    ("read", app + f"/api/v1/orders/{customer['order']}", customer["token"]),
-                    ("read", app + f"/api/v1/orders/{customer['order']}/tracking", customer["token"]),
+                paths = []
+                for reviewer in reviewer_pair:
+                    paths.extend([
+                        ("review", app + "/api/v1/orders?page=0&size=10", reviewer["token"]),
+                        ("review", app + f"/api/v1/orders/{reviewer['order']}", reviewer["token"]),
+                        ("review", app + f"/api/v1/orders/{reviewer['order']}/tracking", reviewer["token"]),
+                    ])
+                paths.extend([
                     ("read", app + "/api/v1/drivers/me", driver["token"]),
                     ("read", app + "/api/v1/drivers/me/deliveries", driver["token"]),
-                ]
+                ])
                 for kind, url, token in paths:
                     pending.append((kind, pool.submit(request, url, token=token)))
                 pending.append(("command", pool.submit(
@@ -267,7 +278,12 @@ def main():
                         pending.append(("command", pool.submit(
                             request, app + "/api/v1/drivers/me/heartbeat", "POST", item["token"])))
                 if second % 30 == 0:
-                    gauges.append(active_streams(args.project))
+                    signals = runtime_signals(args.project)
+                    if signals["sse_active"] is None:
+                        raise RuntimeError("Active-stream metric disappeared during the workload")
+                    gauges.append(int(signals["sse_active"]))
+                    resource_samples.append({"second": second, "utc": datetime.now(timezone.utc).isoformat(),
+                                             "app": container_stats(args.project), "signals": signals})
             for kind, future in pending:
                 try:
                     code, latency, _ = future.result(timeout=15)
@@ -276,22 +292,26 @@ def main():
                 results.append((kind, code, latency))
         elapsed = time.perf_counter() - start
         stats_after = container_stats(args.project)
-        codes = Counter(str(code) for _, code, _ in results)
-        unexpected = sum(count for code, count in codes.items() if code not in ("200", "204"))
+        accounting = response_summary(results)
+        unexpected = accounting["unexpected_responses"]
         by_kind = {kind: [ms for sample_kind, code, ms in results
                           if sample_kind == kind and code in (200, 204)]
-                   for kind in ("read", "command", "business")}
+                   for kind in ("review", "read", "command", "business")}
         report = {
             "started_utc": start_utc, "duration_seconds": round(elapsed, 2),
             "target_duration_seconds": args.duration_seconds,
             "drivers": len(drivers), "customer_streams": len(customers),
+            "reviewer_sessions": len(reviewers),
             "stream_gauge_min": min(gauges), "stream_gauge_max": max(gauges),
             "stream_gauge_samples": len(gauges), "stream_reconnect_errors": len(stream_failures),
             "total_requests": len(results), "throughput_per_second": round(len(results) / elapsed, 2),
-            "status_counts": dict(sorted(codes.items())),
-            "unexpected_error_percent": round(100 * unexpected / len(results), 3),
+            **accounting,
+            "environment": "disposable local Compose; not Azure qualification",
+            "resource_samples": resource_samples,
             "read_ms": {key: percentile(by_kind["read"], fraction)
                         for key, fraction in (("p50", .5), ("p95", .95), ("p99", .99))},
+            "review_ms": {key: percentile(by_kind["review"], fraction)
+                          for key, fraction in (("p50", .5), ("p95", .95), ("p99", .99))},
             "command_ms": {key: percentile(by_kind["command"], fraction)
                            for key, fraction in (("p50", .5), ("p95", .95), ("p99", .99))},
             "business_transitions": len(by_kind["business"]),
@@ -323,14 +343,17 @@ def main():
             report["business_outbox_published"] = published
             report["business_processed_markers"] = projected
         print(json.dumps(report, indent=2))
-        if unexpected / len(results) >= .01 or any(code.startswith("5") for code in codes):
+        if unexpected / len(results) >= .01 or accounting["infrastructure_failures"]:
             raise RuntimeError("Unexpected error objective failed")
-        if report["read_ms"]["p95"] >= 1000 or report["command_ms"]["p95"] >= 2000:
+        if report["read_ms"]["p95"] >= 1000 or report["review_ms"]["p95"] >= 1000 or \
+                report["command_ms"]["p95"] >= 1000:
             raise RuntimeError("Latency objective failed")
         if business and (report["business_transitions"] != args.duration_seconds
                          or report["confirmed_rows"] != args.duration_seconds
-                         or report["business_ms"]["p95"] >= 2000):
+                         or report["business_ms"]["p95"] >= 1000):
             raise RuntimeError("Guarded business transition objective failed")
+        if report["successful_expected_operations"] < 100:
+            raise RuntimeError("At least 100 successful expected operations are required")
         if max(gauges) != 10 or sum(gauges) / len(gauges) < 9.5:
             raise RuntimeError("Ten-stream availability objective failed")
     finally:

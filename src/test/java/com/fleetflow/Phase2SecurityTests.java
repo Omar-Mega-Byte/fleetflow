@@ -53,6 +53,12 @@ class Phase2SecurityTests extends ProfileTestDatabase {
     }
 
     @Test
+    void csrfRemainsEnabledOutsideBearerOnlyApiRoutes() throws Exception {
+        mvc.perform(post("/error"))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
     void jwtValidationRejectsUntrustedOrOutOfTimeTokens() throws Exception {
         Actor customer = actor("CUSTOMER");
         customer(customer);
@@ -286,13 +292,23 @@ class Phase2SecurityTests extends ProfileTestDatabase {
                 "latitude":30.000000,"longitude":31.000000},"currency":"EGP",
                 "items":[{"description":"Item","quantity":1,"unitAmount":1.00}]}
                 """.formatted(branch);
-        MvcResult result = mvc.perform(post("/api/v1/orders").header("Authorization", bearer(customer))
+        MvcResult result = mvc.perform(orderPost(customer)
                         .contentType(MediaType.APPLICATION_JSON).content(body))
                 .andExpect(status().isCreated()).andReturn();
         return JsonPath.read(result.getResponse().getContentAsString(), "$.id");
     }
 
     private String bearer(Actor actor) { return "Bearer " + TestOidc.token(actor.subject); }
+
+    private org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder orderPost(Actor actor) {
+        return orderPost(actor, UUID.randomUUID().toString());
+    }
+
+    private org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder orderPost(Actor actor,
+                                                                                                  String key) {
+        return post("/api/v1/orders").header("Authorization", bearer(actor))
+                .header("Idempotency-Key", key);
+    }
 
     private record Actor(UUID id, String subject) { }
 }

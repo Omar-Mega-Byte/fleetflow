@@ -6,7 +6,7 @@
 
 `Spring Boot 4.1.1` · `PostgreSQL / PostGIS` · `Redis GEO` · `Kafka` · `Keycloak / OIDC` · `Docker Compose` · `Prometheus / Grafana`
 
-> **Project scope:** A backend engineering and portfolio project with a loopback local demo. Trusted commercial pricing, payments, and public production order intake are outside its implemented scope. The [Phase 11 record](docs/phases/phase11.md) is `CLOSED_PARTIAL` with unverified acceptance gates.
+> **Project scope:** A Java/Spring delivery-orchestration system with a local synthetic demo and a React operator/customer interface. Trusted commercial pricing, payments, and public production order intake are outside its implemented scope. Phase 11 remains `CLOSED_PARTIAL`; public launch and production readiness are not approved. See the [authoritative production-readiness audit and roadmap](docs/PRODUCTION-ROADMAP.md) for the remaining work and release gates.
 
 ## At a glance
 
@@ -37,8 +37,8 @@
   </tr>
 </table>
 
-<sub>VERIFIED SNAPSHOT · 2026-10-10</sub><br>
-<strong><a href="#verification">124 tests passed</a></strong> · <strong><a href="#api-surface">57 registered API operations</a></strong> · <strong><a href="#deployment-and-verified-status">Phase 11: CLOSED_PARTIAL</a></strong>
+<sub>VERIFIED SNAPSHOT · 2026-10-15</sub><br>
+<strong><a href="#verification">144 backend + 47 frontend tests passed</a></strong> · <strong><a href="#api-surface">Registered API operations</a></strong> · <strong><a href="#deployment-and-verified-status">Phase 11: CLOSED_PARTIAL</a></strong>
 
 ## See FleetFlow in action
 
@@ -229,7 +229,7 @@ The captures below render that test-generated local OpenAPI document in the bund
 
 ## Verification
 
-On 2026-10-10, a full `clean verify` on this branch passed **124 tests, 0 failures, 0 errors, 0 skips** after the Keycloak image update. The suite covers PostgreSQL/PostGIS, Redis, Kafka, Keycloak, and API behavior through Testcontainers-backed integration tests. [GitHub Actions](.github/workflows/verify.yml) runs a tracked-credential preflight and Maven verification; a local pass is not a claim about the current remote CI result. Scenario records include [atomic assignment](docs/phases/PHASE_6.md), [tracking](docs/phases/Phase9.md), and [zones](docs/phases/Phase10.md).
+On 2026-10-15, clean Maven verification passed **144 tests, 0 failures, 0 errors, 0 skips**, including PostgreSQL/PostGIS, Redis, Kafka, Keycloak, fresh migrations and a supported populated upgrade. The frontend passed **47 unit/component tests**, three fixture Playwright checks and one separately configured real signed customer-to-delivery browser workflow. A disposable encrypted backup/restore smoke verified a signed read and cancellation in 56 seconds. [GitHub Actions](.github/workflows/verify.yml) adds exact-commit backend, frontend, live browser, migration, Compose, secret, Trivy, CodeQL and SBOM gates; inspect the linked run before relying on remote status. Scenario records include [atomic assignment](docs/phases/PHASE_6.md), [tracking](docs/phases/Phase9.md), and [zones](docs/phases/Phase10.md).
 
 ## Run locally
 
@@ -257,9 +257,11 @@ Run tests with `.\mvnw.cmd clean verify`. The [monitoring runbook](docs/operatio
 
 ## Deployment and verified status
 
+The local demo and its evidence do not establish public deployment readiness. The [production-readiness roadmap](docs/PRODUCTION-ROADMAP.md) is authoritative for remaining work and release gates.
+
 The Compose topology is a loopback learning and operations exercise: Keycloak uses development mode, service ports are local, and the optional monitoring scrape stays private. Dated records document signed local workflows, dashboard and load exercises, and restore from an independently retrieved remote archive. These observations do not prove multi-host recovery or public deployment readiness.
 
-**Phase 11 is `CLOSED_PARTIAL` on this branch.** A regular 02:00 Cairo backup succeeded on 2026-10-10, but the [acceptance record](docs/phases/phase11.md) leaves 24-hour RPO evidence, replacement-host recovery, specified resilience and object-scope drills, and service-image advisory disposition unverified. PR #13 has since merged the phase scope to `main`; the operator cancelled the remaining acceptance work before those gates were completed. No production-readiness claim follows. The [backup/restore runbook](docs/operations/BACKUP_RESTORE.md) and [monitoring runbook](docs/operations/MONITORING.md) separate measured exercises from those limits.
+**Phase 11 remains `CLOSED_PARTIAL`.** Day 2 adds 144 passing backend tests, 47 frontend tests, one real signed browser workflow and a fresh local restore with 56-second functional RTO. Sustained RPO, replacement-host recovery, target alert delivery, current exact-commit scan disposition and public target acceptance remain open. This is not public-production readiness. See the [phase record](docs/phases/phase11.md), [backup/restore runbook](docs/operations/BACKUP_RESTORE.md), and [security review](docs/operations/PHASE11_SECURITY_AUDIT.md).
 
 ## Repository map
 

@@ -9,6 +9,8 @@
 > **This is not a frozen specification.**
 > New explicit developer instructions always take priority over this document.
 
+> **Current status (2026-10-15):** The local demo now includes React customer, merchant, dispatcher, driver and operator workspaces, with one signed real-service order-to-delivery workflow verified. The public deployment is not ready, and Phase 11 remains `CLOSED_PARTIAL`. [docs/PRODUCTION-ROADMAP.md](docs/PRODUCTION-ROADMAP.md) is the authoritative remaining-work plan and launch gate.
+
 ---
 
 # 1. Project Identity

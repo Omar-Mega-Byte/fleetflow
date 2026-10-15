@@ -9,6 +9,7 @@ import com.fleetflow.api.ApiFailure;
 import com.fleetflow.location.LocationFix;
 import com.fleetflow.location.LocationProperties;
 import com.fleetflow.location.RedisLocationStore;
+import io.micrometer.core.instrument.MeterRegistry;
 import org.springframework.dao.DataAccessException;
 import org.springframework.http.HttpStatus;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -21,12 +22,15 @@ public class TrackingSnapshotReader {
     private final RedisLocationStore locations;
     private final LocationProperties policy;
     private final Clock clock;
+    private final MeterRegistry metrics;
 
-    TrackingSnapshotReader(JdbcTemplate jdbc, RedisLocationStore locations, LocationProperties policy, Clock clock) {
+    TrackingSnapshotReader(JdbcTemplate jdbc, RedisLocationStore locations, LocationProperties policy,
+                           Clock clock, MeterRegistry metrics) {
         this.jdbc = jdbc;
         this.locations = locations;
         this.policy = policy;
         this.clock = clock;
+        this.metrics = metrics;
     }
 
     public Snapshot read(UUID orderId, UUID actorId) {
@@ -48,10 +52,13 @@ public class TrackingSnapshotReader {
                     and active_driver.active = true and active_driver.suspended = false
                     and active_driver.operational_status = 'DELIVERING'
                 where o.id = ? and c.actor_id = ?
+                  and (o.demo_generation is null or o.demo_generation =
+                    (select generation from synthetic_demo_state where id = true))
                 """, (rs, row) -> new OrderState(rs.getString("order_status"),
                 rs.getLong("order_version"), rs.getString("delivery_status"),
                 (UUID) rs.getObject("driver_id")), orderId, actorId);
         if (rows.isEmpty()) {
+            positionOutcome("not_found");
             throw new ApiFailure(HttpStatus.NOT_FOUND, "NOT_FOUND", "Order not found");
         }
         OrderState state = rows.getFirst();
@@ -60,9 +67,11 @@ public class TrackingSnapshotReader {
             default -> false;
         };
         Position position = null;
+        String outcome = terminal ? "terminal" : "not_active";
         if (!terminal && state.driverId() != null
                 && List.of("DRIVER_ASSIGNED", "PICKED_UP", "IN_TRANSIT").contains(state.orderStatus())
                 && List.of("ASSIGNED", "PICKED_UP", "IN_TRANSIT").contains(state.deliveryStatus())) {
+            outcome = "stale";
             try {
                 LocationFix fix = locations.latest(state.driverId());
                 Instant heartbeat = locations.lastHeartbeat(state.driverId());
@@ -72,13 +81,20 @@ public class TrackingSnapshotReader {
                         && Double.isFinite(fix.latitude()) && fix.latitude() >= -90 && fix.latitude() <= 90
                         && Double.isFinite(fix.longitude()) && fix.longitude() >= -180 && fix.longitude() <= 180) {
                     position = new Position(fix.latitude(), fix.longitude(), fix.reportedAt());
+                    outcome = "fresh";
                 }
             } catch (DataAccessException unavailable) {
                 // A Redis outage cannot turn an old fix into an authorized position.
+                outcome = "redis_error";
             }
         }
+        positionOutcome(outcome);
         return new Snapshot(orderId, state.orderStatus(), state.orderVersion(), state.deliveryStatus(),
                 observedAt, position, terminal);
+    }
+
+    private void positionOutcome(String outcome) {
+        metrics.counter("fleetflow.tracking.position", "outcome", outcome).increment();
     }
 
     public List<UUID> activeOrdersForDriver(UUID driverId) {

@@ -2,28 +2,494 @@ name: verify
 
 on:
   push:
+    branches: [main]
   pull_request:
 
 permissions:
   contents: read
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
-  verify:
+  backend:
+    name: Backend, migrations and API contracts
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: actions/setup-java@v6
+      - uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
         with:
           distribution: temurin
           java-version: '21'
           cache: maven
-      - name: Tracked credential preflight
+      - name: Repository credential preflight
         run: python3 scripts/Phase11-Secret-Audit.py
-      - name: Validate Compose
+      - name: Measurement and backup/realm safety checks
+        run: python3 -m unittest discover -s scripts -p test_day1_preparation.py -v
+      - name: Verify Playwright trace secret scrubbing
+        run: python3 -m unittest discover -s scripts -p test_day2_trace_sanitizer.py -v
+      - name: Verify Trivy SARIF policy and redaction
+        run: python3 -m unittest discover -s scripts -p test_trivy_sarif_gate.py -v
+      - name: Validate local Compose
         run: docker compose --env-file .env.example -f compose.yaml config --quiet
-      - name: Verify
+      - name: Validate production Compose isolation
+        shell: bash
+        run: |
+          secret_dir="$(mktemp -d)"
+          trap 'rm -rf "$secret_dir"' EXIT
+          for file in postgres_db_password app_db_password keycloak_db_password keycloak_admin_password tls_fullchain.pem tls_private_key.pem; do
+            printf 'ci-placeholder-only' > "$secret_dir/$file"
+          done
+          chmod 0600 "$secret_dir"/*
+          FLEETFLOW_SECRET_DIR="$secret_dir" docker compose --env-file .env.production.example \
+            --profile public --file ops/production/compose.production.yaml config --format json \
+            | python3 scripts/Validate-ProductionCompose.py
+      - name: Verify backend, Flyway, async recovery and route contracts
         env:
           TESTCONTAINERS_HUB_IMAGE_NAME_PREFIX: mirror.gcr.io/
-        run: ./mvnw verify --batch-mode --no-transfer-progress
+        run: ./mvnw clean verify --batch-mode --no-transfer-progress
+
+  frontend:
+    name: Frontend checks and browser smoke
+    runs-on: ubuntu-24.04
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - name: Install locked dependencies
+        run: npm ci
+      - name: Audit production and development dependency tree
+        run: npm audit --audit-level=high
+      - name: Lint
+        run: npm run lint
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Component and unit tests
+        run: npm run test
+      - name: Production build
+        run: npm run build
+      - name: Install Playwright Chromium
+        run: npx playwright install --with-deps chromium
+      - name: Signed PKCE browser smoke
+        run: npm run test:e2e
+      - name: Preserve browser traces on failure
+        if: always()
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        with:
+          name: playwright-results-${{ github.sha }}
+          path: web/test-results/
+          if-no-files-found: ignore
+          retention-days: 14
+
+  source-security:
+    name: Source security scan
+    needs: backend
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+      - name: Warm Maven dependency metadata for Trivy
+        run: ./mvnw dependency:resolve --batch-mode --no-transfer-progress
+      - name: Trivy dependency, configuration and secret scan
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25
+        with:
+          version: v0.76.0
+          timeout: 20m
+          scan-type: fs
+          scan-ref: .
+          scanners: vuln,misconfig,secret
+          ignore-unfixed: false
+          # SARIF keeps all severities for disposition; the following gate enforces release policy.
+          exit-code: '0'
+          format: sarif
+          output: trivy-results.raw.sarif
+      - name: Enforce source scan policy and redact secret evidence
+        if: always()
+        run: python3 scripts/check_trivy_sarif.py --report trivy-results.raw.sarif=trivy-results.sarif
+      - name: Preserve scan report
+        if: always()
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        with:
+          name: trivy-source-${{ github.sha }}
+          path: trivy-results.sarif
+          if-no-files-found: ignore
+          retention-days: 30
+
+  source-sbom:
+    name: Source dependency SBOM
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Prepare source SBOM identity
+        run: |
+          python3 - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+          from xml.etree import ElementTree
+
+          namespace = "{http://maven.apache.org/POM/4.0.0}"
+          pom = ElementTree.parse("pom.xml").getroot()
+          version = pom.findtext(f"{namespace}version")
+          if not version:
+              raise SystemExit("FleetFlow Maven project version is missing")
+          config = "source:\n  name: FleetFlow\n  version: " + json.dumps(version) + "\n"
+          Path(os.environ["RUNNER_TEMP"], "syft-source-config.yaml").write_text(config, encoding="utf-8")
+          print(f"Source SBOM identity: FleetFlow {version}")
+          PY
+      - name: Generate CycloneDX source SBOM
+        uses: anchore/sbom-action@f8bdd1d8ac5e901a77a92f111440fdb1b593736b # v0.20.6
+        with:
+          path: .
+          config: ${{ runner.temp }}/syft-source-config.yaml
+          syft-version: v1.54.1
+          format: cyclonedx-json
+          output-file: fleetflow-source-sbom.cdx.json
+          artifact-name: fleetflow-source-sbom-${{ github.sha }}.cdx.json
+          upload-artifact: true
+          upload-release-assets: false
+
+  container-images:
+    name: Build and scan runtime images
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Read pinned edge build bases
+        shell: bash
+        run: |
+          node_image="$(sed -n 's/^FLEETFLOW_NODE_BUILD_IMAGE=//p' .env.production.example)"
+          nginx_image="$(sed -n 's/^FLEETFLOW_NGINX_RUNTIME_IMAGE=//p' .env.production.example)"
+          [[ "$node_image" == *@sha256:* && "$nginx_image" == *@sha256:* ]]
+          echo "FLEETFLOW_NODE_BUILD_IMAGE=$node_image" >> "$GITHUB_ENV"
+          echo "FLEETFLOW_NGINX_RUNTIME_IMAGE=$nginx_image" >> "$GITHUB_ENV"
+      - name: Build app, Keycloak runtime and web edge images
+        id: build_images
+        shell: bash
+        run: |
+          docker build --tag fleetflow-app:ci --file Dockerfile .
+          docker build --tag fleetflow-keycloak-runtime:ci --file ops/production/keycloak.Dockerfile .
+          docker build --tag fleetflow-edge:ci --file web/Dockerfile.release \
+            --build-arg "NODE_BUILD_IMAGE=$FLEETFLOW_NODE_BUILD_IMAGE" \
+            --build-arg "NGINX_RUNTIME_IMAGE=$FLEETFLOW_NGINX_RUNTIME_IMAGE" \
+            --build-arg VITE_OIDC_AUTHORITY=https://identity.fleetflow.localhost/realms/fleetflow web
+          docker build --tag fleetflow-postgis:ci --file ops/production/postgis.Dockerfile .
+          docker build --tag fleetflow-redis:ci --file ops/production/redis.Dockerfile .
+          docker build --tag fleetflow-kafka:ci --file ops/production/kafka.Dockerfile .
+      - name: Record immutable build identities
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import json, os, subprocess
+          from datetime import datetime, timezone
+          from pathlib import Path
+          from xml.etree import ElementTree
+          namespace = "{http://maven.apache.org/POM/4.0.0}"
+          pom = ElementTree.parse("pom.xml").getroot()
+          application_version = pom.findtext(f"{namespace}version")
+          if not application_version:
+              raise SystemExit("FleetFlow Maven project version is missing")
+          images = {}
+          for name in ("app", "keycloak-runtime", "edge", "postgis", "redis", "kafka"):
+              image = json.loads(subprocess.check_output(["docker", "image", "inspect", f"fleetflow-{name}:ci"]))[0]
+              images[name] = {"imageId": image["Id"], "registryDigests": image.get("RepoDigests", [])}
+          metadata = {"kind": "BUILD_METADATA_ONLY", "candidateApproved": False,
+              "application": "FleetFlow", "applicationVersion": application_version,
+              "sourceCommit": os.environ["GITHUB_SHA"], "createdAtUtc": datetime.now(timezone.utc).isoformat(),
+              "ciRun": f'{os.environ["GITHUB_SERVER_URL"]}/{os.environ["GITHUB_REPOSITORY"]}/actions/runs/{os.environ["GITHUB_RUN_ID"]}',
+              "images": images, "notes": "Local image IDs are immutable, but publication and approved registry digests remain separate release gates."}
+          Path("image-builds.json").write_text(json.dumps(metadata, indent=2), encoding="utf-8")
+          PY
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - name: Install real-browser harness
+        run: |
+          npm ci --prefix web
+          cd web
+          npx playwright install --with-deps chromium
+      - name: Production topology and real signed browser slice
+        env:
+          FLEETFLOW_TEST_IMAGE_APP: fleetflow-app:ci
+          FLEETFLOW_TEST_IMAGE_KEYCLOAK: fleetflow-keycloak-runtime:ci
+          FLEETFLOW_TEST_IMAGE_EDGE: fleetflow-edge:ci
+          FLEETFLOW_TEST_IMAGE_POSTGRES: fleetflow-postgis:ci
+          FLEETFLOW_TEST_IMAGE_REDIS: fleetflow-redis:ci
+          FLEETFLOW_TEST_IMAGE_KAFKA: fleetflow-kafka:ci
+          FLEETFLOW_AUDIT_DIR: ${{ runner.temp }}/fleetflow-audit
+        run: python3 scripts/Run-Day1BrowserSmoke.py
+      - name: Prepare Day 2 browser application
+        uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+      - name: Package application for the Day 2 real browser gate
+        run: ./mvnw clean package -DskipTests --batch-mode --no-transfer-progress
+      - name: Day 2 signed browser journey against disposable real services
+        env:
+          FLEETFLOW_TEST_IMAGE_POSTGRES: postgis/postgis:17-3.5-alpine@sha256:894f570c0cf0664ed5576a8fd5d5bfb8fb1b19d592885b686c3a88c8bd90c41f
+          FLEETFLOW_TEST_IMAGE_KEYCLOAK: quay.io/keycloak/keycloak:26.8.1@sha256:79c623a22abacf3fe6c00a5fb30f5b7843d717b234033b80995891c06116d244
+          FLEETFLOW_TEST_IMAGE_REDIS: redis:7.4.11-alpine@sha256:858f009f9709ce576febc734aa78b8f6d624b82571f9ddb6bda4377c833b3499
+          FLEETFLOW_TEST_IMAGE_KAFKA: apache/kafka:3.9.2@sha256:05b4616e0702ef2729327705d54ad6b50ea70b271c4b730fabd2320789fb7b02
+          FLEETFLOW_DAY2_AUDIT_DIR: ${{ runner.temp }}/fleetflow-day2-vertical
+        run: python3 scripts/Run-Day2VerticalJourney.py
+      - name: Preserve sanitized Day 2 browser evidence
+        if: always()
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        with:
+          name: day2-real-browser-${{ github.sha }}
+          path: |
+            ${{ runner.temp }}/fleetflow-day2-vertical/
+            web/test-results/day2-live/
+          if-no-files-found: ignore
+          retention-days: 14
+      - name: Preserve private-stack smoke evidence
+        if: always()
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        with:
+          name: live-browser-${{ github.sha }}
+          path: |
+            ${{ runner.temp }}/fleetflow-audit/browser/
+            web/test-results/live/
+          if-no-files-found: ignore
+          retention-days: 14
+      - name: Prepare private image scan report directory
+        if: always() && steps.build_images.outcome == 'success'
+        run: mkdir -p trivy-raw
+      - name: Scan FleetFlow application image
+        id: scan_app
+        if: always() && steps.build_images.outcome == 'success'
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25
+        with:
+          version: v0.76.0
+          timeout: 20m
+          scan-type: image
+          image-ref: fleetflow-app:ci
+          scanners: vuln,secret
+          ignore-unfixed: false
+          exit-code: '0'
+          format: sarif
+          output: trivy-raw/app.sarif
+      - name: Scan Keycloak runtime image
+        id: scan_keycloak
+        if: always() && steps.build_images.outcome == 'success'
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25
+        with:
+          version: v0.76.0
+          timeout: 20m
+          scan-type: image
+          image-ref: fleetflow-keycloak-runtime:ci
+          scanners: vuln,secret
+          ignore-unfixed: false
+          exit-code: '0'
+          format: sarif
+          output: trivy-raw/keycloak.sarif
+      - name: Scan web and reverse proxy image
+        id: scan_edge
+        if: always() && steps.build_images.outcome == 'success'
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25
+        with:
+          version: v0.76.0
+          timeout: 20m
+          scan-type: image
+          image-ref: fleetflow-edge:ci
+          scanners: vuln,secret
+          ignore-unfixed: false
+          exit-code: '0'
+          format: sarif
+          output: trivy-raw/edge.sarif
+      - name: Scan PostGIS image
+        id: scan_postgis
+        if: always() && steps.build_images.outcome == 'success'
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25
+        with:
+          version: v0.76.0
+          timeout: 20m
+          scan-type: image
+          image-ref: fleetflow-postgis:ci
+          scanners: vuln,secret
+          ignore-unfixed: false
+          exit-code: '0'
+          format: sarif
+          output: trivy-raw/postgis.sarif
+      - name: Scan Redis image
+        id: scan_redis
+        if: always() && steps.build_images.outcome == 'success'
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25
+        with:
+          version: v0.76.0
+          timeout: 20m
+          scan-type: image
+          image-ref: fleetflow-redis:ci
+          scanners: vuln,secret
+          ignore-unfixed: false
+          exit-code: '0'
+          format: sarif
+          output: trivy-raw/redis.sarif
+      - name: Scan Kafka image
+        id: scan_kafka
+        if: always() && steps.build_images.outcome == 'success'
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25
+        with:
+          version: v0.76.0
+          timeout: 20m
+          scan-type: image
+          image-ref: fleetflow-kafka:ci
+          scanners: vuln,secret
+          ignore-unfixed: false
+          exit-code: '0'
+          format: sarif
+          output: trivy-raw/kafka.sarif
+      - name: Enforce image scan policy and redact secret evidence
+        if: always() && steps.build_images.outcome == 'success'
+        run: >-
+          python3 scripts/check_trivy_sarif.py
+          --report trivy-raw/app.sarif=trivy-app.sarif
+          --report trivy-raw/keycloak.sarif=trivy-keycloak.sarif
+          --report trivy-raw/edge.sarif=trivy-edge.sarif
+          --report trivy-raw/postgis.sarif=trivy-postgis.sarif
+          --report trivy-raw/redis.sarif=trivy-redis.sarif
+          --report trivy-raw/kafka.sarif=trivy-kafka.sarif
+      - name: Generate app image CycloneDX SBOM
+        if: always() && steps.build_images.outcome == 'success'
+        uses: anchore/sbom-action@f8bdd1d8ac5e901a77a92f111440fdb1b593736b # v0.20.6
+        with:
+          image: fleetflow-app:ci
+          syft-version: v1.54.1
+          format: cyclonedx-json
+          output-file: fleetflow-app-sbom.cdx.json
+          artifact-name: fleetflow-app-${{ github.sha }}.cdx.json
+      - name: Generate Keycloak runtime CycloneDX SBOM
+        if: always() && steps.build_images.outcome == 'success'
+        uses: anchore/sbom-action@f8bdd1d8ac5e901a77a92f111440fdb1b593736b # v0.20.6
+        with:
+          image: fleetflow-keycloak-runtime:ci
+          syft-version: v1.54.1
+          format: cyclonedx-json
+          output-file: fleetflow-keycloak-sbom.cdx.json
+          artifact-name: fleetflow-keycloak-${{ github.sha }}.cdx.json
+      - name: Generate edge CycloneDX SBOM
+        if: always() && steps.build_images.outcome == 'success'
+        uses: anchore/sbom-action@f8bdd1d8ac5e901a77a92f111440fdb1b593736b # v0.20.6
+        with:
+          image: fleetflow-edge:ci
+          syft-version: v1.54.1
+          format: cyclonedx-json
+          output-file: fleetflow-edge-sbom.cdx.json
+          artifact-name: fleetflow-edge-${{ github.sha }}.cdx.json
+      - name: Generate PostGIS CycloneDX SBOM
+        if: always() && steps.build_images.outcome == 'success'
+        uses: anchore/sbom-action@f8bdd1d8ac5e901a77a92f111440fdb1b593736b # v0.20.6
+        with:
+          image: fleetflow-postgis:ci
+          syft-version: v1.54.1
+          format: cyclonedx-json
+          output-file: fleetflow-postgis-sbom.cdx.json
+          artifact-name: fleetflow-postgis-${{ github.sha }}.cdx.json
+      - name: Generate Redis CycloneDX SBOM
+        if: always() && steps.build_images.outcome == 'success'
+        uses: anchore/sbom-action@f8bdd1d8ac5e901a77a92f111440fdb1b593736b # v0.20.6
+        with:
+          image: fleetflow-redis:ci
+          syft-version: v1.54.1
+          format: cyclonedx-json
+          output-file: fleetflow-redis-sbom.cdx.json
+          artifact-name: fleetflow-redis-${{ github.sha }}.cdx.json
+      - name: Generate Kafka CycloneDX SBOM
+        if: always() && steps.build_images.outcome == 'success'
+        uses: anchore/sbom-action@f8bdd1d8ac5e901a77a92f111440fdb1b593736b # v0.20.6
+        with:
+          image: fleetflow-kafka:ci
+          syft-version: v1.54.1
+          format: cyclonedx-json
+          output-file: fleetflow-kafka-sbom.cdx.json
+          artifact-name: fleetflow-kafka-${{ github.sha }}.cdx.json
+      - name: Preserve container scan reports
+        if: always()
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        with:
+          name: trivy-images-${{ github.sha }}
+          path: |
+            trivy-app.sarif
+            trivy-keycloak.sarif
+            trivy-edge.sarif
+            trivy-postgis.sarif
+            trivy-redis.sarif
+            trivy-kafka.sarif
+          if-no-files-found: ignore
+          retention-days: 30
+      - name: Preserve immutable build identities
+        if: always()
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        with:
+          name: image-builds-${{ github.sha }}
+          path: image-builds.json
+          if-no-files-found: ignore
+          retention-days: 30
+
+  codeql:
+    name: CodeQL source analysis
+    runs-on: ubuntu-24.04
+    permissions:
+      actions: read
+      contents: read
+      security-events: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - language: java-kotlin
+            build-mode: autobuild
+          - language: javascript-typescript
+            build-mode: none
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
+        if: matrix.language == 'java-kotlin'
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@24c54180a607b1449ed407dd24f251e4e9147c8d # v4.38.3
+        with:
+          languages: ${{ matrix.language }}
+          build-mode: ${{ matrix.build-mode }}
+      - name: Analyze
+        uses: github/codeql-action/analyze@24c54180a607b1449ed407dd24f251e4e9147c8d # v4.38.3
+        with:
+          category: /language:${{ matrix.language }}
+          output: codeql-results
+      - name: Preserve source analysis report
+        if: always()
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        with:
+          name: codeql-${{ matrix.language }}-${{ github.sha }}
+          path: codeql-results/*.sarif
+          if-no-files-found: ignore
+          retention-days: 30

@@ -7,6 +7,7 @@ __pycache__/
 .env
 .env.*
 !.env.example
+!.env.production.example
 *.log
 logs/
 *.bak
@@ -15,6 +16,10 @@ logs/
 *.swp
 *.swo
 coverage/
+node_modules/
+web/dist/
+web/test-results/
+web/playwright-report/
 .coverage
 htmlcov/
 .pytest_cache/

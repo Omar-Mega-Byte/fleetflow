@@ -50,7 +50,15 @@ class OpenApiConfiguration {
                 responses.addApiResponse("401", problem("Missing or invalid bearer token (UNAUTHENTICATED)."));
                 responses.addApiResponse("403", problem("Actor missing, inactive, or lacking the required role (FORBIDDEN)."));
                 responses.addApiResponse("503", problem("Required database or Redis service unavailable."));
-                responses.addApiResponse("429", problem("Per-actor route budget or active stream cap exceeded; route-budget responses include Retry-After."));
+                responses.addApiResponse("429", problem("Per-actor route budget, location/heartbeat window, or active stream cap exceeded; time-window limits include Retry-After."));
+                responses.get("429").addHeaderObject("Retry-After", new io.swagger.v3.oas.models.headers.Header()
+                        .description("Seconds until the next attempt may be admitted").schema(new Schema<>().type("integer")));
+                if (method == PathItem.HttpMethod.POST || method == PathItem.HttpMethod.PUT)
+                    responses.addApiResponse("413", problem("Request body exceeds the supported size."));
+                if (operation.getParameters() != null) operation.getParameters().stream()
+                        .filter(parameter -> "Idempotency-Key".equals(parameter.getName()))
+                        .forEach(parameter -> parameter.setSchema(new StringSchema().minLength(1).maxLength(128)
+                                .pattern("^[A-Za-z0-9._~-]{1,128}$")));
                 if (method != PathItem.HttpMethod.GET || !path.endsWith("/me")) {
                     responses.addApiResponse("400", problem("Malformed input or unsupported filter (INVALID_REQUEST)."));
                 }

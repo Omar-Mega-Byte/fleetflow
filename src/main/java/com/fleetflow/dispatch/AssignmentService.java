@@ -10,6 +10,7 @@ import com.fleetflow.api.ApiFailure;
 import com.fleetflow.identity.Role;
 import com.fleetflow.location.LocationService;
 import com.fleetflow.security.ActorAccess;
+import io.micrometer.core.instrument.MeterRegistry;
 import org.springframework.dao.DataAccessException;
 import org.springframework.http.HttpStatus;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -23,14 +24,16 @@ public class AssignmentService {
     private final LocationService locations;
     private final AssignmentCommit commit;
     private final RecoveryCommit recovery;
+    private final MeterRegistry metrics;
 
     AssignmentService(JdbcTemplate jdbc, ActorAccess access, LocationService locations,
-                      AssignmentCommit commit, RecoveryCommit recovery) {
+                      AssignmentCommit commit, RecoveryCommit recovery, MeterRegistry metrics) {
         this.jdbc = jdbc;
         this.access = access;
         this.locations = locations;
         this.commit = commit;
         this.recovery = recovery;
+        this.metrics = metrics;
     }
 
     public OfferReceipt offer(UUID orderId, UUID attemptId, UUID driverId) {
@@ -60,8 +63,11 @@ public class AssignmentService {
         Instant checkedAt = locations.requireOfferCandidate(driverId, point.latitude(), point.longitude(),
                 point.radiusMeters());
         try {
-            return commit.offer(orderId, attemptId, driverId, dispatcherId, checkedAt);
+            OfferReceipt result = commit.offer(orderId, attemptId, driverId, dispatcherId, checkedAt);
+            metrics.counter("fleetflow.offer.outcomes", "outcome", "offered").increment();
+            return result;
         } catch (ApiFailure failure) {
+            metrics.counter("fleetflow.offer.outcomes", "outcome", "rejected").increment();
             if ("ZONE_UNSERVICEABLE".equals(failure.code())) recovery.zoneBlocked(orderId);
             throw failure;
         } catch (DataAccessException failure) {
@@ -73,9 +79,15 @@ public class AssignmentService {
     public OfferReceipt respond(UUID offerId, boolean accept) {
         UUID actorId = access.require(Role.DRIVER).id();
         try {
-            return commit.respond(offerId, actorId, accept);
+            OfferReceipt result = commit.respond(offerId, actorId, accept);
+            metrics.counter("fleetflow.offer.responses", "outcome", accept ? "accepted" : "rejected").increment();
+            return result;
         } catch (DataAccessException failure) {
+            metrics.counter("fleetflow.offer.responses", "outcome", "database_error").increment();
             if (contention(failure)) throw conflict();
+            throw failure;
+        } catch (ApiFailure failure) {
+            metrics.counter("fleetflow.offer.responses", "outcome", "rejected").increment();
             throw failure;
         }
     }

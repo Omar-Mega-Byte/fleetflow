@@ -1,6 +1,6 @@
 services:
   postgres:
-    image: postgis/postgis:17-3.5-alpine@sha256:894f570c0cf0664ed5576a8fd5d5bfb8fb1b19d592885b686c3a88c8bd90c41f
+    image: ${FLEETFLOW_POSTGIS_IMAGE:-postgis/postgis:17-3.5-alpine@sha256:894f570c0cf0664ed5576a8fd5d5bfb8fb1b19d592885b686c3a88c8bd90c41f}
     environment:
       POSTGRES_DB: ${DB_NAME:?Set DB_NAME in .env}
       POSTGRES_USER: ${DB_USER:?Set DB_USER in .env}
@@ -19,7 +19,7 @@ services:
       start_period: 10s
 
   keycloak:
-    image: quay.io/keycloak/keycloak:26.7.5@sha256:37dbaf6f0722c9ec246335f36e1ef8b2e6cb960f7c27e0d8c615121a3d475a85
+    image: ${FLEETFLOW_KEYCLOAK_IMAGE:-quay.io/keycloak/keycloak:26.8.1@sha256:79c623a22abacf3fe6c00a5fb30f5b7843d717b234033b80995891c06116d244}
     command: ["start-dev", "--import-realm", "--hostname=http://127.0.0.1:${OIDC_PORT:-8081}"]
     environment:
       KC_BOOTSTRAP_ADMIN_USERNAME: ${KC_ADMIN_USER:?Set KC_ADMIN_USER in .env}
@@ -38,7 +38,7 @@ services:
       start_period: 30s
 
   redis:
-    image: redis:7.4.7-alpine@sha256:02f2cc4882f8bf87c79a220ac958f58c700bdec0dfb9b9ea61b62fb0e8f1bfcf
+    image: redis:7.4.11-alpine@sha256:858f009f9709ce576febc734aa78b8f6d624b82571f9ddb6bda4377c833b3499
     command: ["redis-server", "--save", "", "--appendonly", "no"]
     ports:
       - "127.0.0.1:${REDIS_PORT:-6379}:6379"
@@ -50,7 +50,7 @@ services:
     # Redis is ephemeral; its optional host access is loopback only.
 
   kafka:
-    image: apache/kafka:3.9.1@sha256:4ceccc577f03f51f6af8dbfda55194d0d892f4fa7913ffbded567ce3895622ed
+    image: apache/kafka:3.9.2@sha256:05b4616e0702ef2729327705d54ad6b50ea70b271c4b730fabd2320789fb7b02
     hostname: kafka
     environment:
       KAFKA_NODE_ID: 1
@@ -111,6 +111,12 @@ services:
       RATE_EXPENSIVE_READ_LIMIT: ${RATE_EXPENSIVE_READ_LIMIT:-30}
       RATE_COMMAND_LIMIT: ${RATE_COMMAND_LIMIT:-30}
       RATE_STREAM_LIMIT: ${RATE_STREAM_LIMIT:-6}
+      RATE_DEMO_WRITE_LIMIT: ${RATE_DEMO_WRITE_LIMIT:-5}
+      DEMO_ENABLED: ${DEMO_ENABLED:-false}
+      DEMO_OIDC_ISSUER: ${DEMO_OIDC_ISSUER:-${OIDC_ISSUER:?Set OIDC_ISSUER in .env}}
+      DEMO_CUSTOMER_SUBJECT: ${DEMO_CUSTOMER_SUBJECT:-fleetflow-demo-customer}
+      DEMO_MERCHANT_SUBJECT: ${DEMO_MERCHANT_SUBJECT:-fleetflow-demo-merchant}
+      DEMO_DRIVER_SUBJECT: ${DEMO_DRIVER_SUBJECT:-fleetflow-demo-driver}
     ports:
       - "127.0.0.1:${APP_PORT:-8080}:8080"
     depends_on:

@@ -1,0 +1,87 @@
+rule_files:
+  - alerts.yml
+
+evaluation_interval: 1m
+
+tests:
+  - name: database readiness loss fires and recovers
+    interval: 1m
+    input_series:
+      - series: 'fleetflow_operations_database_available{job="fleetflow"}'
+        values: '1 0x2 1x8'
+    alert_rule_test:
+      - eval_time: 2m
+        alertname: FleetFlowDatabaseReadinessLoss
+        exp_alerts:
+          - exp_labels:
+              job: fleetflow
+              severity: critical
+              owner: local-operator
+            exp_annotations:
+              summary: PostgreSQL is unavailable and the app is not ready for business operations.
+              runbook: docs/operations/MONITORING.md#dependency-outage
+              recovery: Restore PostgreSQL; confirm readiness returns and the database gauge is one.
+      - eval_time: 6m
+        alertname: FleetFlowDatabaseReadinessLoss
+        exp_alerts: []
+  - name: pending outbox age fires and drains
+    interval: 1m
+    input_series:
+      - series: 'fleetflow_outbox_pending{job="fleetflow"}'
+        values: '1x3 0x8'
+      - series: 'fleetflow_outbox_oldest_seconds{job="fleetflow"}'
+        values: '40x3 0x8'
+    alert_rule_test:
+      - eval_time: 2m
+        alertname: FleetFlowOutboxBacklog
+        exp_alerts:
+          - exp_labels:
+              job: fleetflow
+              severity: warning
+              owner: local-operator
+            exp_annotations:
+              summary: Outbox oldest pending event exceeds the healthy demo target.
+              runbook: docs/operations/MONITORING.md#outbox-backlog
+              recovery: Restore Kafka, inspect failed rows, then verify pending age falls.
+      - eval_time: 6m
+        alertname: FleetFlowOutboxBacklog
+        exp_alerts: []
+  - name: sustained business errors fire and recover
+    interval: 1m
+    input_series:
+      - series: 'http_server_requests_seconds_count{job="fleetflow",uri="/api/v1/orders",status="500"}'
+        values: '0+60x6 360+0x8'
+    alert_rule_test:
+      - eval_time: 5m
+        alertname: FleetFlowSustainedApplicationErrors
+        exp_alerts:
+          - exp_labels:
+              severity: critical
+              owner: local-operator
+            exp_annotations:
+              summary: Business API server errors remain above the release threshold.
+              runbook: docs/operations/MONITORING.md#readiness-and-scrape
+              recovery: Check database and Redis signals, then inspect correlated route-class logs.
+      - eval_time: 12m
+        alertname: FleetFlowSustainedApplicationErrors
+        exp_alerts: []
+  - name: quarantine alert clears after the recent-event window expires
+    interval: 1m
+    input_series:
+      - series: 'fleetflow_events_quarantined_rows{job="fleetflow"}'
+        values: '1x3 0x8'
+    alert_rule_test:
+      - eval_time: 1m
+        alertname: FleetFlowConsumerQuarantine
+        exp_alerts:
+          - exp_labels:
+              job: fleetflow
+              severity: warning
+              owner: local-operator
+            exp_annotations:
+              summary: A consumer record was quarantined within the last ten minutes.
+              runbook: docs/operations/MONITORING.md#consumer-quarantine
+              recovery: Inspect the fixed error code and topic offset; do not replay malformed payloads blindly.
+      - eval_time: 5m
+        alertname: FleetFlowConsumerQuarantine
+        exp_alerts: []

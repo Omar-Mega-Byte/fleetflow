@@ -2,7 +2,7 @@
 
 **Recorded 2026-10-07. Target: local reproducible demo.** This is the target for [Phase 11](../phases/phase11.md), not an internet-facing production deployment or a measured result. Recheck Git refs, service versions, and machine resources when running the acceptance exercises.
 
-**Delivery update, 2026-10-10:** The branch and PR states below are the dated assessment snapshot. PR #11 subsequently merged Phases 9/10 to `main`, and PR #13 merged Phase 11 to `main`. Phase 11 remains `CLOSED_PARTIAL`; integration did not satisfy its remaining acceptance gates.
+**Historical delivery snapshot, 2026-10-10:** The branch and PR states below describe the assessment at that time. PR #11 subsequently merged Phases 9/10 to `main`, and PR #13 merged Phase 11 to `main` as `CLOSED_PARTIAL`. On 2026-10-14, the user narrowed Phase 11 to the local synthetic-demo scope and removed the extended acceptance gates from the active project scope; the closeout branch records `COMPLETE` for that revised scope. This baseline remains historical evidence, not the current status source.
 
 ## Repository and prerequisite reconciliation
 

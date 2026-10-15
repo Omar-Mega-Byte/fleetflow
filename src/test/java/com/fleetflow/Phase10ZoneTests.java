@@ -42,7 +42,7 @@ import org.testcontainers.postgresql.PostgreSQLContainer;
 @ActiveProfiles("test")
 class Phase10ZoneTests {
     private static final PostgreSQLContainer postgres = PostgisTestDatabase.create();
-    private static final GenericContainer<?> redis = new GenericContainer<>("redis:7.4.7-alpine")
+    private static final GenericContainer<?> redis = new GenericContainer<>("redis:7.4.11-alpine@sha256:858f009f9709ce576febc734aa78b8f6d624b82571f9ddb6bda4377c833b3499")
             .withExposedPorts(6379).withCommand("redis-server", "--save", "", "--appendonly", "no")
             .waitingFor(Wait.forListeningPort());
     static { postgres.start(); redis.start(); }
@@ -109,9 +109,11 @@ class Phase10ZoneTests {
                 .andExpect(status().isConflict()).andExpect(jsonPath("$.code").value("ZONE_EMPTY"));
 
         mvc.perform(post(zones).header("Authorization", bearer(f.merchant()))
+                .header("Idempotency-Key", zoneKey())
                 .contentType(MediaType.APPLICATION_JSON).content(zoneBody("Bad", BOW_TIE, true)))
                 .andExpect(status().isBadRequest());
         mvc.perform(post(zones).header("Authorization", bearer(f.merchant()))
+                .header("Idempotency-Key", zoneKey())
                 .contentType(MediaType.APPLICATION_JSON).content(zoneBody("Wrong CRS",
                         CORE.replace("\"coordinates\"", "\"crs\":{},\"coordinates\""), true)))
                 .andExpect(status().isBadRequest());
@@ -143,7 +145,7 @@ class Phase10ZoneTests {
                 Integer.class, f.branch());
         int beforeItems = jdbc.queryForObject("select count(*) from order_items", Integer.class);
         int beforeHistory = jdbc.queryForObject("select count(*) from order_status_history", Integer.class);
-        mvc.perform(post("/api/v1/orders").header("Authorization", bearer(f.customer()))
+        mvc.perform(orderPost(f.customer())
                 .contentType(MediaType.APPLICATION_JSON).content(orderBody(f.branch(), 30.5, 31.5)))
                 .andExpect(status().isConflict()).andExpect(jsonPath("$.code").value("ZONE_UNSERVICEABLE"));
         assertThat(jdbc.queryForObject("select count(*) from orders where merchant_branch_id = ?",
@@ -183,6 +185,63 @@ class Phase10ZoneTests {
     }
 
     @Test
+    void zoneCreateReplaysSameKeyAndRejectsDifferentPayloadWithoutSideEffects() throws Exception {
+        Fixture f = fixture();
+        String zones = "/api/v1/merchant-branches/" + f.branch() + "/zones";
+        String key = zoneKey();
+        String payload = zoneBody("Core", CORE, true);
+        MvcResult first = mvc.perform(post(zones).header("Authorization", bearer(f.merchant()))
+                .header("Idempotency-Key", key).contentType(MediaType.APPLICATION_JSON).content(payload))
+                .andExpect(status().isCreated()).andReturn();
+        String firstBody = first.getResponse().getContentAsString();
+        String firstLocation = first.getResponse().getHeader("Location");
+        UUID id = UUID.fromString(JsonPath.read(firstBody, "$.id"));
+        int zonesAfterCreate = jdbc.queryForObject("select count(*) from delivery_zones where branch_id = ?",
+                Integer.class, f.branch());
+        int historyAfterCreate = jdbc.queryForObject("select count(*) from zone_policy_history where branch_id = ?",
+                Integer.class, f.branch());
+        long policyVersionAfterCreate = jdbc.queryForObject(
+                "select zone_policy_version from merchant_branches where id = ?", Long.class, f.branch());
+
+        MvcResult replay = mvc.perform(post(zones).header("Authorization", bearer(f.merchant()))
+                .header("Idempotency-Key", key).contentType(MediaType.APPLICATION_JSON).content(payload))
+                .andExpect(status().isCreated()).andExpect(jsonPath("$.id").value(id.toString()))
+                .andReturn();
+        assertThat(replay.getResponse().getContentAsString()).isEqualTo(firstBody);
+        assertThat(replay.getResponse().getHeader("Location")).isEqualTo(firstLocation);
+
+        mvc.perform(post(zones).header("Authorization", bearer(f.merchant()))
+                .header("Idempotency-Key", key).contentType(MediaType.APPLICATION_JSON)
+                .content(zoneBody("Renamed", CORE, true)))
+                .andExpect(status().isConflict()).andExpect(jsonPath("$.code").value("IDEMPOTENCY_KEY_REUSED"));
+        assertThat(jdbc.queryForObject("select count(*) from delivery_zones where branch_id = ?",
+                Integer.class, f.branch())).isEqualTo(zonesAfterCreate);
+        assertThat(jdbc.queryForObject("select count(*) from zone_policy_history where branch_id = ?",
+                Integer.class, f.branch())).isEqualTo(historyAfterCreate);
+        assertThat(jdbc.queryForObject("select zone_policy_version from merchant_branches where id = ?",
+                Long.class, f.branch())).isEqualTo(policyVersionAfterCreate);
+    }
+
+    @Test
+    void serviceabilityPreviewUsesExpensiveReadBudget() throws Exception {
+        Fixture f = fixture();
+        String commandKey = "fleetflow:rate:route:command:" + f.merchant().id();
+        String expensiveKey = "fleetflow:rate:route:expensive_read:" + f.merchant().id();
+        redisTemplate.opsForValue().set(commandKey, "30", java.time.Duration.ofSeconds(10));
+        mvc.perform(post(previewPath(f)).header("Authorization", bearer(f.merchant()))
+                .contentType(MediaType.APPLICATION_JSON).content(point(30.2, 31.2)))
+                .andExpect(status().isOk());
+
+        redisTemplate.delete(commandKey);
+        redisTemplate.opsForValue().set(expensiveKey, "30", java.time.Duration.ofSeconds(10));
+        mvc.perform(post(previewPath(f)).header("Authorization", bearer(f.merchant()))
+                .contentType(MediaType.APPLICATION_JSON).content(point(30.2, 31.2)))
+                .andExpect(status().isTooManyRequests()).andExpect(jsonPath("$.code").value("RATE_LIMITED"))
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.header()
+                        .exists("Retry-After"));
+    }
+
+    @Test
     void overlappingZonesHaveStableEvidenceAndMembershipRevocationTakesEffect() throws Exception {
         Fixture f = fixture();
         Actor otherMerchant = actor("MERCHANT");
@@ -211,10 +270,12 @@ class Phase10ZoneTests {
                 String.class, first)).isEqualTo("Core");
 
         mvc.perform(post(zones).header("Authorization", bearer(f.merchant()))
+                .header("Idempotency-Key", zoneKey())
                 .contentType(MediaType.APPLICATION_JSON).content(zoneBody("Out of range",
                         CORE.replace("[31,30]", "[181,30]"), true)))
                 .andExpect(status().isBadRequest());
         mvc.perform(post(zones).header("Authorization", bearer(f.merchant()))
+                .header("Idempotency-Key", zoneKey())
                 .contentType(MediaType.APPLICATION_JSON).content(zoneBody("3D",
                         CORE.replace("[31,30]", "[31,30,2]"), true)))
                 .andExpect(status().isBadRequest());
@@ -418,6 +479,7 @@ class Phase10ZoneTests {
     private UUID createZone(Fixture f, String geometry) throws Exception {
         MvcResult response = mvc.perform(post("/api/v1/merchant-branches/{id}/zones", f.branch())
                 .header("Authorization", bearer(f.merchant()))
+                .header("Idempotency-Key", zoneKey())
                 .contentType(MediaType.APPLICATION_JSON).content(zoneBody("Core", geometry, true)))
                 .andExpect(status().isCreated()).andReturn();
         return UUID.fromString(JsonPath.read(response.getResponse().getContentAsString(), "$.id"));
@@ -433,6 +495,7 @@ class Phase10ZoneTests {
     private UUID createOrder(Fixture f, double latitude, double longitude) throws Exception {
         MvcResult response = mvc.perform(post("/api/v1/orders")
                 .header("Authorization", bearer(f.customer()))
+                .header("Idempotency-Key", UUID.randomUUID().toString())
                 .contentType(MediaType.APPLICATION_JSON).content(orderBody(f.branch(), latitude, longitude)))
                 .andExpect(status().isCreated()).andReturn();
         return UUID.fromString(JsonPath.read(response.getResponse().getContentAsString(), "$.id"));
@@ -447,11 +510,18 @@ class Phase10ZoneTests {
     }
 
     private String policyPath(Fixture f) { return "/api/v1/merchant-branches/" + f.branch() + "/zone-policy"; }
+    private String zoneKey() { return "zone-" + UUID.randomUUID(); }
     private String previewPath(Fixture f) { return "/api/v1/merchant-branches/" + f.branch() + "/serviceability"; }
     private String zonePath(Fixture f, UUID zone) {
         return "/api/v1/merchant-branches/" + f.branch() + "/zones/" + zone;
     }
     private String bearer(Actor actor) { return "Bearer " + TestOidc.token(actor.subject()); }
+
+    private org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder orderPost(Actor actor) {
+        return post("/api/v1/orders").header("Authorization", bearer(actor))
+                .header("Idempotency-Key", UUID.randomUUID().toString());
+    }
+
     private String point(double latitude, double longitude) {
         return "{\"latitude\":" + latitude + ",\"longitude\":" + longitude + "}";
     }

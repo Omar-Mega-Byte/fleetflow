@@ -1,0 +1,42 @@
+[
+  {
+    "screen": "command-center",
+    "violations": []
+  },
+  {
+    "screen": "orders",
+    "violations": []
+  },
+  {
+    "screen": "detail",
+    "violations": []
+  },
+  {
+    "screen": "tracking",
+    "violations": []
+  },
+  {
+    "screen": "dispatch",
+    "violations": []
+  },
+  {
+    "screen": "driver",
+    "violations": []
+  },
+  {
+    "screen": "merchant",
+    "violations": []
+  },
+  {
+    "screen": "zones",
+    "violations": []
+  },
+  {
+    "screen": "activity",
+    "violations": []
+  },
+  {
+    "screen": "operations",
+    "violations": []
+  }
+]

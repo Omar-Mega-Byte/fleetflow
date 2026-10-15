@@ -1,0 +1,47 @@
+{
+  "errors": [],
+  "screens": [
+    {
+      "role": "CUSTOMER",
+      "screen": "Orders",
+      "text": "CUSTOMER WORKSPACE\nOrders\n\nReview your orders using visible status and date context.\n\nUpdated from synthetic preview data\nOwned order history\nStatus\nALL\nIN_TRANSIT\nDRIVER_ASSIGNED\nPREPARING\nSearch this page\n3 synthetic records\nOrder\nStatus\nMovement\nLast observed\nVersion\nFF-9A31\n IN TRANSIT\nZamalek → Downtown\n18 s\nv8\nFF-4B18\n DRIVER ASSIGNED\nDokki → Mohandessin\n44 s\nv5\nFF-6E22\n PREPARING\nMaadi → Garden City\n3 min\nv3",
+      "overflow": false
+    },
+    {
+      "role": "CUSTOMER",
+      "screen": "Detail",
+      "text": "CUSTOMER WORKSPACE\nOrder Detail\n\nUnderstand lifecycle state, addresses and the next available action.\n\nUpdated from synthetic preview data\nFF-9A31\nIN_TRANSIT\nTechnical details\nCREATED\nCONFIRMED\nPREPARING\nREADY\nASSIGNED\nIN TRANSIT\nPickup\n26 July St\n\nCairo\n\nDelivery\nTahrir Square\n\nCairo\n\nLast observed\n18 s\n\nPosition available\n\nCurrent context\nLifecycle current\nv8\n\nStatus is aligned with the latest visible order version.\n\nOffer lifecycle separate\n\nAssignment and offer events remain distinct from order status.",
+      "overflow": false
+    },
+    {
+      "role": "CUSTOMER",
+      "screen": "Tracking",
+      "text": "CUSTOMER WORKSPACE\nTracking\n\nSee the latest authorized driver position for this order.\n\nLast observed 18 s\nBasemap unavailable in this standalone preview\nProduction requires an approved basemap. No pickup or destination coordinates are plotted.\nAuthorized driver position\n30.0512, 31.2338\nPosition layer only · no route or ETA\nPosition status\nAvailability\nObserved\nLast observed\n18 s ago\nCoordinates\n30.0512, 31.2338\nDelivery state\nStatus\nIN_TRANSIT\nTerminal\nfalse\nMap detail\nNo routed geometry\nOpen tracking details",
+      "overflow": false
+    },
+    {
+      "role": "CUSTOMER",
+      "screen": "Activity",
+      "text": "CUSTOMER WORKSPACE\nActivity\n\nReview notifications and outcomes available to this role.\n\nUpdated from synthetic preview data\nOrder picked up\n\nFF-9A31 · synthetic preview\n\n4 min\nDriver assigned\n\nFF-4B18 · synthetic preview\n\n9 min",
+      "overflow": false
+    },
+    {
+      "role": "MERCHANT",
+      "screen": "Zones",
+      "text": "MERCHANT WORKSPACE\nService Zones\n\nEdit the active GeoJSON for the selected merchant branch.\n\nUpdated from synthetic preview data\nAuthorized GeoJSON · basemap unavailable\nZamalek core\nBranch\n7b2a…c104\nVersion\n12\nStatus\nActive\n{\"type\":\"Polygon\",\"coordinates\":[[[31.219,30.044],[31.222,30.061],[31.235,30.067],[31.244,30.054],[31.237,30.040],[31.219,30.044]]]}\nEdit zone\nPreview version conflict",
+      "overflow": false
+    },
+    {
+      "role": "DISPATCHER",
+      "screen": "Dispatch",
+      "text": "DISPATCHER WORKSPACE\nDispatch\n\nReview matching evidence, offer expiry and exception recovery for one order.\n\nUpdated from synthetic preview data\nAttempt 03 · order 0f1b…9a31\nPreview retry\ndriver …71d\nrank 1 · 0.86\n\nEligible · 1,420 m · location age 12 s · straight-line estimate 204 s\n\ndriver …34a\nrank 2 · 0.68\n\nEligible · 2,180 m · location age 49 s · straight-line estimate 314 s\n\ndriver …08f\nexcluded\n\nMissing location heartbeat; candidate cannot be scored.\n\nOffer expires in 00:42\n\nPending response from driver …71d.\n\nException context\nMissing location\n\nOne candidate excluded before ranking.\n\nOpen incident",
+      "overflow": false
+    },
+    {
+      "role": "ADMIN",
+      "screen": "Operations",
+      "text": "ADMIN WORKSPACE\nOperations\n\nInspect failed outbox records and quarantined events within bounded admin scope.\n\nUpdated from synthetic preview data\nFailed outbox\n2 records\nPaymentRequested\nretry 3\n\nLast failure 14:25 · audited replay available.\n\nInspect replay\nNotificationRequested\nretry 2\n\nLast failure 14:18 · audited replay available.\n\nQuarantine\nOrderStatusChanged\n\nInspection only. Replay is not available from quarantine.\n\nInspect record",
+      "overflow": false
+    }
+  ]
+}

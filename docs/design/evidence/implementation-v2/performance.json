@@ -1,0 +1,31 @@
+{
+  "environment": "Chromium / local production Vite preview / intercepted synthetic API and neutral tile fixtures; one sample, not backend capacity",
+  "cls": 0.0003572845458984375,
+  "lcp": 168,
+  "longTasks": [],
+  "metrics": [
+    {
+      "name": "LayoutCount",
+      "value": 7
+    },
+    {
+      "name": "RecalcStyleCount",
+      "value": 13
+    },
+    {
+      "name": "ScriptDuration",
+      "value": 0.031129
+    },
+    {
+      "name": "TaskDuration",
+      "value": 0.172422
+    },
+    {
+      "name": "JSHeapUsedSize",
+      "value": 7143004
+    }
+  ],
+  "initialMapLoaded": false,
+  "mapLoadedAfterNavigation": true,
+  "reducedMotion": "PASS"
+}

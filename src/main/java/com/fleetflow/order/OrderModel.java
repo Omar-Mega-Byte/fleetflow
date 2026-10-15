@@ -50,6 +50,7 @@ class OrderEntity {
     @Column(name = "zone_mode_at_create", length = 16) String zoneModeAtCreate;
     @Column(name = "zone_policy_version_at_create") Long zonePolicyVersionAtCreate;
     @Column(name = "zone_id_at_create") UUID zoneIdAtCreate;
+    @Column(name = "demo_generation") Long demoGeneration;
     @Column(nullable = false, length = 3) String currency;
     @Column(name = "total_amount", nullable = false, precision = 18, scale = 2) BigDecimal totalAmount;
     @Column(name = "created_at", nullable = false) Instant createdAt;
@@ -112,8 +113,10 @@ interface OrderRepository extends JpaRepository<OrderEntity, UUID>, JpaSpecifica
     org.springframework.data.domain.Page<OrderEntity> findByBranchId(
             UUID branchId, org.springframework.data.domain.Pageable pageable);
     @EntityGraph(attributePaths = "items")
-    @Query("select o from OrderEntity o where o.id = :id and o.customerId = :customerId")
-    java.util.Optional<OrderEntity> findDetail(@Param("id") UUID id, @Param("customerId") UUID customerId);
+    @Query("select o from OrderEntity o where o.id = :id and o.customerId = :customerId "
+            + "and (o.demoGeneration is null or o.demoGeneration = :generation)")
+    java.util.Optional<OrderEntity> findDetail(@Param("id") UUID id, @Param("customerId") UUID customerId,
+                                                @Param("generation") long generation);
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select o from OrderEntity o where o.id = :id and o.customerId = :customerId")
     java.util.Optional<OrderEntity> lockForCustomer(@Param("id") UUID id, @Param("customerId") UUID customerId);

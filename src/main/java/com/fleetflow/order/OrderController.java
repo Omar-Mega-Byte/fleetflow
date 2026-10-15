@@ -23,6 +23,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -106,11 +107,15 @@ class LocalOrderCreateController {
     @PostMapping
     @Operation(summary = "Create a local test order", description = "Local/test on loopback only, with CUSTOMER role. "
             + "The customer comes from the bearer token's local actor. Submitted item prices are untrusted; "
-            + "this route is unavailable in default/prod.")
+            + "this route is unavailable in default/prod. Idempotency-Key is required and is scoped to this actor "
+            + "and operation; replay returns the original creation result.")
     @ApiResponse(responseCode = "201", description = "Created order and immutable snapshots.",
             content = @Content(mediaType = "application/json", schema = @Schema(implementation = OrderService.OrderView.class)))
-    ResponseEntity<OrderService.OrderView> create(@Valid @RequestBody OrderService.CreateRequest request) {
-        var created = service.create(request);
+    ResponseEntity<OrderService.OrderView> create(
+            @Parameter(description = "Stable client-generated key for this order creation.", required = true)
+            @RequestHeader("Idempotency-Key") String idempotencyKey,
+            @Valid @RequestBody OrderService.CreateRequest request) {
+        var created = service.create(request, idempotencyKey);
         return ResponseEntity.created(URI.create("/api/v1/orders/" + created.id())).body(created);
     }
 }

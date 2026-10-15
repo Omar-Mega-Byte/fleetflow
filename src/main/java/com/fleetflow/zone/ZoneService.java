@@ -3,8 +3,10 @@ package com.fleetflow.zone;
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.sql.SQLException;
+import java.security.MessageDigest;
 import java.time.Instant;
 import java.util.List;
+import java.util.HexFormat;
 import java.util.UUID;
 
 import tools.jackson.core.JacksonException;
@@ -23,11 +25,13 @@ public class ZoneService {
     private final JdbcTemplate jdbc;
     private final MerchantService merchants;
     private final ObjectMapper json;
+    private final ZonePolicyHistory history;
 
-    ZoneService(JdbcTemplate jdbc, MerchantService merchants, ObjectMapper json) {
+    ZoneService(JdbcTemplate jdbc, MerchantService merchants, ObjectMapper json, ZonePolicyHistory history) {
         this.jdbc = jdbc;
         this.merchants = merchants;
         this.json = json;
+        this.history = history;
     }
 
     /** Caller owns the order row lock. This method then takes the branch lock. */
@@ -92,10 +96,42 @@ public class ZoneService {
     }
 
     @Transactional
-    public ZoneView create(UUID branchId, String name, JsonNode geometry, boolean active) {
+    public ZoneView create(UUID branchId, String name, JsonNode geometry, boolean active,
+                           String idempotencyKey) {
         UUID actorId = merchants.requireActiveBranchScope(branchId);
         String cleanName = name(name);
         String geojson = geometry(geometry);
+        if (idempotencyKey == null || !idempotencyKey.matches("[A-Za-z0-9._~-]{1,128}")) {
+            throw new ApiFailure(HttpStatus.BAD_REQUEST, "INVALID_REQUEST",
+                    "Idempotency-Key must contain 1 to 128 letters, digits, dots, underscores, tildes, or hyphens");
+        }
+        String requestHash = requestHash(branchId, cleanName, geojson, active);
+        int reserved = jdbc.update("""
+                insert into command_idempotency
+                  (actor_id, operation, idempotency_key, request_hash, created_at)
+                values (?, 'ZONE_CREATE', ?, ?, clock_timestamp())
+                on conflict (actor_id, operation, idempotency_key) do nothing
+                """, actorId, idempotencyKey, requestHash);
+        if (reserved == 0) {
+            var existing = jdbc.query("""
+                    select request_hash, zone_id, response_body::text
+                    from command_idempotency
+                    where actor_id = ? and operation = 'ZONE_CREATE' and idempotency_key = ?
+                    for update
+                    """, (rs, row) -> new IdempotencyResult(rs.getString(1),
+                    (UUID) rs.getObject(2), rs.getString(3)), actorId, idempotencyKey);
+            if (existing.isEmpty()) throw new IllegalStateException("Idempotency reservation disappeared");
+            IdempotencyResult prior = existing.getFirst();
+            if (!prior.requestHash().equals(requestHash)) {
+                throw new ApiFailure(HttpStatus.CONFLICT, "IDEMPOTENCY_KEY_REUSED",
+                        "Idempotency-Key was already used with a different request");
+            }
+            if (prior.zoneId() == null || prior.responseBody() == null) {
+                throw new ApiFailure(HttpStatus.SERVICE_UNAVAILABLE, "IDEMPOTENCY_RESULT_UNAVAILABLE",
+                        "The original command result is not available");
+            }
+            return readZoneResult(prior.responseBody());
+        }
         lockBranch(branchId);
         if (jdbc.queryForObject("select count(*) from delivery_zones where branch_id = ?",
                 Integer.class, branchId) >= 100) {
@@ -110,7 +146,40 @@ public class ZoneService {
                         ?, 0, clock_timestamp(), clock_timestamp())
                 """, id, branchId, cleanName, geojson, active);
         policyChanged(branchId, id, actorId, "ZONE_CREATED");
-        return one(branchId, id);
+        ZoneView created = one(branchId, id);
+        int stored = jdbc.update("""
+                update command_idempotency set zone_id = ?, response_body = cast(? as jsonb)
+                where actor_id = ? and operation = 'ZONE_CREATE' and idempotency_key = ?
+                  and order_id is null and zone_id is null and response_body is null
+                """, id, writeZoneResult(created), actorId, idempotencyKey);
+        if (stored != 1) throw new IllegalStateException("Could not store idempotent zone result");
+        return created;
+    }
+
+    private String requestHash(UUID branchId, String name, String geojson, boolean active) {
+        try {
+            return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256")
+                    .digest(json.writeValueAsBytes(new CanonicalZone(branchId, name, geojson, active))));
+        } catch (Exception failure) {
+            throw new IllegalStateException("Could not fingerprint zone request", failure);
+        }
+    }
+
+    private String writeZoneResult(ZoneView result) {
+        try {
+            return json.writeValueAsString(result);
+        } catch (Exception failure) {
+            throw new IllegalStateException("Could not store zone result", failure);
+        }
+    }
+
+    private ZoneView readZoneResult(String source) {
+        try {
+            return json.readValue(source, ZoneView.class);
+        } catch (Exception failure) {
+            throw new ApiFailure(HttpStatus.SERVICE_UNAVAILABLE, "IDEMPOTENCY_RESULT_UNAVAILABLE",
+                    "The original command result is not available");
+        }
     }
 
     @Transactional
@@ -173,20 +242,7 @@ public class ZoneService {
     }
 
     private long policyChanged(UUID branchId, UUID zoneId, UUID actorId, String action) {
-        long version = jdbc.queryForObject("""
-                update merchant_branches set zone_policy_version = zone_policy_version + 1,
-                    updated_at = clock_timestamp() where id = ? returning zone_policy_version
-                """, Long.class, branchId);
-        jdbc.update("""
-                insert into zone_policy_history
-                  (id, branch_id, zone_id, actor_id, action, policy_version, mode_after,
-                   zone_name_after, zone_active_after, zone_boundary_after, recorded_at)
-                select ?, b.id, z.id, ?, ?, ?, b.serviceability_mode,
-                       z.name, z.active, z.boundary, clock_timestamp()
-                from merchant_branches b left join delivery_zones z on z.id = ? and z.branch_id = b.id
-                where b.id = ?
-                """, UUID.randomUUID(), actorId, action, version, zoneId, branchId);
-        return version;
+        return history.record(branchId, zoneId, actorId, action);
     }
 
     private ZoneView one(UUID branchId, UUID zoneId) {
@@ -276,4 +332,6 @@ public class ZoneService {
     public record Preview(boolean supported, String mode, long policyVersion, UUID zoneId) { }
     public record ZoneView(UUID id, UUID branchId, String name, JsonNode geometry,
                            boolean active, long version, Instant createdAt, Instant updatedAt) { }
+    private record IdempotencyResult(String requestHash, UUID zoneId, String responseBody) { }
+    private record CanonicalZone(UUID branchId, String name, String geometry, boolean active) { }
 }
