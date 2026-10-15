@@ -15,6 +15,7 @@ import runpy
 import concurrent.futures
 import time
 import re
+import sys
 from datetime import datetime, timezone
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -278,6 +279,16 @@ def main():
         succeeded = True
         print("PASS: real HTTPS browser-to-Keycloak-to-API-to-PostgreSQL/SSE slice", flush=True)
     finally:
+        browser_results = ROOT / "web" / "test-results" / "live"
+        if browser_results.exists():
+            trace_secrets = list(locals().get("passwords", {}).values())
+            trace_secrets.extend(account["password"] for account in locals().get("accounts", {}).values())
+            scrub = subprocess.run([sys.executable, str(ROOT / "scripts" / "scrub_playwright_trace.py"),
+                "--root", str(browser_results)], input=json.dumps(trace_secrets), text=True,
+                stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=False)
+            if scrub.returncode != 0:
+                raise RuntimeError("Playwright trace scrubbing failed; diagnostics cannot be uploaded")
+            print(scrub.stdout.strip(), flush=True)
         if created:
             # Only the exact newly generated project and its non-external volumes can be removed.
             if not project.startswith("fleetflow-day1-audit-"):

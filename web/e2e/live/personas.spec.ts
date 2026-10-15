@@ -32,6 +32,12 @@ test("real persona workspaces, driver actions, PostGIS map and guarded dispatch"
       permissions: persona === "driver" ? ["geolocation"] : [],
       geolocation: { latitude: 30.04442, longitude: 31.235712 },
     });
+    if (persona === "driver") {
+      await context.grantPermissions(["geolocation"], {
+        origin: "https://demo.fleetflow.localhost",
+      });
+      await context.setGeolocation({ latitude: 30.04442, longitude: 31.235712 });
+    }
     const page = await context.newPage();
     const errors: string[] = [];
     page.on("pageerror", (e) =>
@@ -85,6 +91,22 @@ test("real persona workspaces, driver actions, PostGIS map and guarded dispatch"
         });
       } else if (persona === "driver") {
         await login(page, persona, "/workspace/driver");
+        const geolocation = await page.evaluate(
+          () =>
+            new Promise((resolve) => {
+              if (!window.isSecureContext || !navigator.geolocation) {
+                resolve("unavailable");
+                return;
+              }
+              navigator.geolocation.getCurrentPosition(
+                () => resolve("available"),
+                (error) => resolve(`error-${error.code}`),
+                { timeout: 8000, maximumAge: 0 },
+              );
+            }),
+        );
+        console.log(`Driver geolocation preflight: ${geolocation}`);
+        expect(geolocation).toBe("available");
         await page
           .getByRole("button", { name: "Go online", exact: true })
           .click();
@@ -97,9 +119,22 @@ test("real persona workspaces, driver actions, PostGIS map and guarded dispatch"
         await expect(
           page.getByText("Heartbeat refreshed.", { exact: true }),
         ).toBeVisible();
+        const locationRequest = page.waitForRequest(
+          (request) =>
+            new URL(request.url()).pathname ===
+              "/api/v1/drivers/me/location" &&
+            request.method() === "POST",
+          { timeout: 15000 },
+        );
         await page
           .getByRole("button", { name: "Share current position", exact: true })
           .click();
+        const request = await locationRequest;
+        const locationResponse = await request.response();
+        expect(
+          locationResponse?.status(),
+          "the authenticated driver location update should return 204",
+        ).toBe(204);
         await expect(
           page.getByText("Current position shared.", { exact: true }),
         ).toBeVisible();
