@@ -1,0 +1,170 @@
+[
+  {
+    "name": "refined",
+    "viewport": "desktop",
+    "errors": [],
+    "dom": "Skip to workspace\nFleetFlow\nSYNTHETIC\nPreview role\nCustomer\nMerchant\nDriver\nDispatcher\nAdmin\nOwn orders and tracking\nCommand Center\nOrders\nDetail\nTracking\nDispatch\nrole\nZones\nrole\nActivity\nOperations\nrole\nCustomer scope\nOrders and tracking owned by this signed-in customer.\nCustomer\nCairo · own orders\nSYNTHETIC PREVIEW\nState: Normal\nSystem\nCUSTOMER WORKSPACE\nCommand Center\n\nMonitor owned orders, freshness and lifecycle exceptions.\n\nUpdated from synthetic preview data\nOpen orders\n3\nowned by this customer\nFresh position\n1\nlast observed 18 s\nWaiting for location\n1\nno position yet\nNeeds attention\n0\nno active exception\nActive orders\nView all\nStatus\nALL\nIN_TRANSIT\nDRIVER_ASSIGNED\nPREPARING\nSearch this page\n3 synthetic records\nOrder\nStatus\nMovement\nLast observed\nVersion\nFF-9A31\n IN TRANSIT\nZamalek → Downtown\n18 s\nv8\nFF-4B18\n DRIVER ASSIGNED\nDokki → Mohandessin\n44 s\nv5\nFF-6E22\n PREPARING\nMaadi → Garden City\n3 min\nv3\nLifecycle context\nDriver position fresh\n18 s\n\nAvailable for selected order FF-9A31.\n\nWaiting for location\n44 s\n\nFF-4B18 is assigned; no position has been observed.",
+    "controls": [
+      {
+        "tag": "A",
+        "text": "Skip to workspace",
+        "label": null
+      },
+      {
+        "tag": "SELECT",
+        "text": "CustomerMerchantDriverDispatcherAdmin",
+        "label": null
+      },
+      {
+        "tag": "BUTTON",
+        "text": "Command Center",
+        "label": null
+      },
+      {
+        "tag": "BUTTON",
+        "text": "Orders",
+        "label": null
+      },
+      {
+        "tag": "BUTTON",
+        "text": "Detail",
+        "label": null
+      },
+      {
+        "tag": "BUTTON",
+        "text": "Tracking",
+        "label": null
+      },
+      {
+        "tag": "BUTTON",
+        "text": "Dispatchrole",
+        "label": null
+      },
+      {
+        "tag": "BUTTON",
+        "text": "Zonesrole",
+        "label": null
+      },
+      {
+        "tag": "BUTTON",
+        "text": "Activity",
+        "label": null
+      },
+      {
+        "tag": "BUTTON",
+        "text": "Operationsrole",
+        "label": null
+      },
+      {
+        "tag": "BUTTON",
+        "text": "State: Normal",
+        "label": null
+      },
+      {
+        "tag": "BUTTON",
+        "text": "",
+        "label": "Open technical details"
+      },
+      {
+        "tag": "BUTTON",
+        "text": "System",
+        "label": null
+      },
+      {
+        "tag": "BUTTON",
+        "text": "View all",
+        "label": null
+      },
+      {
+        "tag": "SELECT",
+        "text": "ALLIN_TRANSITDRIVER_ASSIGNEDPREPARING",
+        "label": null
+      },
+      {
+        "tag": "INPUT",
+        "text": "",
+        "label": null
+      },
+      {
+        "tag": "BUTTON",
+        "text": "FF-9A31",
+        "label": null
+      },
+      {
+        "tag": "BUTTON",
+        "text": "FF-4B18",
+        "label": null
+      },
+      {
+        "tag": "BUTTON",
+        "text": "FF-6E22",
+        "label": null
+      },
+      {
+        "tag": "BUTTON",
+        "text": "FF-9A31IN TRANSITZamalek → DowntownLast observed 18 sv8",
+        "label": null
+      },
+      {
+        "tag": "BUTTON",
+        "text": "FF-4B18DRIVER ASSIGNEDDokki → MohandessinLast observed 44 sv5",
+        "label": null
+      },
+      {
+        "tag": "BUTTON",
+        "text": "FF-6E22PREPARINGMaadi → Garden CityLast observed 3 minv3",
+        "label": null
+      },
+      {
+        "tag": "BUTTON",
+        "text": "Command Center",
+        "label": null
+      },
+      {
+        "tag": "BUTTON",
+        "text": "Orders",
+        "label": null
+      },
+      {
+        "tag": "BUTTON",
+        "text": "Detail",
+        "label": null
+      },
+      {
+        "tag": "BUTTON",
+        "text": "Tracking",
+        "label": null
+      },
+      {
+        "tag": "BUTTON",
+        "text": "Dispatch",
+        "label": null
+      },
+      {
+        "tag": "BUTTON",
+        "text": "Zones",
+        "label": null
+      },
+      {
+        "tag": "BUTTON",
+        "text": "Activity",
+        "label": null
+      },
+      {
+        "tag": "BUTTON",
+        "text": "Operations",
+        "label": null
+      },
+      {
+        "tag": "BUTTON",
+        "text": "×",
+        "label": "Close drawer"
+      }
+    ]
+  },
+  {
+    "name": "refined",
+    "viewport": "mobile",
+    "overflow": false
+  }
+]

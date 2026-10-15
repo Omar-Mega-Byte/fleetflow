@@ -1,0 +1,24 @@
+ARG NODE_BUILD_IMAGE=node:22-alpine@sha256:0a7108bf6c7bf5de370ffb1a3ed6be93d405b43ff159f681a8d18c0e2bc2e402
+ARG NGINX_RUNTIME_IMAGE=nginx:stable-alpine@sha256:0985e772fb9f729e6fa0980da05fca5d9c468e870eed43071545afa9d2e27d94
+FROM ${NODE_BUILD_IMAGE} AS build
+WORKDIR /web
+COPY package.json package-lock.json ./
+RUN npm ci
+COPY . .
+ARG VITE_OIDC_AUTHORITY
+ENV VITE_OIDC_AUTHORITY=${VITE_OIDC_AUTHORITY}
+RUN test -n "$VITE_OIDC_AUTHORITY" \
+    && case "$VITE_OIDC_AUTHORITY" in https://*/realms/fleetflow) ;; *) echo 'VITE_OIDC_AUTHORITY must be the stable HTTPS FleetFlow issuer' >&2; exit 1 ;; esac \
+    && npm run build
+
+FROM ${NGINX_RUNTIME_IMAGE}
+RUN apk upgrade --no-cache \
+    && rm /etc/nginx/conf.d/default.conf \
+    && sed -i -E 's/^worker_processes.*/worker_processes 2;/; /^user /d; s#/(var/)?run/nginx.pid#/tmp/nginx.pid#; /keepalive_timeout/d; /^[[:space:]]*access_log[[:space:]]/d' /etc/nginx/nginx.conf \
+    && chown -R nginx:nginx /etc/nginx/conf.d /var/cache/nginx
+ENV NGINX_ENVSUBST_FILTER='^(DEMO_HOST|IDENTITY_HOST)$'
+COPY nginx/fleetflow.conf.template /etc/nginx/templates/fleetflow.conf.template
+COPY nginx/proxy-headers.conf /etc/nginx/snippets/proxy-headers.conf
+COPY --from=build /web/dist/ /usr/share/nginx/html/
+USER nginx
+EXPOSE 80 443

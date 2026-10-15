@@ -1,0 +1,1096 @@
+You are performing a full product-design and frontend overhaul of FleetFlow.
+
+FleetFlow is a Java/Spring delivery orchestration learning backend with a real frontend, real backend workflows, and real operational behavior. The current frontend is functionally usable but visually weak, generic, sparse, and does not communicate the sophistication of the backend.
+
+Your task is NOT to merely “make it prettier.”
+
+Your task is to transform FleetFlow into a premium, portfolio-grade, production-quality logistics product experience that feels deliberately art-directed, technically credible, visually distinctive, responsive, animated, and coherent across the entire system.
+
+The quality bar should feel comparable to excellent modern SaaS and infrastructure products such as Linear, Stripe, Vercel, Ramp, modern Uber operational tooling, premium logistics dashboards, and high-end developer tools — while still being original and specific to FleetFlow.
+
+The final result must NOT look like:
+- a generic Tailwind admin template
+- a CRUD dashboard
+- an AI-generated SaaS interface
+- a dashboard full of random metric cards
+- a page dominated by empty whitespace
+- a “glassmorphism everything” design
+- a neon cyberpunk UI
+- a generic purple/blue gradient startup site
+- a collection of shadcn components with no design system
+- a marketing landing page pretending to be an operational application
+
+FleetFlow must feel like a REAL-TIME LOGISTICS OPERATING SYSTEM.
+
+==================================================
+1. FIRST: INSPECT EVERYTHING BEFORE CHANGING CODE
+==================================================
+
+Before making any frontend changes:
+
+1. Inspect the current repository thoroughly.
+2. Inspect the frontend framework, package manager, project structure, routes, components, API clients, state management, authentication integration, environment variables, CSS/Tailwind configuration, test setup, and build scripts.
+3. Inspect backend endpoints and actual domain capabilities.
+4. Inspect all current frontend screens.
+5. Inspect any existing screenshots, docs, README, UI.md, architecture docs, roadmap files, API/OpenAPI specs, and demo flows.
+6. Inspect any current uncommitted changes before modifying files.
+7. Preserve all working backend contracts.
+8. Preserve all authentication behavior unless a change is clearly required.
+9. Do not invent backend features that do not exist.
+10. If frontend architecture is weak, refactor it before layering more CSS on top.
+
+Create a concise internal inventory of:
+- existing frontend screens
+- existing backend capabilities exposed to the frontend
+- missing UX around existing backend features
+- duplicated components
+- weak visual patterns
+- architectural problems
+- inconsistent states
+- accessibility gaps
+- performance issues
+- obvious design debt
+
+Do not start coding until this inspection is complete.
+
+==================================================
+2. USE ALL RELEVANT AVAILABLE TOOLS
+==================================================
+
+Use the available plugins, MCPs, and tools aggressively where they materially improve the result.
+
+OPEN DESIGN
+Use OpenDesign as the primary visual exploration and product-design workspace.
+
+Use it to:
+- explore multiple layout directions
+- create a full visual identity
+- define a reusable design system
+- prototype core screens
+- experiment with information hierarchy
+- create motion concepts
+- create map-driven layouts
+- create order lifecycle views
+- create dispatch visualization concepts
+- create empty states
+- create operational command-center concepts
+- create responsive variants
+
+Do NOT use OpenDesign merely to make static mockups.
+Use it to drive an actual design system and interaction language.
+
+Create at least 3 substantially different design directions before selecting one.
+
+The 3 directions should include:
+
+DIRECTION A:
+Premium operational SaaS
+Inspired by Linear/Vercel/Stripe discipline
+Very clean
+Strong hierarchy
+Minimal but refined
+Excellent typography
+Subtle motion
+High information density without clutter
+
+DIRECTION B:
+Map-first logistics control center
+Large geospatial surfaces
+Live drivers
+Delivery routes
+Operational overlays
+Real-time state
+Dispatch flow
+Zone visualization
+More dynamic and visually distinctive
+
+DIRECTION C:
+Mission-control / infrastructure style
+Dark-light hybrid sections
+Operational event streams
+Strong real-time telemetry
+Lifecycle animations
+Developer-friendly system visibility
+Still elegant and restrained
+
+After exploring all three:
+- compare them
+- identify the strongest elements of each
+- merge only compatible ideas
+- choose one coherent final direction
+
+Do not mix visual languages randomly.
+
+FIGMA
+Use Figma where useful for:
+- final screen composition
+- precise spacing
+- component consistency
+- design tokens
+- typography system
+- reusable component variants
+- responsive layouts
+- handoff-quality screen structure
+
+If Figma tools are available, create or use a concrete component system rather than treating screens as unrelated mockups.
+
+REFERO
+Use Refero, if available, for real-world UI research.
+
+Search for excellent examples of:
+- logistics dashboards
+- delivery tracking
+- dispatch interfaces
+- maps
+- order management
+- real-time activity feeds
+- operational dashboards
+- status timelines
+- empty states
+- filters
+- tables
+- map overlays
+- command centers
+- timeline interaction
+- responsive SaaS navigation
+- premium data-dense interfaces
+
+Do NOT copy any one product.
+Extract patterns and interaction ideas only.
+
+MAGICPATH
+Use MagicPath if available for rapid alternative UI exploration.
+
+Use it to generate:
+- layout variants
+- card systems
+- command center concepts
+- tracking layouts
+- operational dashboard compositions
+
+Then refine the strongest ideas in OpenDesign/Figma.
+
+GITHUB
+Use GitHub integration / repository access to:
+- inspect branches
+- inspect recent frontend changes
+- inspect issues
+- inspect PRs
+- inspect CI
+- understand intended architecture
+- ensure implementation fits the actual project
+
+PLAYWRIGHT / BROWSER
+Use Playwright or equivalent browser automation to:
+- run the application
+- log in
+- navigate through all major screens
+- test states
+- inspect responsive behavior
+- test hover states
+- test transitions
+- test forms
+- test authentication flows
+- validate navigation
+- take screenshots
+- compare iterations
+
+Do not rely on code inspection alone.
+
+CHROME DEVTOOLS / BROWSER DEVTOOLS
+Use browser/devtools capabilities to inspect:
+- layout
+- overflow
+- console errors
+- network failures
+- slow requests
+- animation jank
+- memory issues
+- layout shifts
+- rendering problems
+- accessibility
+- performance metrics
+
+The redesign is not complete until the actual running UI has been inspected and refined.
+
+==================================================
+3. PRODUCT POSITIONING
+==================================================
+
+FleetFlow is not “an order dashboard.”
+
+FleetFlow should visually communicate:
+
+“A real-time delivery orchestration system.”
+
+The UI should expose the intelligence of the backend.
+
+Core backend concepts that should become visible in the product:
+
+- order lifecycle
+- driver lifecycle
+- dispatch matching
+- atomic offers
+- offer acceptance/rejection
+- live driver tracking
+- PostGIS delivery zones
+- Kafka/outbox events
+- OIDC authorization
+- operational monitoring
+- backup/reliability evidence where appropriate
+- system health
+- domain state transitions
+- live activity
+- failure/retry states
+
+Do not bury these concepts in plain text tables.
+
+Turn them into visual system behavior.
+
+==================================================
+4. DESIGN PRINCIPLES
+==================================================
+
+The final design must follow these principles:
+
+1. PURPOSEFUL
+Every visual element should communicate something.
+
+2. OPERATIONAL
+The interface should feel alive and connected to real system state.
+
+3. PREMIUM
+Spacing, typography, hierarchy, and interaction quality matter more than visual noise.
+
+4. RESTRAINED
+Avoid gratuitous effects.
+
+5. DYNAMIC
+Motion should reflect real state transitions.
+
+6. DOMAIN-SPECIFIC
+It should unmistakably feel like a logistics product.
+
+7. CLEAR
+Users should understand current system state immediately.
+
+8. SCALABLE
+Design components should support more features later.
+
+9. ACCESSIBLE
+Keyboard, focus, contrast, labels, and reduced-motion support are required.
+
+10. FAST
+Do not sacrifice performance for spectacle.
+
+==================================================
+5. VISUAL IDENTITY
+==================================================
+
+Create a refined FleetFlow design system.
+
+Use a sophisticated logistics-oriented color language.
+
+Suggested base direction:
+
+PRIMARY BRAND:
+deep emerald / dark green
+
+LIVE / TELEMETRY:
+cool cyan or mint
+
+PENDING / DISPATCH:
+amber
+
+ERROR / FAILED:
+red
+
+SYSTEM EVENTS:
+subtle violet or indigo only if necessary
+
+SURFACES:
+soft warm whites / cool-neutral light surfaces
+
+DARK SURFACES:
+near-black with green undertone, not pure black
+
+Use color semantically and consistently.
+
+Example:
+green = success / healthy / available
+cyan = live / tracking / telemetry
+amber = waiting / dispatching / pending
+red = failure / blocked / intervention
+violet = system/infrastructure events
+
+Do not use color just decoratively.
+
+==================================================
+6. TYPOGRAPHY
+==================================================
+
+The current typography is too weak.
+
+Introduce a clear type hierarchy.
+
+Define:
+- display heading
+- page title
+- section title
+- card title
+- body
+- metadata
+- label
+- badge
+- monospace/system-event text
+
+Use typography to create structure, not giant size.
+
+Avoid oversized marketing-style hero text inside the app.
+
+Text should feel sharp, compact, intentional, and professional.
+
+==================================================
+7. SPACING AND LAYOUT
+==================================================
+
+Eliminate dead space.
+
+The current Orders screen wastes huge areas with almost no information.
+
+Use deliberate density.
+
+Design:
+- strong content alignment
+- consistent page gutters
+- compact but breathable cards
+- deliberate grouping
+- clear vertical rhythm
+- responsive breakpoints
+- meaningful section transitions
+
+Do not make everything 32px rounded with 32px padding.
+
+Use varied spacing based on hierarchy.
+
+==================================================
+8. MOTION SYSTEM
+==================================================
+
+Create a real motion language.
+
+Do not use random animations.
+
+Motion should communicate:
+- page entry
+- loading
+- status changes
+- navigation
+- live updates
+- selection
+- route progress
+- timeline progression
+- dispatch activity
+
+Use Motion/Framer Motion for most UI transitions if appropriate.
+
+Use GSAP only for genuinely complex motion:
+- route drawing
+- advanced SVG animation
+- major timeline sequences
+- map storytelling
+- cinematic onboarding sequence
+
+Recommended timing:
+micro interaction: 120–180ms
+standard transition: 180–260ms
+complex transition: 260–400ms
+
+Use:
+- subtle spring physics
+- opacity
+- 4–12px translations
+- scale around 0.98–1.02
+- shared layout transitions
+- staggered entry
+- smooth height expansion
+- animated progress
+
+Avoid:
+- giant bounce
+- excessive parallax
+- constant pulsing
+- long easing
+- flashy transitions on every click
+
+Respect:
+prefers-reduced-motion
+
+==================================================
+9. GLOBAL NAVIGATION
+==================================================
+
+Redesign the navigation.
+
+It should support clear product areas such as:
+
+- Command Center
+- Orders
+- Tracking
+- Dispatch
+- Zones
+- Activity
+- System / Operations if appropriate
+
+Use:
+- clear active states
+- compact layout
+- useful icons
+- keyboard-friendly focus
+- responsive collapse behavior
+
+Do not make navigation look like a basic school project navbar.
+
+Consider a command palette.
+
+==================================================
+10. COMMAND CENTER
+==================================================
+
+Create a proper Command Center.
+
+This should become the product’s operational home.
+
+Possible structure:
+
+TOP:
+- system status
+- active deliveries
+- dispatch queue
+- available drivers
+- incidents
+- on-time performance
+
+MAIN AREA:
+- live map
+- active drivers
+- active orders
+- zone overlays
+- route visualization
+
+SIDE PANEL:
+- live system activity
+- dispatch events
+- warnings
+- failed jobs
+- retrying messages
+
+LOWER AREA:
+- order throughput
+- dispatch latency
+- delivery states
+- driver availability
+- zone utilization
+
+Do not turn this into a generic analytics page.
+
+Every metric should be useful.
+
+==================================================
+11. ORDERS SCREEN
+==================================================
+
+Completely rebuild the Orders experience.
+
+The current page is far too empty and visually weak.
+
+New Orders page should contain:
+
+- clear page title
+- concise context
+- create-order action
+- search
+- filter
+- sort
+- status filters
+- compact summary
+- responsive list/table/card layout
+- rich status presentation
+- lifecycle preview
+- driver assignment status
+- ETA
+- route summary
+- contextual actions
+- pagination/infinite-scroll where appropriate
+- skeletons
+- errors
+- empty state
+- partial data state
+- loading state
+
+Do NOT use a giant white empty rectangle.
+
+EMPTY STATE:
+Create a premium animated logistics empty state.
+
+Example concept:
+- subtle map-grid background
+- pickup marker
+- destination marker
+- animated route stroke
+- tiny moving driver marker
+- concise message
+- primary CTA
+- secondary CTA
+
+Copy should feel natural and professional.
+
+==================================================
+12. ORDER DETAILS
+==================================================
+
+Create a premium order-details experience.
+
+It should show:
+
+- order ID
+- current status
+- live state
+- pickup
+- destination
+- driver
+- ETA
+- distance
+- current position
+- timestamps
+- lifecycle
+- map
+- related system events
+- dispatch decisions
+- offer state
+- retries/errors if any
+
+Create a strong order lifecycle component:
+
+Created
+Confirmed
+Dispatching
+Driver Offered
+Accepted
+Pickup
+In Transit
+Delivered
+
+Animate lifecycle changes.
+
+Current state should be instantly recognizable.
+
+==================================================
+13. LIVE TRACKING
+==================================================
+
+Create a dedicated live tracking experience.
+
+Use a real map surface.
+
+If MapLibre or existing map tooling can be introduced safely, use it.
+
+Show:
+- current driver position
+- route
+- pickup
+- destination
+- ETA
+- speed
+- distance remaining
+- last update
+- delivery zone
+- status
+- breadcrumb trail where useful
+
+Driver movement should interpolate smoothly.
+
+Do not teleport map markers between updates.
+
+Use subtle live indicators.
+
+==================================================
+14. DISPATCH EXPERIENCE
+==================================================
+
+This is one of FleetFlow’s most interesting backend capabilities.
+
+Make it visually compelling.
+
+Create a dispatch screen that exposes:
+
+- incoming order
+- candidate drivers
+- matching process
+- eligibility
+- proximity
+- zone constraints
+- driver availability
+- offer sent
+- offer waiting
+- accepted
+- declined
+- expired
+- reassignment if needed
+
+Visualize the process.
+
+Example:
+
+Order created
+↓
+5 drivers eligible
+↓
+3 inside zone
+↓
+2 available
+↓
+Offer sent to Ahmed
+↓
+Accepted
+↓
+Driver assigned
+
+This should be interactive and animated.
+
+Do not simply show a table of IDs.
+
+==================================================
+15. DELIVERY ZONES
+==================================================
+
+Make PostGIS visible.
+
+Create a real map-based zone interface.
+
+Show:
+- polygon boundaries
+- zone names
+- active/inactive state
+- drivers inside
+- active deliveries
+- zone utilization
+- center or metadata
+- hover states
+- selected-zone details
+
+If editing is supported:
+- polygon creation
+- polygon editing
+- validation
+- confirmation
+- clear feedback
+
+If editing is not supported:
+do not fake it.
+
+==================================================
+16. LIVE ACTIVITY / SYSTEM EVENTS
+==================================================
+
+Create a polished event stream.
+
+Visualize backend/system events such as:
+
+ORDER_CREATED
+DISPATCH_STARTED
+DRIVER_OFFERED
+OFFER_ACCEPTED
+DRIVER_ASSIGNED
+TRACKING_UPDATED
+OUTBOX_PUBLISHED
+DELIVERY_COMPLETED
+
+Show:
+- timestamp
+- event type
+- affected entity
+- status
+- metadata
+- retry/failure state
+
+Use subtle animation when new events arrive.
+
+Consider:
+- filtering
+- pause/resume stream
+- auto-scroll behavior
+- event details drawer
+- developer mode
+
+==================================================
+17. EMPTY, LOADING, ERROR STATES
+==================================================
+
+Every screen must have intentional states.
+
+Create:
+- skeleton states
+- no-data states
+- network error states
+- unauthorized state
+- empty state
+- partial state
+- disconnected/reconnecting state
+- retry state
+
+No raw “Loading...”
+No generic error box.
+
+==================================================
+18. COMPONENT SYSTEM
+==================================================
+
+Build reusable primitives.
+
+Examples:
+
+AppShell
+TopNavigation
+SideNavigation
+PageHeader
+MetricCard
+OrderCard
+OrderRow
+DriverCard
+StatusBadge
+StatusDot
+LifecycleTimeline
+LiveIndicator
+MapPanel
+ZoneOverlay
+EventRow
+ActivityFeed
+FilterBar
+SearchInput
+CommandPalette
+EmptyState
+ErrorState
+Skeleton
+Toast
+Drawer
+Modal
+Tooltip
+Tabs
+SegmentedControl
+TimelineStep
+ConnectionState
+SystemHealthBadge
+
+Prefer shared components over screen-specific duplication.
+
+==================================================
+19. DESIGN TOKENS
+==================================================
+
+Create a token system.
+
+Define:
+
+colors
+spacing
+radii
+shadows
+font sizes
+line heights
+font weights
+motion timing
+z-index
+border styles
+surface levels
+
+Use CSS variables or the project’s existing token mechanism.
+
+Avoid hardcoded arbitrary values scattered across components.
+
+==================================================
+20. RESPONSIVENESS
+==================================================
+
+Support:
+- desktop
+- laptop
+- tablet
+- mobile where practical
+
+The product should not just “shrink.”
+
+Recompose layouts.
+
+Examples:
+desktop:
+map + side panels
+
+tablet:
+map above details
+
+mobile:
+stacked cards and bottom sheets
+
+==================================================
+21. ACCESSIBILITY
+==================================================
+
+Required:
+
+- semantic HTML
+- keyboard navigation
+- visible focus
+- proper labels
+- proper ARIA where needed
+- sufficient contrast
+- reduced-motion support
+- screen-reader-friendly status labels
+- logical tab order
+
+Do not sacrifice accessibility for motion.
+
+==================================================
+22. PERFORMANCE
+==================================================
+
+Maintain excellent frontend performance.
+
+Avoid:
+- giant animation bundles
+- unnecessary rerenders
+- huge map reinitialization
+- excessive blur filters
+- unnecessary SVG complexity
+- constant animation loops
+
+Profile with DevTools.
+
+Optimize:
+- bundle size
+- map rendering
+- animation performance
+- layout shifts
+- route loading
+- lazy loading
+- image assets
+
+==================================================
+23. IMPLEMENTATION QUALITY
+==================================================
+
+Do not write spaghetti UI code.
+
+Refactor where necessary.
+
+Use:
+- feature-oriented structure
+- reusable components
+- clear hooks
+- typed API models
+- centralized state where appropriate
+- clean separation between data and presentation
+- consistent error handling
+
+Avoid giant 1,000-line components.
+
+==================================================
+24. TESTING
+==================================================
+
+Add or improve:
+
+- component tests
+- routing tests
+- interaction tests
+- form tests
+- loading/error state tests
+- auth state tests
+
+Use Playwright for real browser coverage where appropriate.
+
+Test key user flows:
+
+1. sign in
+2. open command center
+3. inspect orders
+4. create/view order
+5. inspect order details
+6. observe tracking
+7. inspect dispatch
+8. inspect zones
+9. inspect activity
+10. sign out
+
+If synthetic/demo data exists, use it.
+
+==================================================
+25. VISUAL QA LOOP
+==================================================
+
+This step is mandatory.
+
+After implementation:
+
+1. Start FleetFlow.
+2. Open the app in the browser.
+3. Capture screenshots of every major screen.
+4. Inspect spacing.
+5. Inspect typography.
+6. Inspect hierarchy.
+7. Inspect empty states.
+8. Inspect animation.
+9. Inspect hover states.
+10. Inspect mobile/tablet breakpoints.
+11. Inspect dark/light behavior if relevant.
+12. Inspect real backend integration.
+13. Inspect console errors.
+14. Inspect failed requests.
+15. Inspect performance.
+
+Then FIX what looks weak.
+
+Repeat the loop until the application looks deliberate and polished.
+
+Do not stop after the first implementation pass.
+
+==================================================
+26. QUALITY CHECK
+==================================================
+
+Before considering the redesign complete, ask:
+
+Does this feel like:
+- a real logistics product?
+- a system someone would pay for?
+- a portfolio piece that stands out?
+- a coherent product rather than disconnected screens?
+- a polished interface rather than a CSS makeover?
+
+If the answer to any is no:
+continue refining.
+
+==================================================
+27. STRICT ANTI-PATTERNS
+==================================================
+
+Do not use:
+- giant generic gradients
+- excessive glassmorphism
+- meaningless charts
+- fake metrics
+- giant rounded cards everywhere
+- badge spam
+- floating blobs
+- neon borders
+- pointless glow
+- random animations
+- decorative maps with no purpose
+- placeholder lorem ipsum
+- duplicated components
+- arbitrary CSS
+- 5 different shadow systems
+- excessive font sizes
+- enormous whitespace
+- single-screen redesign only
+
+==================================================
+28. FINAL DELIVERABLES
+==================================================
+
+Produce:
+
+1. full visual redesign
+2. reusable design system
+3. redesigned navigation
+4. Command Center
+5. Orders
+6. Order Details
+7. Live Tracking
+8. Dispatch
+9. Delivery Zones
+10. Activity / Events
+11. polished loading/error/empty states
+12. responsive behavior
+13. motion system
+14. frontend refactor where required
+15. tests
+16. visual QA evidence
+17. performance check
+18. accessibility review
+
+Also create/update:
+
+UI.md
+
+UI.md should document:
+
+- design philosophy
+- visual identity
+- colors
+- typography
+- spacing
+- component philosophy
+- animation rules
+- map interaction rules
+- status semantics
+- responsive behavior
+- accessibility rules
+- major page structures
+- rationale behind important decisions
+
+==================================================
+29. EXECUTION MODE
+==================================================
+
+Work autonomously.
+
+Do not ask me to choose every small design decision.
+
+Use your judgment.
+
+When multiple valid solutions exist:
+choose the one that produces the strongest user experience, cleanest architecture, best maintainability, and most coherent visual system.
+
+Use all relevant available plugins and MCPs where they materially improve the work.
+
+Do not use tools just for the sake of using them.
+
+The preferred workflow is:
+
+repository inspection
+→ design research
+→ OpenDesign exploration
+→ multiple design directions
+→ select/refine direction
+→ define design system
+→ implement
+→ run app
+→ browser inspection
+→ screenshot critique
+→ refine
+→ test
+→ performance/accessibility pass
+→ final cleanup
+
+==================================================
+30. MOST IMPORTANT REQUIREMENT
+==================================================
+
+Do not treat the current FleetFlow UI as a design foundation.
+
+Treat it as a functional prototype.
+
+The visual language, layout, hierarchy, motion, composition, components, and information architecture may be completely rethought.
+
+Preserve working functionality.
+
+Replace weak design.
+
+The final interface should make a recruiter, engineer, or product person immediately think:
+
+“This is a serious, beautifully engineered logistics platform.”
+
+Do not stop when it becomes acceptable.
+
+Continue until it feels exceptional.
