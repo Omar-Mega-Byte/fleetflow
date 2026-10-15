@@ -14,6 +14,7 @@ spring:
     hikari:
       connection-timeout: 5000
       maximum-pool-size: 10
+      connection-init-sql: "SET statement_timeout = '15s'; SET lock_timeout = '3s'"
   data:
     redis:
       host: ${REDIS_HOST:127.0.0.1}
@@ -77,7 +78,7 @@ management:
         enabled: true
       group:
         readiness:
-          include: readinessState,db,redis
+          include: readinessState,db
         liveness:
           include: livenessState
 logging:
@@ -94,12 +95,16 @@ logging:
     level: "%5p [cid:%X{correlationId:-}]"
   level:
     org.hibernate.orm.jdbc.error: OFF
+    # Framework recovery logging can include ConsumerRecord values and exception parameters.
+    # Safe failure counters and structured recovery logs are emitted by EventKafkaConfiguration.
+    org.springframework.kafka.listener.DefaultErrorHandler: OFF
 fleetflow:
   rate:
     read-limit: ${RATE_READ_LIMIT:60}
     expensive-read-limit: ${RATE_EXPENSIVE_READ_LIMIT:30}
     command-limit: ${RATE_COMMAND_LIMIT:30}
     stream-limit: ${RATE_STREAM_LIMIT:6}
+    demo-write-limit: ${RATE_DEMO_WRITE_LIMIT:5}
   events:
     topic: ${EVENTS_TOPIC:fleetflow.domain-events.v1}
   outbox:
@@ -141,6 +146,14 @@ fleetflow:
     enabled: ${RECOVERY_ENABLED:true}
     batch-size: ${RECOVERY_BATCH_SIZE:50}
     sweep-interval-ms: ${RECOVERY_SWEEP_INTERVAL_MS:5000}
+  demo:
+    enabled: ${DEMO_ENABLED:false}
+    oidc-issuer: ${DEMO_OIDC_ISSUER:${OIDC_ISSUER:}}
+    customer-subject: ${DEMO_CUSTOMER_SUBJECT:fleetflow-demo-customer}
+    merchant-subject: ${DEMO_MERCHANT_SUBJECT:fleetflow-demo-merchant}
+    driver-subject: ${DEMO_DRIVER_SUBJECT:fleetflow-demo-driver}
+    dispatcher-subject: ${DEMO_DISPATCHER_SUBJECT:fleetflow-demo-dispatcher}
+    operator-subject: ${DEMO_OPERATOR_SUBJECT:fleetflow-demo-operator}
 springdoc:
   paths-to-match: /api/v1/**
   api-docs:

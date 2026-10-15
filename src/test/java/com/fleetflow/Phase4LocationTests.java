@@ -125,7 +125,8 @@ class Phase4LocationTests extends ProfileTestDatabase {
         mvc.perform(post("/api/v1/drivers/me/location").header("Authorization", bearer(driver))
                 .contentType(MediaType.APPLICATION_JSON).content(body(30, 31, Instant.now())
                         .replace("}", ",\"padding\":\"" + "x".repeat(1100) + "\"}")))
-                .andExpect(status().isBadRequest());
+                .andExpect(status().isPayloadTooLarge())
+                .andExpect(jsonPath("$.code").value("PAYLOAD_TOO_LARGE"));
         mvc.perform(post("/api/v1/drivers/me/location").header("Authorization", bearer(driver))
                 .contentType(MediaType.APPLICATION_JSON).content(body(30, 31, Instant.now())
                         .replace("}", ",\"heading\":360}")))
@@ -169,8 +170,8 @@ class Phase4LocationTests extends ProfileTestDatabase {
         var reachedController = new AtomicBoolean();
         Filter filter = context.getBean("locationBodyLimit", FilterRegistrationBean.class).getFilter();
         filter.doFilter(request, response, (ignoredRequest, ignoredResponse) -> reachedController.set(true));
-        assertThat(response.getStatus()).isEqualTo(400);
-        assertThat(response.getContentAsString()).contains("INVALID_REQUEST");
+        assertThat(response.getStatus()).isEqualTo(413);
+        assertThat(response.getContentAsString()).contains("PAYLOAD_TOO_LARGE");
         assertThat(reachedController.get()).isFalse();
     }
 
@@ -204,7 +205,9 @@ class Phase4LocationTests extends ProfileTestDatabase {
         update(driver, 30, 31.001, first.plusNanos(1), 204);
         update(driver, 30, 31.002, first.plusNanos(2), 204);
         String afterAccepted = redisTemplate.opsForValue().get(heartbeatKey);
-        update(driver, 30, 31.003, first.plusNanos(3), 429);
+        mvc.perform(post("/api/v1/drivers/me/location").header("Authorization", bearer(driver))
+                .contentType(MediaType.APPLICATION_JSON).content(body(30, 31.003, first.plusNanos(3))))
+                .andExpect(status().isTooManyRequests()).andExpect(header().string("Retry-After", "60"));
         assertThat(redisTemplate.opsForHash().get(locationKey, "longitude")).isEqualTo("31.002");
         assertThat(redisTemplate.opsForValue().get(heartbeatKey)).isEqualTo(afterAccepted);
         mvc.perform(post("/api/v1/drivers/me/heartbeat").header("Authorization", bearer(driver)))
@@ -212,7 +215,8 @@ class Phase4LocationTests extends ProfileTestDatabase {
         String beforeLimitedBeat = redisTemplate.opsForValue().get(heartbeatKey);
         mvc.perform(post("/api/v1/drivers/me/heartbeat").header("Authorization", bearer(driver)))
                 .andExpect(status().isTooManyRequests())
-                .andExpect(jsonPath("$.code").value("HEARTBEAT_RATE_LIMITED"));
+                .andExpect(jsonPath("$.code").value("HEARTBEAT_RATE_LIMITED"))
+                .andExpect(header().string("Retry-After", "60"));
         assertThat(redisTemplate.opsForValue().get(heartbeatKey)).isEqualTo(beforeLimitedBeat);
     }
 
@@ -234,6 +238,32 @@ class Phase4LocationTests extends ProfileTestDatabase {
         mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders
                         .get("/api/v1/drivers/me").header("Authorization", bearer(customer)))
                 .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void routeBudgetEnforcesBoundaryAndRecoversWithActorAndClassIsolation() throws Exception {
+        Fixture driver = fixture("DRIVER", true, true);
+        String readKey = "fleetflow:rate:route:read:" + driver.actorId;
+        redisTemplate.opsForValue().set(readKey, "59", Duration.ofSeconds(2));
+
+        mvc.perform(get("/api/v1/drivers/me").header("Authorization", bearer(driver)))
+                .andExpect(status().isOk());
+        mvc.perform(get("/api/v1/drivers/me").header("Authorization", bearer(driver)))
+                .andExpect(status().isTooManyRequests())
+                .andExpect(jsonPath("$.code").value("RATE_LIMITED"))
+                .andExpect(header().exists("Retry-After"));
+
+        // The same actor's command budget is independent of the saturated read budget.
+        mvc.perform(post("/api/v1/drivers/me/online").header("Authorization", bearer(driver)))
+                .andExpect(status().isOk());
+
+        Fixture otherDriver = fixture("DRIVER", true, true);
+        mvc.perform(get("/api/v1/drivers/me").header("Authorization", bearer(otherDriver)))
+                .andExpect(status().isOk());
+
+        awaitMissing(readKey);
+        mvc.perform(get("/api/v1/drivers/me").header("Authorization", bearer(driver)))
+                .andExpect(status().isOk());
     }
 
     @Test
@@ -395,6 +425,36 @@ class Phase4LocationTests extends ProfileTestDatabase {
         assertThat(locations.nearby(30, 31, 500, 1)).hasSize(1);
     }
 
+    @Test
+    void slowRedisCommandTimesOutWithinBudgetAndDoesNotChangeDurableState() throws Exception {
+        Fixture driver = fixture("DRIVER", true, true);
+        onlineAvailable(driver);
+        update(driver, 30, 31, Instant.now().minusSeconds(1), 204);
+        int ordersBefore = jdbc.queryForObject("select count(*) from orders", Integer.class);
+
+        assertThat(redis.execInContainer("redis-cli", "CLIENT", "PAUSE", "4000", "ALL").getStdout())
+                .contains("OK");
+        long started = System.nanoTime();
+        try {
+            mvc.perform(post("/api/v1/drivers/me/location").header("Authorization", bearer(driver))
+                    .contentType(MediaType.APPLICATION_JSON).content(body(30, 31.2, Instant.now())))
+                    .andExpect(status().isServiceUnavailable())
+                    .andExpect(jsonPath("$.code").value("REDIS_UNAVAILABLE"));
+            long elapsedMillis = java.util.concurrent.TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - started);
+            assertThat(elapsedMillis).isBetween(1500L, 5000L);
+            assertThat(jdbc.queryForObject("select operational_status from drivers where id = ?", String.class,
+                    driver.driverId)).isEqualTo("AVAILABLE");
+            assertThat(jdbc.queryForObject("select count(*) from orders", Integer.class)).isEqualTo(ordersBefore);
+        } finally {
+            // CLIENT PAUSE expires on its own; wait for Redis before issuing cleanup assertions.
+            Thread.sleep(2500);
+        }
+
+        awaitRedisReady();
+        update(driver, 30, 31.2, Instant.now(), 204);
+        assertThat(store.latest(driver.driverId).longitude()).isEqualTo(31.2);
+    }
+
     private void onlineAvailable(Fixture fixture) throws Exception {
         mvc.perform(post("/api/v1/drivers/me/online").header("Authorization", bearer(fixture)))
                 .andExpect(status().isOk());
@@ -439,7 +499,7 @@ class Phase4LocationTests extends ProfileTestDatabase {
     }
     private static class RestartableRedisContainer extends GenericContainer<RestartableRedisContainer> {
         RestartableRedisContainer(int hostPort) {
-            super("redis:7.4.7-alpine");
+            super("redis:7.4.11-alpine@sha256:858f009f9709ce576febc734aa78b8f6d624b82571f9ddb6bda4377c833b3499");
             addFixedExposedPort(hostPort, 6379);
         }
     }

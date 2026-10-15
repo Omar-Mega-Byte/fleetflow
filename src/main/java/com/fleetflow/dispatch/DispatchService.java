@@ -15,6 +15,7 @@ import com.fleetflow.identity.Role;
 import com.fleetflow.location.DriverEligibility;
 import com.fleetflow.location.LocationService;
 import com.fleetflow.security.ActorAccess;
+import io.micrometer.core.instrument.MeterRegistry;
 import org.springframework.http.HttpStatus;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
@@ -29,11 +30,14 @@ public class DispatchService {
     private final MatchingProperties config;
     private final Clock clock;
     private final DispatchCommit commit;
+    private final MeterRegistry metrics;
 
     DispatchService(JdbcTemplate jdbc, ActorAccess access, LocationService locations,
-                    DriverEligibility eligibility, MatchingProperties config, Clock clock, DispatchCommit commit) {
+                    DriverEligibility eligibility, MatchingProperties config, Clock clock, DispatchCommit commit,
+                    MeterRegistry metrics) {
         this.jdbc = jdbc; this.access = access; this.locations = locations;
         this.eligibility = eligibility; this.config = config; this.clock = clock; this.commit = commit;
+        this.metrics = metrics;
         if (config.radiusMeters() > locations.policy().maxRadiusMeters()
                 || config.candidateLimit() > locations.policy().maxResults()) {
             throw new IllegalArgumentException("Matching search exceeds location policy");
@@ -105,10 +109,12 @@ public class DispatchService {
         String outcome = inspected.isEmpty() ? "NO_NEARBY_CANDIDATE"
                 : eligible.isEmpty() ? "NO_ELIGIBLE_CANDIDATE" : "RANKED";
         Instant completedAt = clock.instant();
-        return commit.save(orderId, actorId, fromStatus, retryReason,
+        StartResult result = commit.save(orderId, actorId, fromStatus, retryReason,
                 startedAt, decisionAt, completedAt, outcome,
                 snapshots.values().stream().sorted(java.util.Comparator.comparing(Candidate::driverId)).toList(),
                 config, locations.policy(), locations.geoCap(config.candidateLimit()));
+        metrics.counter("fleetflow.dispatch.outcomes", "outcome", result.outcome()).increment();
+        return result;
     }
 
     @Transactional(readOnly = true)

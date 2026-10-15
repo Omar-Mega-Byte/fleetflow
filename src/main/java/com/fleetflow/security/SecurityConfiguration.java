@@ -2,6 +2,7 @@ package com.fleetflow.security;
 
 import com.fleetflow.api.SecurityProblemWriter;
 import com.fleetflow.identity.ActorResolver;
+import io.micrometer.core.instrument.MeterRegistry;
 import jakarta.servlet.http.HttpServletResponse;
 import java.util.Set;
 import org.springframework.context.annotation.Bean;
@@ -18,7 +19,7 @@ import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 public class SecurityConfiguration {
     @Bean
     SecurityFilterChain securityFilterChain(HttpSecurity http, ActorResolver resolver,
-                                            SecurityProblemWriter errors, Environment environment) throws Exception {
+                                            SecurityProblemWriter errors, Environment environment, MeterRegistry metrics) throws Exception {
         Set<String> profiles = Set.of(environment.getActiveProfiles());
         boolean localFixtures = profiles.equals(Set.of("local")) || profiles.equals(Set.of("test"));
         boolean monitoring = profiles.contains("monitoring");
@@ -43,6 +44,15 @@ public class SecurityConfiguration {
                     }
                     auth.requestMatchers(HttpMethod.GET, "/api/v1/orders", "/api/v1/orders/*")
                             .hasRole("CUSTOMER");
+                    auth.requestMatchers(HttpMethod.GET, "/api/v1/session")
+                            .hasAnyRole("CUSTOMER", "MERCHANT", "DRIVER", "SUPPORT", "DISPATCHER", "ADMIN");
+                    auth.requestMatchers(HttpMethod.GET, "/api/v1/operations/outbox/failed")
+                            .hasRole("ADMIN");
+                    auth.requestMatchers(HttpMethod.GET, "/api/v1/operations/events/quarantined")
+                            .hasRole("ADMIN");
+                    auth.requestMatchers(HttpMethod.POST, "/api/v1/operations/outbox/*/replay")
+                            .hasRole("ADMIN");
+                    auth.requestMatchers("/api/v1/demo", "/api/v1/demo/**").hasRole("ADMIN");
                     auth.requestMatchers(HttpMethod.GET, "/api/v1/orders/*/tracking",
                             "/api/v1/orders/*/tracking/stream").hasRole("CUSTOMER");
                     auth.requestMatchers(HttpMethod.GET, "/api/v1/merchant-branches/*/orders")
@@ -122,6 +132,7 @@ public class SecurityConfiguration {
                         .accessDeniedHandler((request, response, failure) ->
                                 errors.write(request, response, HttpServletResponse.SC_FORBIDDEN,
                                         "FORBIDDEN", "Access denied")))
+                .addFilterBefore(new IdentityAvailabilityFilter(errors, metrics), BearerTokenAuthenticationFilter.class)
                 .addFilterAfter(new ActorAuthenticationFilter(resolver, errors), BearerTokenAuthenticationFilter.class);
         return http.build();
     }

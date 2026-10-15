@@ -2,9 +2,7 @@ package com.fleetflow.events;
 
 import java.time.Duration;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicLong;
 
-import io.micrometer.core.instrument.Gauge;
 import io.micrometer.core.instrument.MeterRegistry;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -23,9 +21,6 @@ public class OutboxPublisher {
     private final Duration sendTimeout;
     private final int maxAttempts;
     private final MeterRegistry metrics;
-    private final AtomicLong pending = new AtomicLong();
-    private final AtomicLong failed = new AtomicLong();
-    private final AtomicLong oldestSeconds = new AtomicLong();
 
     public OutboxPublisher(OutboxStore store, KafkaTemplate<String, String> kafka,
                            MeterRegistry metrics,
@@ -46,9 +41,6 @@ public class OutboxPublisher {
                 || lease.compareTo(sendTimeout.multipliedBy(2)) < 0) {
             throw new IllegalArgumentException("Outbox batch and retry limits must be positive; lease must cover send timeout");
         }
-        Gauge.builder("fleetflow.outbox.pending", pending, AtomicLong::get).register(metrics);
-        Gauge.builder("fleetflow.outbox.failed", failed, AtomicLong::get).register(metrics);
-        Gauge.builder("fleetflow.outbox.oldest.seconds", oldestSeconds, AtomicLong::get).register(metrics);
     }
 
     /** One sweep uses no database locks during the broker call. */
@@ -81,10 +73,6 @@ public class OutboxPublisher {
                 if (Thread.currentThread().isInterrupted()) break;
             }
         }
-        OutboxStore.Backlog backlog = store.backlog();
-        pending.set(backlog.pending());
-        failed.set(backlog.failed());
-        oldestSeconds.set((long) backlog.oldestSeconds());
         return sent;
     }
 }

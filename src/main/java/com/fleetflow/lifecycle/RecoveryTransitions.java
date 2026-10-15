@@ -48,7 +48,8 @@ public class RecoveryTransitions {
                 to, to, id, from);
         if (rows.size() != 1) throw conflict();
         Change change = rows.getFirst();
-        jdbc.update("""
+        // Early cancellation uses canonical lifecycle history; dispatch history only accepts dispatch edges.
+        if (!("CANCELLED".equals(to) && OrderTransition.CANCEL_MERCHANT.allows(from))) jdbc.update("""
                 insert into order_status_history
                 (id, order_id, actor_id, source, from_status, to_status, changed_at)
                 values (?, ?, ?, ?, ?, ?, ?)

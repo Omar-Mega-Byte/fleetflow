@@ -5,6 +5,8 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 
 import jakarta.servlet.Filter;
 import java.util.UUID;
+import java.util.LinkedHashMap;
+import java.util.Map;
 import java.util.regex.Pattern;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -18,7 +20,7 @@ import org.springframework.web.context.WebApplicationContext;
 import org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandlerMapping;
 
 /** Exercises the security chain for every registered business route, including new routes. */
-@SpringBootTest
+@SpringBootTest(properties = "fleetflow.demo.enabled=true")
 @ActiveProfiles("test")
 class Phase11RouteBoundaryTests extends ProfileTestDatabase {
     private static final Pattern PARAMETER = Pattern.compile("\\{[^}]+}");
@@ -31,6 +33,8 @@ class Phase11RouteBoundaryTests extends ProfileTestDatabase {
         String customerSubject = "route-customer-" + UUID.randomUUID();
         String adminSubject = "route-admin-" + UUID.randomUUID();
         String inactiveSubject = "route-inactive-" + UUID.randomUUID();
+        String unprivilegedSubject = "route-unprivileged-" + UUID.randomUUID();
+        createActor(unprivilegedSubject, null);
         createActor(customerSubject, "CUSTOMER");
         createActor(adminSubject, "ADMIN");
         UUID inactive = createActor(inactiveSubject, "CUSTOMER");
@@ -38,6 +42,7 @@ class Phase11RouteBoundaryTests extends ProfileTestDatabase {
         var mvc = MockMvcBuilders.webAppContextSetup(context)
                 .addFilters(new CorrelationIdFilter(), context.getBean("springSecurityFilterChain", Filter.class))
                 .build();
+        Map<String, Long> before = durableState();
         int checked = 0;
         for (var entry : mappings.getHandlerMethods().entrySet()) {
             var paths = entry.getKey().getPathPatternsCondition();
@@ -52,7 +57,8 @@ class Phase11RouteBoundaryTests extends ProfileTestDatabase {
                     HttpMethod httpMethod = HttpMethod.valueOf(method.name());
                     int anonymous = mvc.perform(request(httpMethod, concrete)).andReturn().getResponse().getStatus();
                     assertThat(anonymous).as("anonymous %s %s", method, route).isEqualTo(401);
-                    String wrongSubject = wrongRoleSubject(route, adminSubject, customerSubject);
+                    String wrongSubject = route.equals("/api/v1/session") ? unprivilegedSubject
+                            : wrongRoleSubject(route, adminSubject, customerSubject);
                     int wrongRole = mvc.perform(request(httpMethod, concrete)
                             .header("Authorization", "Bearer " + TestOidc.token(wrongSubject)))
                             .andReturn().getResponse().getStatus();
@@ -67,6 +73,18 @@ class Phase11RouteBoundaryTests extends ProfileTestDatabase {
         }
         System.out.println("Phase 11 signed route boundary checks: " + checked + " operations");
         assertThat(checked).as("registered business operations exercised").isGreaterThanOrEqualTo(40);
+        assertThat(durableState()).as("anonymous, wrong-role, and inactive requests produce no durable or outbox writes")
+                .isEqualTo(before);
+    }
+
+    private Map<String, Long> durableState() {
+        Map<String, Long> counts = new LinkedHashMap<>();
+        for (String table : jdbc.queryForList("select tablename from pg_tables "
+                + "where schemaname = 'public' and tablename <> 'flyway_schema_history' order by tablename",
+                String.class)) {
+            counts.put(table, jdbc.queryForObject("select count(*) from public." + table, Long.class));
+        }
+        return counts;
     }
 
     private static String wrongRoleSubject(String route, String admin, String customer) {
@@ -81,7 +99,7 @@ class Phase11RouteBoundaryTests extends ProfileTestDatabase {
         UUID id = UUID.randomUUID();
         jdbc.update("insert into actors (id, issuer, subject, active, created_at, updated_at) "
                 + "values (?, ?, ?, true, now(), now())", id, TestOidc.ISSUER, subject);
-        jdbc.update("insert into actor_roles (actor_id, role) values (?, ?)", id, role);
+        if (role != null) jdbc.update("insert into actor_roles (actor_id, role) values (?, ?)", id, role);
         return id;
     }
 }

@@ -44,11 +44,11 @@ class KeycloakProviderTests {
     private static final String ADMIN_USER = "bootstrap-" + UUID.randomUUID();
     private static final String ADMIN_PASSWORD = UUID.randomUUID() + "-" + UUID.randomUUID();
     private static final PostgreSQLContainer postgres = PostgisTestDatabase.create();
-    private static final GenericContainer<?> redis = new GenericContainer<>("redis:7.4.7-alpine")
+    private static final GenericContainer<?> redis = new GenericContainer<>("redis:7.4.11-alpine@sha256:858f009f9709ce576febc734aa78b8f6d624b82571f9ddb6bda4377c833b3499")
             .withExposedPorts(6379).withCommand("redis-server", "--save", "", "--appendonly", "no")
             .waitingFor(Wait.forListeningPort());
     private static final GenericContainer<?> keycloak = new GenericContainer<>(DockerImageName.parse(
-            "quay.io/keycloak/keycloak:26.7.5@sha256:37dbaf6f0722c9ec246335f36e1ef8b2e6cb960f7c27e0d8c615121a3d475a85"))
+            "quay.io/keycloak/keycloak:26.8.1@sha256:79c623a22abacf3fe6c00a5fb30f5b7843d717b234033b80995891c06116d244"))
             .withExposedPorts(8080)
             .withCopyFileToContainer(MountableFile.forClasspathResource("oidc/fleetflow-realm.json"),
                     "/opt/keycloak/data/import/fleetflow-realm.json")

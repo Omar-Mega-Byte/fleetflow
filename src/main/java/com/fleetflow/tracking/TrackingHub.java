@@ -13,6 +13,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import com.fleetflow.api.ApiFailure;
+import io.micrometer.core.instrument.MeterRegistry;
 import jakarta.annotation.PreDestroy;
 import org.springframework.dao.DataAccessException;
 import org.springframework.http.HttpStatus;
@@ -33,6 +34,7 @@ public class TrackingHub {
 
     private final TrackingSnapshotReader reader;
     private final Clock clock;
+    private final MeterRegistry metrics;
     private final ConcurrentHashMap<UUID, Session> sessions = new ConcurrentHashMap<>();
     private final ThreadPoolExecutor sender = new ThreadPoolExecutor(2, 4, 30, TimeUnit.SECONDS,
             new ArrayBlockingQueue<>(MAX_STREAMS), task -> {
@@ -41,9 +43,10 @@ public class TrackingHub {
                 return thread;
             }, new ThreadPoolExecutor.AbortPolicy());
 
-    TrackingHub(TrackingSnapshotReader reader, Clock clock) {
+    TrackingHub(TrackingSnapshotReader reader, Clock clock, MeterRegistry metrics) {
         this.reader = reader;
         this.clock = clock;
+        this.metrics = metrics;
     }
 
     public SseEmitter open(UUID orderId, UUID actorId, Instant tokenExpiresAt) {
@@ -60,23 +63,25 @@ public class TrackingHub {
         synchronized (this) {
             if (sessions.size() >= MAX_STREAMS || sessions.values().stream()
                     .filter(existing -> existing.actorId.equals(actorId)).count() >= MAX_PER_ACTOR) {
-                throw new ApiFailure(HttpStatus.TOO_MANY_REQUESTS, "TRACKING_LIMIT", "Too many tracking streams");
+                connection("rejected");
+                throw new ApiFailure(HttpStatus.TOO_MANY_REQUESTS, "TRACKING_LIMIT", "Too many tracking streams", 15L);
             }
             sessions.put(session.id, session);
         }
-        session.emitter.onCompletion(() -> forget(session));
-        session.emitter.onTimeout(() -> close(session));
-        session.emitter.onError(failure -> forget(session));
+        connection("opened");
+        session.emitter.onCompletion(() -> forget(session, "client_closed"));
+        session.emitter.onTimeout(() -> close(session, "stream_timeout"));
+        session.emitter.onError(failure -> forget(session, "send_failure"));
         try {
             synchronized (session) {
                 TrackingSnapshotReader.Snapshot snapshot = reader.read(orderId, actorId);
                 send(session, "snapshot", snapshot);
                 session.last = snapshot;
-                if (snapshot.terminal()) close(session);
+                if (snapshot.terminal()) close(session, "terminal");
             }
             return session.emitter;
         } catch (IOException | RuntimeException failure) {
-            close(session);
+            close(session, "send_failure");
             throw failure instanceof RuntimeException runtime ? runtime
                     : new ApiFailure(HttpStatus.SERVICE_UNAVAILABLE, "TRACKING_UNAVAILABLE",
                             "Tracking stream unavailable");
@@ -117,7 +122,7 @@ public class TrackingHub {
             if (!now.isBefore(session.endsAt)
                     || (session.pending.get() && session.pendingSince != null
                     && session.pendingSince.isBefore(now.minus(SLOW_LIMIT)))) {
-                close(session);
+                close(session, now.isBefore(session.endsAt) ? "slow_client_evicted" : "stream_expired");
             } else {
                 enqueue(session);
             }
@@ -127,31 +132,31 @@ public class TrackingHub {
     public int activeStreams() { return sessions.size(); }
 
     private void enqueue(Session session) {
-        if (session.closed || !session.pending.compareAndSet(false, true)) return;
+        if (session.closed.get() || !session.pending.compareAndSet(false, true)) return;
         session.pendingSince = clock.instant();
         try {
             sender.execute(() -> {
                 try {
                     synchronized (session) {
-                        if (session.closed) return;
+                        if (session.closed.get()) return;
                         Instant now = clock.instant();
                         if (!now.isBefore(session.endsAt)) {
-                            close(session);
+                            close(session, "stream_expired");
                             return;
                         }
                         TrackingSnapshotReader.Snapshot current = reader.read(session.orderId, session.actorId);
-                        if (session.closed) return;
+                        if (session.closed.get()) return;
                         if (!current.sameContent(session.last)) {
                             send(session, "tracking", current);
                             session.last = current;
-                            if (current.terminal()) close(session);
+                            if (current.terminal()) close(session, "terminal");
                         } else if (!session.lastSent.plus(HEARTBEAT).isAfter(now)) {
                             session.emitter.send(SseEmitter.event().comment("keepalive"));
                             session.lastSent = now;
                         }
                     }
                 } catch (IOException | RuntimeException failure) {
-                    close(session);
+                    close(session, "send_failure");
                 } finally {
                     session.pendingSince = null;
                     session.pending.set(false);
@@ -159,7 +164,7 @@ public class TrackingHub {
             });
         } catch (java.util.concurrent.RejectedExecutionException full) {
             session.pending.set(false);
-            close(session);
+            close(session, "executor_rejected");
         }
     }
 
@@ -169,19 +174,25 @@ public class TrackingHub {
         session.lastSent = clock.instant();
     }
 
-    private void close(Session session) {
-        forget(session);
+    private void close(Session session, String outcome) {
+        if (!forget(session, outcome)) return;
         session.emitter.complete();
     }
 
-    private void forget(Session session) {
-        session.closed = true;
+    private boolean forget(Session session, String outcome) {
+        if (!session.closed.compareAndSet(false, true)) return false;
         sessions.remove(session.id, session);
+        connection(outcome);
+        return true;
+    }
+
+    private void connection(String outcome) {
+        metrics.counter("fleetflow.tracking.connections", "outcome", outcome).increment();
     }
 
     @PreDestroy
     void stop() {
-        sessions.values().forEach(this::close);
+        sessions.values().forEach(session -> close(session, "shutdown"));
         sender.shutdownNow();
     }
 
@@ -193,7 +204,7 @@ public class TrackingHub {
         final SseEmitter emitter;
         final AtomicBoolean pending = new AtomicBoolean();
         volatile Instant pendingSince;
-        volatile boolean closed;
+        final AtomicBoolean closed = new AtomicBoolean();
         TrackingSnapshotReader.Snapshot last;
         Instant lastSent = Instant.EPOCH;
         long sequence;

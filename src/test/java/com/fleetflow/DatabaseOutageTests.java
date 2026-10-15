@@ -54,7 +54,15 @@ class DatabaseOutageTests {
                 .build();
         String token = "Bearer " + TestOidc.token(subject);
         mvc.perform(get("/api/v1/orders").header("Authorization", token)).andExpect(status().isOk());
+        mvc.perform(get("/actuator/health/liveness")).andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("UP"));
+        mvc.perform(get("/actuator/health/readiness")).andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("UP"));
         postgres.stop();
+        mvc.perform(get("/actuator/health/liveness")).andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("UP"));
+        mvc.perform(get("/actuator/health/readiness")).andExpect(status().isServiceUnavailable())
+                .andExpect(jsonPath("$.status").value("DOWN"));
         String body = mvc.perform(get("/api/v1/orders").header("Authorization", token)
                         .header("X-Correlation-ID", "postgres-outage"))
                 .andExpect(status().isServiceUnavailable())

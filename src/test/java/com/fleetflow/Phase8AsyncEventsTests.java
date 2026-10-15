@@ -25,6 +25,8 @@ import com.fleetflow.events.OutboxPublisher;
 import com.fleetflow.events.OutboxStore;
 import com.fleetflow.events.EventProjector;
 import com.fleetflow.lifecycle.LifecycleHistory;
+import com.fleetflow.operations.OperationalMeters;
+import io.micrometer.core.instrument.MeterRegistry;
 import jakarta.servlet.Filter;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import org.apache.kafka.clients.producer.ProducerConfig;
@@ -49,11 +51,14 @@ import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.web.context.WebApplicationContext;
 import org.testcontainers.kafka.KafkaContainer;
+import org.testcontainers.utility.DockerImageName;
 
 @SpringBootTest
 @ActiveProfiles("test")
 class Phase8AsyncEventsTests extends ProfileTestDatabase {
-    private static final KafkaContainer broker = new KafkaContainer("apache/kafka:3.9.1");
+    private static final KafkaContainer broker = new KafkaContainer(DockerImageName.parse(
+            "apache/kafka:3.9.2@sha256:05b4616e0702ef2729327705d54ad6b50ea70b271c4b730fabd2320789fb7b02")
+            .asCompatibleSubstituteFor("apache/kafka"));
     static { broker.start(); }
 
     @DynamicPropertySource
@@ -71,6 +76,8 @@ class Phase8AsyncEventsTests extends ProfileTestDatabase {
     @Autowired LifecycleHistory history;
     @Autowired PlatformTransactionManager transactions;
     @Autowired KafkaTemplate<String, String> kafka;
+    @Autowired OperationalMeters operationalMeters;
+    @Autowired MeterRegistry meters;
     @Autowired KafkaListenerEndpointRegistry listeners;
     MockMvc mvc;
 
@@ -111,6 +118,7 @@ class Phase8AsyncEventsTests extends ProfileTestDatabase {
                 .isEqualTo("PUBLISHED");
         assertThat(jdbc.queryForObject("select count(*) from notifications where event_id = ?",
                 Integer.class, event)).isEqualTo(1);
+
         assertThat(jdbc.queryForObject("select total from analytics_daily_order_transitions "
                 + "where day = ? and status = 'CONFIRMED'", Long.class,
                 LocalDate.now(ZoneOffset.UTC))).isGreaterThanOrEqualTo(1L);
@@ -213,10 +221,115 @@ class Phase8AsyncEventsTests extends ProfileTestDatabase {
                 + "where error_code = 'INVALID_EVENT_JSON'", Integer.class)).isEqualTo(2);
         assertThat(jdbc.queryForObject("select count(*) from quarantined_events "
                 + "where error_code = 'UNSUPPORTED_EVENT_ENVELOPE'", Integer.class)).isEqualTo(2);
+        operationalMeters.refresh();
+        assertThat(meters.get("fleetflow.events.quarantined.rows").gauge().value()).isEqualTo(4);
+        jdbc.update("insert into actor_roles(actor_id, role) values (?, 'ADMIN')", fixture.dispatcher().id());
+        mvc.perform(get("/api/v1/operations/events/quarantined")
+                        .header("Authorization", bearer(fixture.customer())))
+                .andExpect(status().isForbidden());
+        mvc.perform(get("/api/v1/operations/events/quarantined?limit=100")
+                        .header("Authorization", bearer(fixture.dispatcher())))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content.length()").value(4))
+                .andExpect(jsonPath("$.content[0].errorCode").exists())
+                .andExpect(jsonPath("$.content[0].payload").doesNotExist());
+        jdbc.update("update quarantined_events set quarantined_at = clock_timestamp() - interval '11 minutes'");
+        operationalMeters.refresh();
+        assertThat(meters.get("fleetflow.events.quarantined.rows").gauge().value()).isZero();
+        assertThat(jdbc.queryForObject("select count(*) from quarantined_events", Integer.class)).isEqualTo(4);
         assertThat(jdbc.queryForObject("select count(*) from processed_events where event_id = ?",
                 Integer.class, event)).isEqualTo(2);
         assertThat(jdbc.queryForObject("select count(*) from notifications where event_id = ?",
                 Integer.class, event)).isEqualTo(1);
+    }
+
+    @Test
+    void failedOutboxReplayIsAdminOnlyAuditedIdempotentAndUsesNormalConsumerDedupe() throws Exception {
+        Fixture fixture = fixture();
+        jdbc.update("insert into actor_roles(actor_id, role) values (?, 'ADMIN')", fixture.dispatcher().id());
+        UUID order = createdOrder(fixture);
+        confirm(fixture, order);
+        UUID event = eventId(order);
+        jdbc.update("update outbox_events set status = 'FAILED', attempts = 20, last_error = 'ConnectException' "
+                + "where id = ?", event);
+
+        mvc.perform(get("/api/v1/operations/outbox/failed")
+                        .header("Authorization", bearer(fixture.customer())))
+                .andExpect(status().isForbidden());
+        mvc.perform(get("/api/v1/operations/outbox/failed")
+                        .header("Authorization", bearer(fixture.dispatcher())))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content[0].eventId").value(event.toString()))
+                .andExpect(jsonPath("$.content[0].errorCode").value("ConnectException"))
+                .andExpect(jsonPath("$.content[0].envelope").doesNotExist());
+
+        String reason = "Kafka recovered after a bounded publish failure";
+        String key = "replay-" + UUID.randomUUID();
+        mvc.perform(post("/api/v1/operations/outbox/{id}/replay", event)
+                        .header("Authorization", bearer(fixture.dispatcher()))
+                        .header("Idempotency-Key", key)
+                        .contentType(MediaType.APPLICATION_JSON).content("{\"reason\":\"" + reason + "\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.eventId").value(event.toString()))
+                .andExpect(jsonPath("$.outcome").value("REPLAYED"));
+        mvc.perform(post("/api/v1/operations/outbox/{id}/replay", event)
+                        .header("Authorization", bearer(fixture.dispatcher()))
+                        .header("Idempotency-Key", key)
+                        .contentType(MediaType.APPLICATION_JSON).content("{\"reason\":\"" + reason + "\"}"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.outcome").value("REPLAYED"));
+        mvc.perform(post("/api/v1/operations/outbox/{id}/replay", event)
+                        .header("Authorization", bearer(fixture.dispatcher()))
+                        .header("Idempotency-Key", key)
+                        .contentType(MediaType.APPLICATION_JSON).content("{\"reason\":\"different\"}"))
+                .andExpect(status().isConflict()).andExpect(jsonPath("$.code").value("IDEMPOTENCY_KEY_REUSED"));
+        assertThat(jdbc.queryForObject("select status from outbox_events where id = ?", String.class, event))
+                .isEqualTo("PENDING");
+        assertThat(jdbc.queryForObject("select replay_count from outbox_events where id = ?", Integer.class, event))
+                .isEqualTo(1);
+        assertThat(jdbc.queryForObject("select count(*) from operator_action_audit where target_id = ?",
+                Integer.class, event)).isEqualTo(1);
+        assertThat(jdbc.queryForObject("select actor_id from operator_action_audit where target_id = ?",
+                UUID.class, event)).isEqualTo(fixture.dispatcher().id());
+        assertThat(jdbc.queryForObject("select reason from operator_action_audit where target_id = ?",
+                String.class, event)).isEqualTo(reason);
+        assertThat(publisher.sweep()).isGreaterThanOrEqualTo(1);
+        await(() -> processed("notification", event) && processed("analytics", event));
+        assertThat(jdbc.queryForObject("select count(*) from notifications where event_id = ?",
+                Integer.class, event)).isEqualTo(1);
+    }
+
+    @Test
+    void failedConsumerProjectionExhaustsRetriesThenAuditedReplayUsesTheSameDedupePath() throws Exception {
+        Fixture fixture = fixture();
+        UUID order = createdOrder(fixture);
+        jdbc.update("insert into actor_roles(actor_id, role) values (?, 'ADMIN')", fixture.dispatcher().id());
+        jdbc.execute("create function reject_test_notification() returns trigger language plpgsql as $$ "
+                + "begin raise exception 'synthetic projection failure'; end; $$");
+        jdbc.execute("create trigger reject_test_notification before insert on notifications "
+                + "for each row execute function reject_test_notification()");
+        UUID event;
+        try {
+            confirm(fixture, order);
+            event = eventId(order);
+            publisher.sweep();
+            await(() -> "FAILED".equals(jdbc.queryForObject("select status from outbox_events where id = ?",
+                    String.class, event)) && jdbc.queryForObject("select count(*) from quarantined_events "
+                    + "where consumer_name = 'notification' and error_code = 'PROJECTION_FAILED'", Integer.class) == 1);
+            assertThat(processed("notification", event)).isFalse();
+            assertThat(jdbc.queryForObject("select count(*) from notifications where event_id = ?", Integer.class, event)).isZero();
+        } finally {
+            jdbc.execute("drop trigger reject_test_notification on notifications");
+            jdbc.execute("drop function reject_test_notification()");
+        }
+        mvc.perform(post("/api/v1/operations/outbox/{id}/replay", event)
+                .header("Authorization", bearer(fixture.dispatcher())).header("Idempotency-Key", "consumer-replay")
+                .contentType(MediaType.APPLICATION_JSON).content("{\"reason\":\"Projection repaired\"}"))
+                .andExpect(status().isOk());
+        publisher.sweep();
+        await(() -> processed("notification", event) && processed("analytics", event));
+        assertThat(jdbc.queryForObject("select count(*) from notifications where event_id = ?", Integer.class, event)).isEqualTo(1);
+        assertThat(jdbc.queryForObject("select count(*) from processed_events where event_id = ?", Integer.class, event)).isEqualTo(2);
+        assertThat(jdbc.queryForObject("select count(*) from operator_action_audit where target_id = ?", Integer.class, event)).isEqualTo(1);
     }
 
     @Test

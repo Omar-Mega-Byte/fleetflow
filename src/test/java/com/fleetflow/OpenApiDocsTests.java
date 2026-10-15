@@ -20,7 +20,7 @@ import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 
 @SpringBootTest(properties = {"fleetflow.outbox.enabled=false", "spring.kafka.admin.auto-create=false",
-        "spring.kafka.listener.auto-startup=false"})
+        "spring.kafka.listener.auto-startup=false", "fleetflow.demo.enabled=true"})
 @ActiveProfiles("local")
 class OpenApiDocsTests extends ProfileTestDatabase {
     @Autowired WebApplicationContext context;
@@ -91,7 +91,7 @@ class OpenApiDocsTests extends ProfileTestDatabase {
                 }
             }
         });
-        assertThat(actual).hasSize(57).containsExactlyInAnyOrderElementsOf(registered);
+        assertThat(actual).hasSize(64).containsExactlyInAnyOrderElementsOf(registered);
         assertThat(document.path("paths").has("/actuator/health")).isFalse();
         assertThat(document.path("components").path("securitySchemes").path("bearerAuth")
                 .path("scheme").asText()).isEqualTo("bearer");

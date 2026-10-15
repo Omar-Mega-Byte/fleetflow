@@ -67,7 +67,7 @@ class Phase10UpgradeRestoreTests {
                     current.getUsername(), "-d", current.getDatabaseName(), "-f", "/tmp/phase10-restore.sql");
             assertThat(restore.getExitCode()).withFailMessage(restore.getStderr()).isZero();
             assertThat(Flyway.configure().dataSource(source).locations("classpath:db/migration")
-                    .load().migrate().migrationsExecuted).isEqualTo(1);
+                    .load().migrate().migrationsExecuted).isEqualTo(3);
 
             JdbcTemplate after = new JdbcTemplate(source);
             assertThat(after.queryForObject("select merchant_branch_id from orders where id = ?",

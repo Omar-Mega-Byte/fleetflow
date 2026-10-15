@@ -37,7 +37,7 @@ import org.testcontainers.containers.wait.strategy.Wait;
 @SpringBootTest
 @ActiveProfiles("test")
 class Phase7RecoveryTests extends ProfileTestDatabase {
-    private static final GenericContainer<?> redis = new GenericContainer<>("redis:7.4.7-alpine")
+    private static final GenericContainer<?> redis = new GenericContainer<>("redis:7.4.11-alpine@sha256:858f009f9709ce576febc734aa78b8f6d624b82571f9ddb6bda4377c833b3499")
             .withExposedPorts(6379).withCommand("redis-server", "--save", "", "--appendonly", "no")
             .waitingFor(Wait.forListeningPort());
     static { redis.start(); }
