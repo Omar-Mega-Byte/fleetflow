@@ -53,7 +53,9 @@ try {
             '-f', (Join-Path $root 'compose.yaml'),
             '-f', (Join-Path $root 'compose.monitoring.yaml'),
             '-f', (Join-Path $root 'compose.alerting.yaml'), '--profile', 'monitoring')
-        & docker @composeArgs up -d --no-build --no-recreate | Out-Null
+        # Refresh containers when the Compose contract changes (for example,
+        # when a healthcheck is added) while retaining the project's named volumes.
+        & docker @composeArgs up -d --no-build | Out-Null
         if ($LASTEXITCODE -ne 0) { throw 'Compose project could not be started.' }
         $ready = $false
         $projectDeadline = [DateTime]::UtcNow.AddMinutes(5)

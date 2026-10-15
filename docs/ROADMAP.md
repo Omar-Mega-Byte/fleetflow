@@ -1,6 +1,8 @@
 # FleetFlow execution roadmap
 
-[PROJECT_CONTEXT.md](../PROJECT_CONTEXT.md) is the primary living context. This roadmap tracks implementation status. Status vocabulary: `NOT_STARTED` means planned only, `IN_PROGRESS` means implementation under way, `BLOCKED` means an identified prerequisite prevents completion, `CLOSED_PARTIAL` means work stopped with some acceptance gates unmet, and `COMPLETE` means the phase acceptance gate passed with recorded evidence. As of 2026-10-10, Phases 0–10 are merged into `main`; Phase 11 is also merged, with its status deliberately retained as `CLOSED_PARTIAL`. The [Phase 11 baseline](operations/PHASE11_BASELINE.md) records the earlier branch state at assessment.
+[PROJECT_CONTEXT.md](../PROJECT_CONTEXT.md) is the living project context. This page records the original implementation history and phase status. The [Production Readiness Audit and Roadmap](PRODUCTION-ROADMAP.md) and its [production phase specifications](phases/production/README.md) are authoritative for the remaining synthetic public-demo work and release gates; they supersede this historical phase list for launch readiness. Production phases are numbered separately so the completed implementation phases below remain intact.
+
+Status vocabulary: <code>NOT_STARTED</code> means planned only, <code>IN_PROGRESS</code> means implementation under way, <code>BLOCKED</code> means an identified prerequisite prevents completion, <code>CLOSED_PARTIAL</code> means work stopped with some acceptance gates unmet, and <code>COMPLETE</code> means the explicitly declared phase scope passed with recorded evidence. Phase 11 is complete only for the local synthetic-demo scope in the closeout working tree. Its earlier merged <code>CLOSED_PARTIAL</code> record remains a historical snapshot until the working-tree changes are delivered. The operational, security, UI, and public-hosting work in the production roadmap is active again for the newly requested public showcase; none of it is implied complete by Phase 11. The [Phase 11 baseline](operations/PHASE11_BASELINE.md) records the earlier assessment.
 
 | Phase | Status | Purpose |
 | --- | --- | --- |
@@ -15,7 +17,7 @@
 | [8](phases/PHASE_8.md) Async events | COMPLETE | Kafka, transactional outbox, idempotent notification and analytics; local and PR CI evidence recorded |
 | [9](phases/Phase9.md) Live tracking | COMPLETE | Authorized SSE snapshot/stream and local driver simulator; merged to `main` in PR #11 |
 | 10 Zones | COMPLETE | PostGIS serviceability and geofencing; PR #12 merged into Phase 9, then PR #11 brought both to `main` |
-| [11](phases/phase11.md) Hardening | CLOSED_PARTIAL | Verified local demo, backup/restore, load, security and CI evidence merged to `main` in PR #13. Unmet acceptance gates remain unverified; the daily backup stays active. This is not production acceptance or a `COMPLETE` phase. |
+| [11](phases/phase11.md) Hardening | COMPLETE for local demo | Completed for the local synthetic-demo scope on the closeout working tree: 125 passing tests, signed local restore, and documented limits. Sustained RPO, replacement-host recovery, exhaustive object-scope review, and full service-image advisory disposition were not passed; they are active remaining tasks in the production roadmap. This status is not public-production acceptance. |
 
 ## Why this order differs from the source outline
 

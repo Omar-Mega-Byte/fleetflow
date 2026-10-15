@@ -1,4 +1,4 @@
-"""Fail CI on tracked private artifacts and high-confidence credential patterns.
+"""Fail CI on repository private artifacts and high-confidence credential patterns.
 
 This complements GitGuardian; it is intentionally not a complete secret scanner.
 Only file paths, line numbers, and rule names are printed.
@@ -20,7 +20,9 @@ PRIVATE_SUFFIXES = (".ffbackup", ".dump", ".pem", ".key", ".p12", ".jks")
 
 
 def main():
-    names = subprocess.check_output(["git", "ls-files", "-z"], cwd=ROOT).split(b"\0")
+    names = subprocess.check_output(
+        ["git", "ls-files", "--cached", "--others", "--exclude-standard", "-z"], cwd=ROOT
+    ).split(b"\0")
     findings = []
     for raw_name in names:
         if not raw_name:
@@ -28,7 +30,8 @@ def main():
         name = raw_name.decode("utf-8")
         path = ROOT / name
         leaf = path.name.lower()
-        if (leaf.startswith(".env") and leaf != ".env.example") or leaf.endswith(PRIVATE_SUFFIXES):
+        if (leaf.startswith(".env") and leaf not in {".env.example", ".env.production.example"}) \
+                or leaf.endswith(PRIVATE_SUFFIXES):
             findings.append((name, 0, "private-artifact"))
             continue
         if not path.is_file() or path.stat().st_size > 2_000_000:
@@ -44,7 +47,7 @@ def main():
         print(f"{name}:{number}: {rule}")
     if findings:
         raise SystemExit(1)
-    print(f"Tracked-file credential preflight passed ({len(names) - 1} paths inspected).")
+    print(f"Repository credential preflight passed ({len(names) - 1} paths inspected).")
 
 
 if __name__ == "__main__":

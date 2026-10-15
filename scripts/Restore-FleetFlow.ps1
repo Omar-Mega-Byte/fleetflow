@@ -33,6 +33,18 @@ function Invoke-Compose([string[]]$Arguments) {
     & docker @composeArgs @Arguments | Out-Null
     if ($LASTEXITCODE -ne 0) { throw "Docker Compose $($Arguments[0]) failed." }
 }
+function Get-RepoDigestForImageId([string]$ImageId, [string]$Repository) {
+    $json = & docker image inspect --format '{{json .RepoDigests}}' $ImageId
+    if ($LASTEXITCODE -ne 0) { throw "Could not inspect archived image $Repository ($ImageId)." }
+    $digests = @($json | ConvertFrom-Json)
+    $match = $digests | Where-Object { $_ -like "$Repository@sha256:*" } | Select-Object -First 1
+    if (-not $match) {
+        throw "Archived image $Repository ($ImageId) is not available locally by its pinned repository digest."
+    }
+    return [string]$match
+}
+$previousPostgisImage = $env:FLEETFLOW_POSTGIS_IMAGE
+$previousKeycloakImage = $env:FLEETFLOW_KEYCLOAK_IMAGE
 
 $containers = @(& docker @composeArgs ps -a -q | Where-Object { $_ })
 if ($LASTEXITCODE -ne 0) { throw 'Could not inspect target Compose project.' }
@@ -56,6 +68,10 @@ try {
     if ($manifest.format -ne 'FleetFlow local backup v1' -or $manifest.project -eq $TargetProject) {
         throw 'Archive format invalid or target project equals the source project.'
     }
+    # Restore with the exact database and identity image digests recorded in the archive.
+    # The current Compose defaults can then advance independently of saved-volume recovery.
+    $env:FLEETFLOW_POSTGIS_IMAGE = Get-RepoDigestForImageId $manifest.databaseImageId 'postgis/postgis'
+    $env:FLEETFLOW_KEYCLOAK_IMAGE = Get-RepoDigestForImageId $manifest.keycloakImageId 'quay.io/keycloak/keycloak'
     foreach ($item in @(@('postgres.dump', $manifest.postgresSha256),
             @('keycloak.tar', $manifest.keycloakSha256))) {
         $actual = (Get-FileHash -LiteralPath (Join-Path $payload $item[0]) -Algorithm SHA256).Hash
@@ -108,7 +124,7 @@ try {
     if ((& docker inspect --format '{{.Image}}' $identity).Trim() -ne $manifest.keycloakImageId) {
         throw 'Target Keycloak image ID differs from the backup.'
     }
-    $helperImage = 'redis:7.4.7-alpine@sha256:02f2cc4882f8bf87c79a220ac958f58c700bdec0dfb9b9ea61b62fb0e8f1bfcf'
+    $helperImage = 'redis:7.4.11-alpine@sha256:858f009f9709ce576febc734aa78b8f6d624b82571f9ddb6bda4377c833b3499'
     & docker run --pull never --rm --volumes-from $identity -v "${payload}:/backup" `
         --entrypoint sh $helperImage -c 'tar -C /opt/keycloak/data --exclude ./import/fleetflow-realm.json -xf /backup/keycloak.tar'
     if ($LASTEXITCODE -ne 0) { throw 'Restoring the fresh Keycloak volume failed.' }
@@ -154,6 +170,10 @@ try {
         Write-Output 'Application and signed functional verification skipped by -NoStartApp.'
     }
 } finally {
+    if ($null -eq $previousPostgisImage) { Remove-Item Env:FLEETFLOW_POSTGIS_IMAGE -ErrorAction SilentlyContinue }
+    else { $env:FLEETFLOW_POSTGIS_IMAGE = $previousPostgisImage }
+    if ($null -eq $previousKeycloakImage) { Remove-Item Env:FLEETFLOW_KEYCLOAK_IMAGE -ErrorAction SilentlyContinue }
+    else { $env:FLEETFLOW_KEYCLOAK_IMAGE = $previousKeycloakImage }
     $resolvedScratch = [IO.Path]::GetFullPath($scratch)
     if (-not $resolvedScratch.StartsWith($tempRoot, [StringComparison]::OrdinalIgnoreCase) -or
             -not (Split-Path -Leaf $resolvedScratch).StartsWith('fleetflow-restore-')) {

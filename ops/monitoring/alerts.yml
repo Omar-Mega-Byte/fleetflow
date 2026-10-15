@@ -41,3 +41,54 @@ groups:
           summary: The application metrics endpoint cannot be scraped.
           runbook: docs/operations/MONITORING.md#readiness-and-scrape
           recovery: Check app health, management port, and Compose network.
+      - alert: FleetFlowDatabaseReadinessLoss
+        expr: fleetflow_operations_database_available == 0
+        for: 30s
+        labels:
+          severity: critical
+          owner: local-operator
+        annotations:
+          summary: PostgreSQL is unavailable and the app is not ready for business operations.
+          runbook: docs/operations/MONITORING.md#dependency-outage
+          recovery: Restore PostgreSQL; confirm readiness returns and the database gauge is one.
+      - alert: FleetFlowSustainedApplicationErrors
+        expr: sum(rate(http_server_requests_seconds_count{uri=~"/api/v1/.*",status=~"5.."}[5m])) > 0.1
+        for: 3m
+        labels:
+          severity: critical
+          owner: local-operator
+        annotations:
+          summary: Business API server errors remain above the release threshold.
+          runbook: docs/operations/MONITORING.md#readiness-and-scrape
+          recovery: Check database and Redis signals, then inspect correlated route-class logs.
+      - alert: FleetFlowDatabasePoolPending
+        expr: max(hikaricp_connections_pending) > 0
+        for: 2m
+        labels:
+          severity: warning
+          owner: local-operator
+        annotations:
+          summary: Requests are waiting for a PostgreSQL connection.
+          runbook: docs/operations/MONITORING.md#dependency-outage
+          recovery: Inspect active and maximum Hikari connections before increasing pool size.
+      - alert: FleetFlowConsumerQuarantine
+        expr: fleetflow_events_quarantined_rows > 0
+        for: 30s
+        labels:
+          severity: warning
+          owner: local-operator
+        annotations:
+          summary: A consumer record was quarantined within the last ten minutes.
+          runbook: docs/operations/MONITORING.md#consumer-quarantine
+          recovery: Inspect the fixed error code and topic offset; do not replay malformed payloads blindly.
+      - alert: FleetFlowRateLimitPressure
+        expr: sum(rate(http_server_requests_seconds_count{uri=~"/api/v1/.*",status="429"}[5m])) > 1
+        for: 3m
+        labels:
+          severity: warning
+          owner: local-operator
+        annotations:
+          summary: Business API rate-limit rejections are sustained above one per second.
+          runbook: docs/operations/MONITORING.md#rate-limit-pressure
+          recovery: Check the bounded route-class counter and investigate abusive or misconfigured callers.
+      # Add backup-age and certificate-expiry rules only when a backup sentinel and TLS probe export those metrics.

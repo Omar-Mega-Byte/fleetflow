@@ -1,0 +1,272 @@
+name: fleetflow-production
+
+x-logging: &bounded-logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
+services:
+  postgres:
+    logging: *bounded-logging
+    mem_limit: 768m
+    cpus: 1.0
+    image: ${FLEETFLOW_POSTGIS_IMAGE:?Set a digest-pinned patched PostGIS image}
+    restart: unless-stopped
+    init: true
+    stop_grace_period: 60s
+    environment:
+      POSTGRES_DB: ${DB_NAME:?Set DB_NAME}
+      POSTGRES_USER: ${DB_OWNER:?Set DB_OWNER}
+      FLEETFLOW_APP_USER: ${DB_USER:?Set DB_USER}
+      POSTGRES_PASSWORD_FILE: /run/secrets/postgres_db_password
+      TZ: UTC
+      PGTZ: UTC
+    secrets:
+      - postgres_db_password
+      - app_db_password
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./postgres-app-role.sh:/docker-entrypoint-initdb.d/20_fleetflow-app-role.sh:ro
+    networks: [backend]
+    healthcheck:
+      test: ["CMD-SHELL", "test \"$$(psql -U \"$$POSTGRES_USER\" -d \"$$POSTGRES_DB\" -tAc \"select count(*) from pg_extension where extname = 'postgis'\" 2>/dev/null)\" = 1"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 10s
+
+  keycloak-db:
+    logging: *bounded-logging
+    mem_limit: 512m
+    cpus: 0.75
+    image: ${FLEETFLOW_POSTGIS_IMAGE:?Set a digest-pinned patched PostGIS image}
+    restart: unless-stopped
+    init: true
+    stop_grace_period: 60s
+    environment:
+      POSTGRES_DB: keycloak
+      POSTGRES_USER: fleetflow_identity
+      POSTGRES_PASSWORD_FILE: /run/secrets/keycloak_db_password
+      TZ: UTC
+      PGTZ: UTC
+    secrets:
+      - keycloak_db_password
+    volumes:
+      - keycloak_db_data:/var/lib/postgresql/data
+    networks: [identity-data]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U \"$$POSTGRES_USER\" -d \"$$POSTGRES_DB\""]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 10s
+
+  keycloak:
+    logging: *bounded-logging
+    mem_limit: 1024m
+    cpus: 1.0
+    image: ${FLEETFLOW_KEYCLOAK_RUNTIME:?Set a digest-pinned FleetFlow Keycloak runtime image}
+    restart: unless-stopped
+    init: true
+    stop_grace_period: 60s
+    command: ["start", "--optimized"]
+    environment:
+      KC_DB: postgres
+      KC_DB_URL_HOST: keycloak-db
+      KC_DB_URL_DATABASE: keycloak
+      KC_DB_USERNAME: fleetflow_identity
+      KC_BOOTSTRAP_ADMIN_USERNAME: fleetflow-operator
+      KC_HOSTNAME: https://${IDENTITY_HOST:?Set IDENTITY_HOST}
+      KC_HOSTNAME_STRICT: "true"
+      KC_HTTP_ENABLED: "true"
+      KC_PROXY_HEADERS: xforwarded
+      KC_HEALTH_ENABLED: "true"
+      KC_METRICS_ENABLED: "true"
+    secrets:
+      - keycloak_db_password
+      - keycloak_admin_password
+    depends_on:
+      keycloak-db:
+        condition: service_healthy
+    networks: [app_proxy, identity-data]
+    healthcheck:
+      test: ["CMD", "bash", "-ec", "exec 3<>/dev/tcp/127.0.0.1/9000; printf 'GET /health/ready HTTP/1.0\\r\\n\\r\\n' >&3; IFS= read -r status <&3; [[ $$status == *' 200 '* ]]"]
+      interval: 10s
+      timeout: 5s
+      retries: 18
+      start_period: 30s
+
+  redis:
+    logging: *bounded-logging
+    mem_limit: 128m
+    cpus: 0.5
+    image: ${FLEETFLOW_REDIS_IMAGE:?Set a digest-pinned patched Redis image}
+    restart: unless-stopped
+    init: true
+    command: ["redis-server", "--save", "", "--appendonly", "no", "--maxmemory", "64mb", "--maxmemory-policy", "noeviction"]
+    networks: [backend]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  kafka:
+    logging: *bounded-logging
+    mem_limit: 1536m
+    cpus: 1.0
+    image: ${FLEETFLOW_KAFKA_IMAGE:?Set a digest-pinned patched Kafka image}
+    restart: unless-stopped
+    init: true
+    stop_grace_period: 60s
+    hostname: kafka
+    environment:
+      KAFKA_NODE_ID: 1
+      KAFKA_HEAP_OPTS: -Xms256m -Xmx768m
+      KAFKA_LOG_DIRS: /var/lib/kafka/data
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
+      KAFKA_LISTENERS: PLAINTEXT://:9092,CONTROLLER://:9093
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      KAFKA_NUM_PARTITIONS: 3
+      KAFKA_LOG_RETENTION_HOURS: 168
+      CLUSTER_ID: 4L6g3nShT-eMCtK--X86sw
+    volumes:
+      - kafka_data:/var/lib/kafka/data
+    networks: [backend]
+    healthcheck:
+      test: ["CMD-SHELL", "KAFKA_HEAP_OPTS='-Xms16m -Xmx64m' /opt/kafka/bin/kafka-broker-api-versions.sh --bootstrap-server kafka:9092"]
+      interval: 20s
+      timeout: 15s
+      retries: 12
+      start_period: 20s
+
+  app:
+    logging: *bounded-logging
+    mem_limit: 1024m
+    cpus: 1.5
+    image: ${FLEETFLOW_APP_IMAGE:?Set an immutable FleetFlow application image digest}
+    restart: unless-stopped
+    init: true
+    stop_grace_period: 45s
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+      SERVER_ADDRESS: 0.0.0.0
+      JAVA_TOOL_OPTIONS: -XX:MaxRAMPercentage=70
+      SERVER_FORWARD_HEADERS_STRATEGY: framework
+      DB_URL: jdbc:postgresql://postgres:5432/${DB_NAME:?Set DB_NAME}
+      DB_USER: ${DB_USER:?Set DB_USER}
+      DB_PASSWORD_FILE: /run/secrets/app_db_password
+      OIDC_ISSUER: https://${IDENTITY_HOST:?Set IDENTITY_HOST}/realms/fleetflow
+      OIDC_JWKS_URI: http://keycloak:8080/realms/fleetflow/protocol/openid-connect/certs
+      OIDC_AUDIENCE: fleetflow-api
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      OUTBOX_ENABLED: "true"
+      OUTBOX_BATCH_SIZE: "50"
+      OUTBOX_SWEEP_INTERVAL_MS: "5000"
+      OUTBOX_LEASE_DURATION: 30s
+      OUTBOX_SEND_TIMEOUT: 5s
+      OUTBOX_MAX_ATTEMPTS: "20"
+      OUTBOX_PUBLISHED_RETENTION: 30d
+      RECOVERY_ENABLED: "true"
+      RECOVERY_BATCH_SIZE: "50"
+      RECOVERY_SWEEP_INTERVAL_MS: "5000"
+      DEMO_ENABLED: "true"
+      DEMO_OIDC_ISSUER: https://${IDENTITY_HOST}/realms/fleetflow
+      DEMO_CUSTOMER_SUBJECT: fleetflow-demo-customer
+      DEMO_MERCHANT_SUBJECT: fleetflow-demo-merchant
+      DEMO_DRIVER_SUBJECT: fleetflow-demo-driver
+      DEMO_DISPATCHER_SUBJECT: fleetflow-demo-dispatcher
+      DEMO_OPERATOR_SUBJECT: fleetflow-demo-operator
+    secrets:
+      - app_db_password
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      keycloak:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    networks: [app_proxy, backend]
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8080/actuator/health/readiness"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+
+  edge:
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    sysctls:
+      net.ipv4.ip_unprivileged_port_start: "0"
+    logging: *bounded-logging
+    mem_limit: 256m
+    cpus: 0.5
+    image: ${FLEETFLOW_EDGE_IMAGE:?Set an immutable FleetFlow web and proxy image digest}
+    restart: unless-stopped
+    init: true
+    stop_grace_period: 30s
+    profiles: [public]
+    environment:
+      DEMO_HOST: ${DEMO_HOST:?Set DEMO_HOST}
+      IDENTITY_HOST: ${IDENTITY_HOST:?Set IDENTITY_HOST}
+      NGINX_ENVSUBST_FILTER: '^(DEMO_HOST|IDENTITY_HOST)$'
+    ports:
+      - "80:80"
+      - "443:443"
+    secrets:
+      - tls_fullchain
+      - tls_private_key
+    depends_on:
+      app:
+        condition: service_healthy
+      keycloak:
+        condition: service_healthy
+    networks: [public_front, app_proxy]
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8081/healthz"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+networks:
+  public_front:
+    internal: false
+  app_proxy:
+    internal: true
+  backend:
+    internal: true
+  identity-data:
+    internal: true
+
+volumes:
+  postgres_data:
+  keycloak_db_data:
+  kafka_data:
+
+secrets:
+  postgres_db_password:
+    file: ${FLEETFLOW_SECRET_DIR:?Set FLEETFLOW_SECRET_DIR}/postgres_db_password
+  app_db_password:
+    file: ${FLEETFLOW_SECRET_DIR:?Set FLEETFLOW_SECRET_DIR}/app_db_password
+  keycloak_db_password:
+    file: ${FLEETFLOW_SECRET_DIR:?Set FLEETFLOW_SECRET_DIR}/keycloak_db_password
+  keycloak_admin_password:
+    file: ${FLEETFLOW_SECRET_DIR:?Set FLEETFLOW_SECRET_DIR}/keycloak_admin_password
+  tls_fullchain:
+    file: ${FLEETFLOW_SECRET_DIR:?Set FLEETFLOW_SECRET_DIR}/tls_fullchain.pem
+  tls_private_key:
+    file: ${FLEETFLOW_SECRET_DIR:?Set FLEETFLOW_SECRET_DIR}/tls_private_key.pem

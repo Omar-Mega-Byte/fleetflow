@@ -90,7 +90,7 @@ try {
         & docker exec $pg rm -f /tmp/fleetflow-phase11.dump | Out-Null
     }
 
-    $helperImage = 'redis:7.4.7-alpine@sha256:02f2cc4882f8bf87c79a220ac958f58c700bdec0dfb9b9ea61b62fb0e8f1bfcf'
+    $helperImage = 'redis:7.4.11-alpine@sha256:858f009f9709ce576febc734aa78b8f6d624b82571f9ddb6bda4377c833b3499'
     & docker run --pull never --rm --volumes-from $keycloak -v "${payload}:/backup" `
         --entrypoint sh $helperImage -c 'tar -C /opt/keycloak/data --exclude ./import/fleetflow-realm.json -cf /backup/keycloak.tar .'
     if ($LASTEXITCODE -ne 0) { throw 'Keycloak volume snapshot failed.' }

@@ -5,3 +5,7 @@
 !src/
 !src/main/
 !src/main/**
+!ops/
+!ops/production/
+!ops/production/*.sh
+!ops/production/*.Dockerfile

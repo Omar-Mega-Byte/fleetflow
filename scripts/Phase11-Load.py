@@ -4,17 +4,20 @@ import argparse
 import concurrent.futures
 import json
 import secrets
+import runpy
+import re
+import math
 import subprocess
 import time
 import urllib.error
 import urllib.parse
 import urllib.request
-from collections import Counter
 from datetime import datetime, timezone
 from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parent.parent
+response_summary = runpy.run_path(str(ROOT / "scripts" / "Phase11-Results.py"))["response_summary"]
 
 
 def settings(path):
@@ -93,10 +96,12 @@ def access_token(issuer, credentials):
 
 
 def percentile(samples, fraction):
+    if not 0 < fraction <= 1:
+        raise ValueError("Percentile fraction must be between zero and one")
     if not samples:
         return None
     ordered = sorted(samples)
-    return round(ordered[min(len(ordered) - 1, max(0, int((len(ordered) - 1) * fraction)))], 1)
+    return round(ordered[math.ceil(len(ordered) * fraction) - 1], 1)
 
 
 def container_stats(project):
@@ -116,8 +121,8 @@ def main():
     parser.add_argument("--env-file", type=Path, required=True)
     parser.add_argument("--duration-seconds", type=int, default=600)
     args = parser.parse_args()
-    if not args.project.startswith("fleetflow-phase11-") or args.duration_seconds < 10:
-        raise RuntimeError("Use a disposable Phase 11 project and at least 10 seconds")
+    if not re.fullmatch(r"fleetflow-phase11-[a-z0-9-]+", args.project) or not 10 <= args.duration_seconds <= 3600:
+        raise RuntimeError("Use a disposable Phase 11 project and 10 to 3600 seconds")
     env_file = args.env_file.resolve(strict=True)
     values = settings(env_file)
     issuer = values["OIDC_ISSUER"]
@@ -198,12 +203,12 @@ def main():
     stats_after = container_stats(args.project)
     by_kind = {kind: [latency for item_kind, code, latency in results if item_kind == kind and code in (200, 204)]
                for kind in ("read", "command")}
-    codes = Counter(str(code) for _, code, _ in results)
-    unexpected = sum(count for code, count in codes.items() if code not in ("200", "204"))
+    accounting = response_summary(results)
+    unexpected = accounting["unexpected_responses"]
     summary = {"started_utc": started_utc, "duration_seconds": round(elapsed, 2),
                "target_duration_seconds": args.duration_seconds, "arrival_rate_per_second": 6.2,
                "max_workers": 12, "total_requests": len(results), "throughput_per_second": round(len(results)/elapsed, 2),
-               "status_counts": dict(sorted(codes.items())), "unexpected_error_percent": round(100*unexpected/len(results), 3),
+               **accounting, "environment": "disposable local Compose; not Azure qualification",
                "read_ms": {"p50": percentile(by_kind["read"], .50), "p95": percentile(by_kind["read"], .95),
                            "p99": percentile(by_kind["read"], .99)},
                "command_ms": {"p50": percentile(by_kind["command"], .50),
@@ -211,10 +216,10 @@ def main():
                               "p99": percentile(by_kind["command"], .99)},
                "app_stats_before": stats_before, "app_stats_after": stats_after}
     print(json.dumps(summary, indent=2))
-    if unexpected / len(results) >= .01 or any(code.startswith("5") for code in codes):
+    if unexpected / len(results) >= .01 or accounting["infrastructure_failures"]:
         raise RuntimeError("Unexpected error objective failed")
     if summary["read_ms"]["p95"] is None or summary["command_ms"]["p95"] is None or \
-            summary["read_ms"]["p95"] >= 1000 or summary["command_ms"]["p95"] >= 2000:
+            summary["read_ms"]["p95"] >= 1000 or summary["command_ms"]["p95"] >= 1000:
         raise RuntimeError("Latency objective failed")
 
 

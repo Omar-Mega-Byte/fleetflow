@@ -407,8 +407,8 @@
     {
       "id": 8,
       "type": "timeseries",
-      "title": "Unexpected server errors",
-      "description": "HTTP server request counter; 5xx/s for business API routes. Expected 409/429 are not included.",
+      "title": "API errors and rate-limit pressure",
+      "description": "HTTP server request counters for 5xx/s and 429/s on business API routes.",
       "gridPos": {
         "h": 8,
         "w": 12,
@@ -424,6 +424,11 @@
           "expr": "sum(rate(http_server_requests_seconds_count{uri=~\"/api/v1/.*\",status=~\"5..\"}[5m])) or vector(0)",
           "refId": "A",
           "legendFormat": "5xx/s"
+        },
+        {
+          "expr": "sum(rate(http_server_requests_seconds_count{uri=~\"/api/v1/.*\",status=\"429\"}[5m])) or vector(0)",
+          "refId": "B",
+          "legendFormat": "429/s"
         }
       ],
       "fieldConfig": {
@@ -456,8 +461,8 @@
     {
       "id": 9,
       "type": "timeseries",
-      "title": "Outbox queue",
-      "description": "fleetflow.outbox.pending; pending rows after the publisher sweep.",
+      "title": "Outbox queue and consumer lag",
+      "description": "Pending durable work and native Kafka fetch lag. A broker lag of zero does not prove business transaction health.",
       "gridPos": {
         "h": 8,
         "w": 12,
@@ -473,6 +478,11 @@
           "expr": "fleetflow_outbox_pending",
           "refId": "A",
           "legendFormat": "pending"
+        },
+        {
+          "refId": "B",
+          "expr": "max by (client_id) (kafka_consumer_fetch_manager_records_lag_max)",
+          "legendFormat": "Kafka lag {{client_id}}"
         }
       ],
       "fieldConfig": {
@@ -609,7 +619,7 @@
       "id": 12,
       "type": "timeseries",
       "title": "Operator attention",
-      "description": "fleetflow.incidents.open and fleetflow.events.quarantined.rows; separate operator review queues. -1 denotes unavailable snapshot.",
+      "description": "fleetflow.incidents.open, fleetflow.incidents.oldest.seconds and fleetflow.events.quarantined.rows. -1 denotes unavailable snapshot.",
       "gridPos": {
         "h": 8,
         "w": 12,
@@ -630,11 +640,193 @@
           "expr": "fleetflow_events_quarantined_rows",
           "refId": "B",
           "legendFormat": "quarantined events"
+        },
+        {
+          "expr": "fleetflow_incidents_oldest_seconds",
+          "refId": "C",
+          "legendFormat": "oldest incident seconds"
         }
       ],
       "fieldConfig": {
         "defaults": {
           "unit": "short",
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "linear",
+            "lineWidth": 2,
+            "fillOpacity": 8,
+            "showPoints": "never",
+            "stacking": {
+              "mode": "none",
+              "group": "A"
+            }
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "single"
+        }
+      }
+    },
+    {
+      "id": 13,
+      "type": "timeseries",
+      "title": "Dispatch and offer outcomes",
+      "description": "Low-cardinality dispatch decision and offer counters by bounded outcome.",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 28
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "fleetflow-prometheus"
+      },
+      "targets": [
+        {
+          "expr": "sum by (outcome) (rate(fleetflow_dispatch_outcomes_total[5m]))",
+          "refId": "A",
+          "legendFormat": "dispatch {{outcome}}"
+        },
+        {
+          "expr": "sum by (outcome) (rate(fleetflow_offer_outcomes_total[5m]))",
+          "refId": "B",
+          "legendFormat": "offer {{outcome}}"
+        },
+        {
+          "expr": "sum by (outcome) (rate(fleetflow_offer_responses_total[5m]))",
+          "refId": "C",
+          "legendFormat": "response {{outcome}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ops",
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "linear",
+            "lineWidth": 2,
+            "fillOpacity": 8,
+            "showPoints": "never",
+            "stacking": {
+              "mode": "none",
+              "group": "A"
+            }
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "single"
+        }
+      }
+    },
+    {
+      "id": 14,
+      "type": "timeseries",
+      "title": "Tracking freshness and connection pressure",
+      "description": "Active tracking position outcomes and bounded stream rejection/eviction counters.",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 28
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "fleetflow-prometheus"
+      },
+      "targets": [
+        {
+          "expr": "sum by (outcome) (rate(fleetflow_tracking_position_total[5m]))",
+          "refId": "A",
+          "legendFormat": "position {{outcome}}"
+        },
+        {
+          "expr": "sum by (outcome) (rate(fleetflow_tracking_connections_total{outcome=~\"rejected|slow_client_evicted|send_failure\"}[5m]))",
+          "refId": "B",
+          "legendFormat": "connection {{outcome}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ops",
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "linear",
+            "lineWidth": 2,
+            "fillOpacity": 8,
+            "showPoints": "never",
+            "stacking": {
+              "mode": "none",
+              "group": "A"
+            }
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "single"
+        }
+      }
+    },
+    {
+      "id": 15,
+      "type": "timeseries",
+      "title": "PostgreSQL pool",
+      "description": "Hikari active, idle, pending and maximum connections; pending connections sustained for two minutes alert.",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 36
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "fleetflow-prometheus"
+      },
+      "targets": [
+        {
+          "expr": "hikaricp_connections_active",
+          "refId": "A",
+          "legendFormat": "active"
+        },
+        {
+          "expr": "hikaricp_connections_idle",
+          "refId": "B",
+          "legendFormat": "idle"
+        },
+        {
+          "expr": "hikaricp_connections_pending",
+          "refId": "C",
+          "legendFormat": "pending"
+        },
+        {
+          "expr": "hikaricp_connections_max",
+          "refId": "D",
+          "legendFormat": "maximum"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ops",
           "custom": {
             "drawStyle": "line",
             "lineInterpolation": "linear",
