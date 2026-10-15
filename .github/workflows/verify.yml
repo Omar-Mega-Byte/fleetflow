@@ -157,7 +157,7 @@ jobs:
           print(f"Source SBOM identity: FleetFlow {version}")
           PY
       - name: Generate CycloneDX source SBOM
-        uses: anchore/sbom-action@f8bdd1d8ac5e901a77a92f111440fdb1b593736b # v0.20.6
+        uses: anchore/sbom-action@66cbf4bc1f1c0d2edc94016e65bc221b6bb0ad6c # v0.24.3
         with:
           path: .
           config: ${{ runner.temp }}/syft-source-config.yaml
@@ -375,7 +375,7 @@ jobs:
           --report trivy-raw/kafka.sarif=trivy-kafka.sarif
       - name: Generate app image CycloneDX SBOM
         if: always() && steps.build_images.outcome == 'success'
-        uses: anchore/sbom-action@f8bdd1d8ac5e901a77a92f111440fdb1b593736b # v0.20.6
+        uses: anchore/sbom-action@66cbf4bc1f1c0d2edc94016e65bc221b6bb0ad6c # v0.24.3
         with:
           image: fleetflow-app:ci
           syft-version: v1.54.1
@@ -384,7 +384,7 @@ jobs:
           artifact-name: fleetflow-app-${{ github.sha }}.cdx.json
       - name: Generate Keycloak runtime CycloneDX SBOM
         if: always() && steps.build_images.outcome == 'success'
-        uses: anchore/sbom-action@f8bdd1d8ac5e901a77a92f111440fdb1b593736b # v0.20.6
+        uses: anchore/sbom-action@66cbf4bc1f1c0d2edc94016e65bc221b6bb0ad6c # v0.24.3
         with:
           image: fleetflow-keycloak-runtime:ci
           syft-version: v1.54.1
@@ -393,7 +393,7 @@ jobs:
           artifact-name: fleetflow-keycloak-${{ github.sha }}.cdx.json
       - name: Generate edge CycloneDX SBOM
         if: always() && steps.build_images.outcome == 'success'
-        uses: anchore/sbom-action@f8bdd1d8ac5e901a77a92f111440fdb1b593736b # v0.20.6
+        uses: anchore/sbom-action@66cbf4bc1f1c0d2edc94016e65bc221b6bb0ad6c # v0.24.3
         with:
           image: fleetflow-edge:ci
           syft-version: v1.54.1
@@ -402,7 +402,7 @@ jobs:
           artifact-name: fleetflow-edge-${{ github.sha }}.cdx.json
       - name: Generate PostGIS CycloneDX SBOM
         if: always() && steps.build_images.outcome == 'success'
-        uses: anchore/sbom-action@f8bdd1d8ac5e901a77a92f111440fdb1b593736b # v0.20.6
+        uses: anchore/sbom-action@66cbf4bc1f1c0d2edc94016e65bc221b6bb0ad6c # v0.24.3
         with:
           image: fleetflow-postgis:ci
           syft-version: v1.54.1
@@ -411,7 +411,7 @@ jobs:
           artifact-name: fleetflow-postgis-${{ github.sha }}.cdx.json
       - name: Generate Redis CycloneDX SBOM
         if: always() && steps.build_images.outcome == 'success'
-        uses: anchore/sbom-action@f8bdd1d8ac5e901a77a92f111440fdb1b593736b # v0.20.6
+        uses: anchore/sbom-action@66cbf4bc1f1c0d2edc94016e65bc221b6bb0ad6c # v0.24.3
         with:
           image: fleetflow-redis:ci
           syft-version: v1.54.1
@@ -420,7 +420,7 @@ jobs:
           artifact-name: fleetflow-redis-${{ github.sha }}.cdx.json
       - name: Generate Kafka CycloneDX SBOM
         if: always() && steps.build_images.outcome == 'success'
-        uses: anchore/sbom-action@f8bdd1d8ac5e901a77a92f111440fdb1b593736b # v0.20.6
+        uses: anchore/sbom-action@66cbf4bc1f1c0d2edc94016e65bc221b6bb0ad6c # v0.24.3
         with:
           image: fleetflow-kafka:ci
           syft-version: v1.54.1
