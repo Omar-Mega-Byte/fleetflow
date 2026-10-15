@@ -1,7 +1,7 @@
 # Day 2 Prompt 3 — release acceptance
 
 **Date:** 2026-10-15 (Africa/Cairo)<br>
-**Status at this ledger revision:** corrective CI passed on PR head `f2e01363f6cd25175e4893eed14baab1e9f0c489`; merge and repository cleanup remain pending.<br>
+**Status at this ledger revision:** corrective CI passed on PR head `d78903ba9c89cfeafd701721843e6ed5c37dc298`; merge and repository cleanup remain pending.<br>
 **Deployment boundary:** private local rehearsals only. No public deployment was made.
 
 This ledger ties the Prompt 1 backend contract and Prompt 2 browser workflow to a reproducible release path. Phase 11 remains `CLOSED_PARTIAL`; this document does not claim production readiness or immutable candidate approval.
@@ -10,7 +10,7 @@ This ledger ties the Prompt 1 backend contract and Prompt 2 browser workflow to 
 
 - Repository: `Omar-Mega-Byte/fleetflow`; target branch: `main`.
 - Working branch: `codex/day2-release-closeout`; base: `4efc0b0067ff451d4328761fd04597d2a4d05493`.
-- The prior failed run used `a9c4813bde6bd13a39a094f504ba12c1d73ce11e`. Corrective PR head: `f2e01363f6cd25175e4893eed14baab1e9f0c489`. Successful GitHub Actions run: `38755514793`; its tested PR merge ref was `33b5e00273bc1193eb4639f497bd80d92330ff72` (base `4efc0b0067ff451d4328761fd04597d2a4d05493` plus the PR head).
+- The prior failed run used `a9c4813bde6bd13a39a094f504ba12c1d73ce11e`. Corrective PR head: `d78903ba9c89cfeafd701721843e6ed5c37dc298`. Successful GitHub Actions run: `38757763784`; its tested PR merge ref was `beaff49d6774518f41672acbdb747c2ad625d878` (base `4efc0b0067ff451d4328761fd04597d2a4d05493` plus the PR head).
 - The intended Day 1 and Day 2 changes were preserved together. No unrelated tracked changes were present at initial inspection.
 
 ## CI and release tooling
@@ -26,7 +26,7 @@ This ledger ties the Prompt 1 backend contract and Prompt 2 browser workflow to 
 
 The live browser config retains traces and screenshots on failure. Before artifact upload, the harness removes authorization/cookie data, OAuth secrets, request bodies and captured network resources; sanitizer tests cover JWTs, code/state values, headers, post data and response bodies. Raw Trivy reports stay on the ephemeral runner; secret results are removed before safe reports are archived. Scanner execution and policy failures remain failures. No environment file is uploaded.
 
-The corrective run passed all PR checks: backend/migrations, frontend and signed browser smoke, runtime image build and real browser journeys, source and image Trivy policy gates, source SBOM, Java/Kotlin and JavaScript/TypeScript CodeQL, GitGuardian, and the GitHub Advanced Security `CodeQL` alert aggregator. GitHub reported zero open code-scanning alerts after the CSRF correction. This run validates the code-bearing PR head above; the ledger-only update is also required to pass CI before merge.
+The corrective run passed all PR checks: backend/migrations, frontend and signed browser smoke, runtime image build and real browser journeys, source and image Trivy policy gates, source SBOM, Java/Kotlin and JavaScript/TypeScript CodeQL, GitGuardian, and the GitHub Advanced Security `CodeQL` alert aggregator. GitHub reported zero open code-scanning alerts after the CSRF correction. It also validated the corrected source-SBOM identity and application-version metadata. A later ledger-only update is required to pass the same gates before merge.
 
 ## Local verification evidence
 
@@ -56,7 +56,7 @@ The live driver flow initially failed because the edge sent `Permissions-Policy:
 
 Production credentials are file-backed through the configured secret directory; templates remain placeholders. The committed-file credential preflight passed. `npm audit` reported zero vulnerabilities. Trivy, CodeQL, and Syft were not available as local executables; the pinned CI jobs provide scan and SBOM evidence.
 
-The successful corrective run (`38755514793`) reported the same 57 Trivy findings across source and six images: **26 MEDIUM, 31 LOW, zero HIGH/CRITICAL, zero secrets and zero unclassified results**. Source and image SARIF were archived after secret-result redaction; downloaded copies are retained outside Git under `%LOCALAPPDATA%\FleetFlowDay2Audit\2026-10-15\remote-ci-38755514793\`.
+The final code-bearing corrective run (`38757763784`) reported 57 Trivy findings across source and six images: **26 MEDIUM, 31 LOW, zero HIGH/CRITICAL, zero secrets and zero unclassified results**. Source and image SARIF were archived after secret-result redaction; downloaded copies are retained outside Git under `%LOCALAPPDATA%\FleetFlowDay2Audit\2026-10-15\remote-ci-38757763784\`.
 
 | Scan finding | Installed component / version | Severity and advisory | Affected status / fix version | Owner and disposition |
 |---|---|---|---|---|
@@ -79,16 +79,16 @@ The previous PR run reported CodeQL's HIGH `java/spring-disabled-csrf-protection
 
 Trivy's pinned action emitted MEDIUM/LOW SARIF despite the earlier severity input, so the gate now inventories all severities and applies policy separately. Only sanitized SARIF is uploaded; Trivy's SARIF represents secret matches under the `Secret` rule and includes match data in result content, which the checker removes before archival. [Trivy SARIF reporting](https://github.com/aquasecurity/trivy/blob/main/docs/guide/configuration/reporting.md), [Trivy SARIF implementation](https://github.com/aquasecurity/trivy/blob/main/pkg/report/sarif.go), [pinned Trivy Action source](https://github.com/aquasecurity/trivy-action/blob/ed142fd0673e97e23eac54620cfb913e5ce36c25/entrypoint.sh).
 
-The run generated one CycloneDX source SBOM and six image CycloneDX SBOMs, plus sanitized source/image SARIF and the browser/build evidence. Application version is `0.0.1-SNAPSHOT` from `pom.xml`. The first source SBOM's metadata component was `.` with no version, so the source-SBOM job now supplies the project name/version from the POM through Syft configuration, and image-build metadata now records the same version; the next exact-head CI artifact must confirm this correction. Build identity metadata remains `BUILD_METADATA_ONLY`, `candidateApproved: false`; it contains local image IDs but no registry digests and is not immutable release provenance. The first run's image IDs and creation time are recorded in `image-builds.json`; it used source merge-ref `33b5e00273bc1193eb4639f497bd80d92330ff72` and completed at `2026-10-15T14:56:02Z`.
+The run generated one CycloneDX source SBOM and six image CycloneDX SBOMs, plus sanitized source/image SARIF and the browser/build evidence. The source SBOM metadata component is `FleetFlow`, version `0.0.1-SNAPSHOT` from `pom.xml`, with 39 cataloged components. `image-builds.json` records the same application version, source merge-ref `beaff49d6774518f41672acbdb747c2ad625d878`, image IDs and build timestamp `2026-10-15T15:10:49Z`. Build identity metadata is `BUILD_METADATA_ONLY`, `candidateApproved: false`; it contains local image IDs but no registry digests and is not immutable release provenance.
 
 | Image | CI image ID |
 |---|---|
-| app | `sha256:094402c6ca45067521bd25a23bf799c8c30c2069df94a9b9b3668002508cd7dc` |
-| Keycloak runtime | `sha256:50bca805144b340e7370006c0aea2597c564f25009a213e24c89d4e93492e452` |
-| edge | `sha256:89f0362c6af03396b06a49bee2ac1d5f75224b5c410b98846165ab5d69b186d2` |
-| PostGIS | `sha256:af09b7874068f449d8bb851c8a9814eececd50566972edd0225aeac8671db72d` |
-| Redis | `sha256:2004d07cd91d9887d558e099e6975a7a48cc31f6b52aa8c8917707de7789de19` |
-| Kafka | `sha256:d526bd0b6c1044bc7771ca84c2c977778f0740a7f57254ef2b0c664686255671` |
+| app | `sha256:b45513d6b8a1adcfca636d8c0a0b62260c978e3cdb122815476ef43d61e06f93` |
+| Keycloak runtime | `sha256:eb5a5003a0c63f8ec0bbe8a29165998ce224c7a588e41c9b1d2dfe3ccc0cc7b4` |
+| edge | `sha256:f6aa536e3ba3b75b009b8cb739f470847951ad06bec50ba3d5f0f49309a723aa` |
+| PostGIS | `sha256:696a125b9e78f801a0805ca49b56fad883269f8b811f8fbe339e37aed57d344c` |
+| Redis | `sha256:b1093d8fadd866517f38e1d086153e22f3beadf55267047962cca51d1d82e2b6` |
+| Kafka | `sha256:5b49305fdb1c86051488eae95976df63e6984bf244498c8c998a8a5b98e26305` |
 
 ## Repository hygiene
 
@@ -106,7 +106,7 @@ The run generated one CycloneDX source SBOM and six image CycloneDX SBOMs, plus 
 | Keycloak package MEDIUM/LOW inventory (50 findings) | Identity/platform owner | Corrective run SARIF lists component, installed version, severity and CVE above; no fixed versions were reported. OPEN to verify vendor backports/applicability for each package/advisory pair and record remediation or not-affected evidence. |
 | Six source LOW Dockerfile HEALTHCHECK notices | Release/platform owner | Corrective run `38755514793`; informational `DS-0026`. Compose-level health checks are configured and passed; decide whether image-level checks are also required. |
 | Trivy, CodeQL and credential-scan gates | Release/security owner | PASS on corrective run `38755514793`; no HIGH/CRITICAL, secret, unclassified, or open CodeQL alert findings. |
-| Preliminary source and six-image SBOMs, image IDs and build identity | Release engineering | Run `38755514793` retained all seven CycloneDX artifacts and `BUILD_METADATA_ONLY` IDs, but the source SBOM root lacked name/version. The workflow now supplies Maven project identity and adds `applicationVersion`; confirm the next exact-head artifacts. No registry digest or candidate approval is claimed. |
+| Preliminary source and six-image SBOMs, image IDs and build identity | Release engineering | PASS on run `38757763784`; all seven CycloneDX artifacts bind to source merge-ref `beaff49d6774518f41672acbdb747c2ad625d878`, and source metadata plus `applicationVersion=0.0.1-SNAPSHOT` are verified. No registry digest or candidate approval is claimed. |
 | Remaining real persona journeys, UI failure/empty/recovery states and full Playwright suite | UI/API owners | Day 3 work; this gate proves one real signed customer-to-delivery path only. |
 | Target DNS, certificate, approved secret delivery, firewall/NSG and notification destination | Deployment/operations owner | External provisioning and review remain open. No public deployment was authorized or attempted. |
 | Sustained backup schedule/RPO and replacement-host restore | Operations owner | Open under Phase 11 `CLOSED_PARTIAL`; the local 56-second smoke is not target-host evidence. |
@@ -128,9 +128,9 @@ The run generated one CycloneDX source SBOM and six image CycloneDX SBOMs, plus 
 ## Git integration
 
 - Working branch: `codex/day2-release-closeout`; target: `main`; PR #23.
-- Four corrective commits are pushed after `a9c4813`: `85200c8` browser location gate, `e081e9b` sanitized Trivy policy, `8509661` scoped CSRF, and `f2e0136` release ledger update.
-- PR run `38755514793` passed every listed required check against head `f2e01363f6cd25175e4893eed14baab1e9f0c489` and merge ref `33b5e00273bc1193eb4639f497bd80d92330ff72`.
-- The source-SBOM identity and image-metadata correction are in the current follow-up; exact-head rerun, merge, branch cleanup, merged-target smoke and final clean-tree verification are pending.
+- Five corrective commits are pushed after `a9c4813`: `85200c8` browser location gate, `e081e9b` sanitized Trivy policy, `8509661` scoped CSRF, `f2e0136` initial release evidence, and `d78903b` SBOM identity plus complete scan disposition.
+- PR run `38757763784` passed every listed required check against head `d78903ba9c89cfeafd701721843e6ed5c37dc298` and merge ref `beaff49d6774518f41672acbdb747c2ad625d878`.
+- Merge, branch cleanup, merged-target smoke and final clean-tree verification remain pending. A later ledger-only update is gated on its own PR checks before merge.
 
 ## Day 3 handoff
 
