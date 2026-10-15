@@ -23,7 +23,8 @@ public class SecurityConfiguration {
         Set<String> profiles = Set.of(environment.getActiveProfiles());
         boolean localFixtures = profiles.equals(Set.of("local")) || profiles.equals(Set.of("test"));
         boolean monitoring = profiles.contains("monitoring");
-        http.csrf(csrf -> csrf.disable())
+        // API routes accept only in-memory bearer tokens, never browser ambient-cookie authentication.
+        http.csrf(csrf -> csrf.ignoringRequestMatchers("/api/**"))
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .httpBasic(basic -> basic.disable())
                 .formLogin(form -> form.disable())

@@ -53,6 +53,12 @@ class Phase2SecurityTests extends ProfileTestDatabase {
     }
 
     @Test
+    void csrfRemainsEnabledOutsideBearerOnlyApiRoutes() throws Exception {
+        mvc.perform(post("/error"))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
     void jwtValidationRejectsUntrustedOrOutOfTimeTokens() throws Exception {
         Actor customer = actor("CUSTOMER");
         customer(customer);
