@@ -1,6 +1,6 @@
 # FleetFlow UI recovery checkpoint
 
-Updated 2026-10-16 (Africa/Cairo). Day 2 Prompt 2 remains complete for its real local/test workflow. The release baseline merged as PR #23; the contrast correction merged as PR #37 at `6be435b7`, and exact-main CI run `38907630136` passed all seven jobs. The Day 2 consolidation audit corrected replay-result feedback and browser-artifact handling. Its fresh signed journey passed with a persisted `DELIVERED|8` order; consolidation remote CI and merge remain to be verified. See [`docs/phases/production/DAY-2-CONSOLIDATION-AUDIT.md`](docs/phases/production/DAY-2-CONSOLIDATION-AUDIT.md) for current evidence.
+Updated 2026-10-16 (Africa/Cairo). Day 2 Prompt 2 remains complete for its real local/test workflow. The release baseline merged as PR #23, the contrast correction as PR #37, and the Day 2 consolidation as PR #38 at `0e0a21e`. Exact merged-main CI run `38918855000` passed all seven jobs. Consolidation corrected replay-result feedback, browser-artifact handling and local backup evidence. Its fresh signed journey and the exact-main CI journey each persisted a `DELIVERED|8` order. See [`docs/phases/production/DAY-2-CONSOLIDATION-AUDIT.md`](docs/phases/production/DAY-2-CONSOLIDATION-AUDIT.md) for evidence and limits.
 
 ## Current status
 
@@ -44,13 +44,13 @@ Design exploration, refinement, frontend implementation, fixture QA, one signed 
 
 ## Remaining work
 
-- Before Day 3, finish the consolidation branch's exact merged-target CI checks, then start from a synchronized, clean `main` checkout. The Day 2 scanner findings and SBOM limits remain in the release ledger; Phase 8 remains open.
+- Day 3 can start from the synchronized, clean `main` checkout after PR #38. Its exact merged-target CI passed. The Day 2 scanner findings and SBOM limits remain in the consolidation audit and release ledger; Phase 8 remains open.
 - Day 3 still needs remaining live persona workflows, failure/recovery UI states, full Playwright and accessibility coverage, alert fire/recovery evidence, target-host recovery/cost review, and immutable candidate controls.
 - The live workflow did not exercise map tiles or zone editing. Their edge/CSP acceptance remains open.
 
 ## Exact next step
 
-Start from synchronized `main` and read [`docs/phases/production/DAY-2-PROMPT-3-RELEASE-ACCEPTANCE.md`](docs/phases/production/DAY-2-PROMPT-3-RELEASE-ACCEPTANCE.md). Confirm the latest browser/CI run and the scan/SBOM artifacts, then continue Day 3 with the remaining persona journeys and target acceptance. Keep existing development volumes untouched.
+Start from synchronized `main` and read [`docs/phases/production/DAY-2-CONSOLIDATION-AUDIT.md`](docs/phases/production/DAY-2-CONSOLIDATION-AUDIT.md). Use exact-main run `38918855000` as the Day 2 code checkpoint, then continue Day 3 with the remaining persona journeys and target acceptance. Keep existing development volumes untouched.
 
 ## Resume commands
 
