@@ -280,32 +280,46 @@ def main():
         print("PASS: real HTTPS browser-to-Keycloak-to-API-to-PostgreSQL/SSE slice", flush=True)
     finally:
         browser_results = ROOT / "web" / "test-results" / "live"
-        if browser_results.exists():
-            trace_secrets = list(locals().get("passwords", {}).values())
-            trace_secrets.extend(account["password"] for account in locals().get("accounts", {}).values())
-            scrub = subprocess.run([sys.executable, str(ROOT / "scripts" / "scrub_playwright_trace.py"),
-                "--root", str(browser_results)], input=json.dumps(trace_secrets), text=True,
-                stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=False)
-            if scrub.returncode != 0:
-                raise RuntimeError("Playwright trace scrubbing failed; diagnostics cannot be uploaded")
-            print(scrub.stdout.strip(), flush=True)
-        if created:
-            # Only the exact newly generated project and its non-external volumes can be removed.
-            if not project.startswith("fleetflow-day1-audit-"):
-                raise RuntimeError("Unsafe fixture cleanup target")
-            try:
-                containers = execute(compose + ["ps", "--all", "--quiet"]).split()
-                for index, container in enumerate(containers):
-                    execute(["docker", "inspect", "--format", "{{json .State}}", container],
-                            log=evidence / f"health-{index}.json")
-                execute(compose + ["logs", "--no-color"], log=evidence / "containers.log")
-            finally:
-                execute(compose + ["down", "--volumes", "--remove-orphans"], log=evidence / "cleanup.log")
-        # These are generated, short-lived test credentials; delete files only within the checked directory.
-        private_real = private.resolve()
-        if private_real.parent == Path(tempfile.gettempdir()).resolve() and private_real.name.startswith(project):
-            import shutil
-            shutil.rmtree(private_real)
+        scrub_failure = None
+        trace_scrubbed = False
+        try:
+            if browser_results.exists():
+                trace_secrets = list(locals().get("passwords", {}).values())
+                trace_secrets.extend(account["password"] for account in locals().get("accounts", {}).values())
+                scrub = subprocess.run([sys.executable, str(ROOT / "scripts" / "scrub_playwright_trace.py"),
+                    "--root", str(browser_results)], input=json.dumps(trace_secrets), text=True,
+                    stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=False)
+                if scrub.returncode != 0:
+                    scrub_failure = RuntimeError("Playwright trace scrubbing failed; diagnostics cannot be uploaded")
+                else:
+                    print(scrub.stdout.strip(), flush=True)
+                    trace_scrubbed = True
+        except Exception as failure:
+            scrub_failure = failure
+        try:
+            if created:
+                # Only the exact newly generated project and its non-external volumes can be removed.
+                if not project.startswith("fleetflow-day1-audit-"):
+                    raise RuntimeError("Unsafe fixture cleanup target")
+                try:
+                    containers = execute(compose + ["ps", "--all", "--quiet"]).split()
+                    for index, container in enumerate(containers):
+                        execute(["docker", "inspect", "--format", "{{json .State}}", container],
+                                log=evidence / f"health-{index}.json")
+                    execute(compose + ["logs", "--no-color"], log=evidence / "containers.log")
+                finally:
+                    execute(compose + ["down", "--volumes", "--remove-orphans"], log=evidence / "cleanup.log")
+        finally:
+            # These are generated, short-lived test credentials; delete files only within the checked directory.
+            private_real = private.resolve()
+            if private_real.parent == Path(tempfile.gettempdir()).resolve() and private_real.name.startswith(project):
+                import shutil
+                shutil.rmtree(private_real)
+        if scrub_failure is not None:
+            raise scrub_failure
+        if trace_scrubbed and (github_output := os.environ.get("GITHUB_OUTPUT")):
+            with Path(github_output).open("a", encoding="utf-8") as output:
+                output.write("trace_scrubbed=true\n")
         if not succeeded:
             print("FAIL: private browser fixture; evidence retained without a success claim", flush=True)
 

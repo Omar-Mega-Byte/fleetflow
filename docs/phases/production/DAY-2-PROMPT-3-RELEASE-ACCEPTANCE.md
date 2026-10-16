@@ -1,7 +1,7 @@
 # Day 2 Prompt 3 — release acceptance
 
 **Date:** 2026-10-15; follow-up verification 2026-10-16 (Africa/Cairo)<br>
-**Status at this ledger revision:** PR #23 merged as `2678161754dddda570a8a0c50096341c3ea93d48`. Target CI run `38760552119` exposed a contrast failure during the page entrance animation. The transform-only correction is locally verified on `codex/day2-accessibility-contrast-fix`; follow-up PR and target-branch CI remain open at this ledger revision.<br>
+**Status after follow-up merge:** PR #23 merged as `2678161754dddda570a8a0c50096341c3ea93d48`. Target CI run `38760552119` exposed a contrast failure during the page entrance animation. PR #37 merged the transform-only correction as `6be435b7c6306af89b4531399340415d9ca1f20b`; target run `38907630136` passed all seven jobs on that exact `main` commit. The later Day 2 consolidation audit is recorded separately.<br>
 **Deployment boundary:** private local rehearsals only. No public deployment was made.
 
 This ledger ties the Prompt 1 backend contract and Prompt 2 browser workflow to a reproducible release path. Phase 11 remains `CLOSED_PARTIAL`; this document does not claim production readiness or immutable candidate approval.
@@ -24,7 +24,7 @@ This ledger ties the Prompt 1 backend contract and Prompt 2 browser workflow to 
 - **Runtime images:** build six release images, run the Day 1 private-edge smoke and the Day 2 real signed journey, scan all six images, emit image SBOMs and record immutable local image IDs. Build metadata is explicitly `BUILD_METADATA_ONLY` and `candidateApproved: false`.
 - **CodeQL:** Java/Kotlin and JavaScript/TypeScript.
 
-The live browser config retains traces and screenshots on failure. Before artifact upload, the harness removes authorization/cookie data, OAuth secrets, request bodies and captured network resources; sanitizer tests cover JWTs, code/state values, headers, post data and response bodies. Raw Trivy reports stay on the ephemeral runner; secret results are removed before safe reports are archived. Scanner execution and policy failures remain failures. No environment file is uploaded.
+The live browser config retains failure traces; automatic failure screenshots are disabled by the consolidation audit. Before artifact upload, the harness removes authorization/cookie data, OAuth secrets, request bodies and captured network resources; sanitizer tests cover JWTs, code/state values, headers, post data and response bodies. The audit further gates browser evidence upload on successful scrubbing and limits Playwright uploads to trace ZIP files; its new CI result must confirm the change. Raw Trivy reports stay on the ephemeral runner; secret results are removed before safe reports are archived. Scanner execution and policy failures remain failures. No environment file is uploaded.
 
 The final PR-head run `38759238613` passed backend/migrations, frontend and signed browser smoke, runtime image build and real browser journeys, source and image Trivy policy gates, source SBOM, Java/Kotlin and JavaScript/TypeScript CodeQL, GitGuardian, and the GitHub Advanced Security `CodeQL` alert aggregator. GitHub reported zero open code-scanning alerts after the CSRF correction. It also validated the corrected source-SBOM identity and application-version metadata. The separate post-merge target run and its accessibility finding are recorded below.
 
@@ -49,6 +49,8 @@ The command results below ran from the working tree based on `4efc0b0`; their ou
 The Day 2 signed browser workflow failed on merged `main` in run `38760552119` at the dispatcher matching page. Axe reported text contrast 4.28:1 (`#687874` over `#f2f7f6`) and primary-button contrast 4.4:1 (`#fefefe` over `#19885e`), below WCAG 2.2 AA's 4.5:1 text threshold. The UI's page wrapper animates from 50% opacity to full opacity over 220 ms; auditing while that animation is in progress composites both text and button colors against the page background. This is a transient presentation issue, not a request to change the established color tokens.
 
 The follow-up changes `web/src/styles.css` so `page-enter` keeps its 5px vertical translation but does not animate opacity. FleetFlow's color tokens and the reduced-motion rule remain unchanged. On 2026-10-16, frontend lint, TypeScript, production build and 47 unit tests passed, and `python scripts/Run-Day2VerticalJourney.py` passed against fresh PostGIS, Redis, Kafka and Keycloak services; the signed journey, six axe audits, SSE and persisted `DELIVERED` postcondition passed. Evidence: `C:\Users\Tolis\AppData\Local\Packages\OpenAI.Codex_2p2nqsd0c76g0\LocalCache\Local\FleetFlowDay2Audit\2026-10-16\contrast-fix\` (order `a4b27793-fc2a-4867-afef-beb6da4c24a1`, PostgreSQL `DELIVERED|8`). This Windows local rerun does not replace the required follow-up GitHub PR and merged-target checks.
+
+The follow-up PR #37 and target run `38907630136` subsequently satisfied the GitHub checks that remained open when the local contrast rerun was recorded.
 
 The backup smoke used unique, loopback-only Compose projects and removed their exact containers, networks, volumes, temporary app image, key and scratch directory. It did not touch the existing development project or volumes. The backup contains PostgreSQL/PostGIS and Keycloak identity data; Redis location state and Kafka broker offsets are intentionally excluded by the existing backup design. This is disposable local preparation, not replacement-host recovery, sustained RPO, or Azure evidence.
 
@@ -129,7 +131,7 @@ The run generated one CycloneDX source SBOM and six image CycloneDX SBOMs, plus 
 | Phase 6 — vertical-client readiness | PASS | Implemented role workspaces and clean frontend/browser checks; the whole product is not yet live-journey complete. |
 | Phase 7 — first vertical workflow | PASS | One real browser flow completes through all four operational personas. |
 | Phase 8 — release preparation | OPEN | Local rehearsal, CI, scan policy and preliminary SBOM gates passed; full roadmap acceptance remains open, including medium/low vulnerability disposition, target deployment controls and immutable candidate provenance. |
-| Git/repository integration | OPEN at this ledger revision | PR #23 is merged and verified, but the post-merge axe regression correction still needs its PR checks, merge and target-branch verification. |
+| Git/repository integration | COMPLETE for the Prompt 3 and contrast-fix source | PR #23 and follow-up PR #37 merged; exact-main run `38907630136` passed. The later consolidation branch requires its own checks and merge. |
 
 ## Git integration
 
@@ -137,7 +139,7 @@ The run generated one CycloneDX source SBOM and six image CycloneDX SBOMs, plus 
 - Five corrective commits are pushed after `a9c4813`: `85200c8` browser location gate, `e081e9b` sanitized Trivy policy, `8509661` scoped CSRF, `f2e0136` initial release evidence, and `d78903b` SBOM identity plus complete scan disposition.
 - PR run `38757763784` passed every listed required check against head `d78903ba9c89cfeafd701721843e6ed5c37dc298` and merge ref `beaff49d6774518f41672acbdb747c2ad625d878`.
 - PR #23 merged to `main` with merge commit `2678161754dddda570a8a0c50096341c3ea93d48`; its target run `38760552119` failed only at the signed Day 2 browser axe gate.
-- Follow-up working branch at this ledger revision: `codex/day2-accessibility-contrast-fix`. Local frontend and real signed-browser verification passed; follow-up PR CI, merge, target verification, and branch cleanup were still open when this ledger revision was written.
+- Follow-up PR #37 merged as `6be435b7c6306af89b4531399340415d9ca1f20b`; exact-main run `38907630136` passed all seven jobs. At the start of the 2026-10-16 consolidation audit, local `main` matched `origin/main` at this commit and the worktree was clean.
 
 ## Day 3 handoff
 

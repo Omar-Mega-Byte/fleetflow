@@ -26,7 +26,7 @@ The browser-driven lifecycle was `CREATED → CONFIRMED → PREPARING → READY_
 - Reused the locked refined-v2 shell, routes, role-filtered navigation, typed API client, `ApiProblem` error mapping, customer order views, merchant/dispatcher/driver workspaces, and bounded SSE implementation.
 - Named the shared sidebar landmark `Workspace sidebar` after the real-browser Axe audit found the unnamed complementary landmark.
 - Made operator seed/reset success visible only after the backend mutation succeeds, including the returned generation and synthetic order count. Failed/conflicting mutations retain an actionable error without announcing success.
-- Added `web/e2e/day2-live/vertical-journey.spec.ts`, an isolated Playwright config and script, and focused operator mutation tests. The dedicated config disables traces so browser credentials cannot be captured there.
+- Added `web/e2e/day2-live/vertical-journey.spec.ts`, an isolated Playwright config and script, and focused operator mutation tests. The dedicated config retains failure traces for diagnosis; the harness scrubs OAuth values, credentials, headers and network bodies before CI may upload the trace ZIP. Automatic failure screenshots are disabled. A failed scrub blocks artifact upload.
 
 ## Verification
 

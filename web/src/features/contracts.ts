@@ -18,6 +18,13 @@ const page = <T>(value: unknown, decode: (v: unknown) => T, limit = 100) => ({
   content: array(record(value).content, limit).map(decode),
 });
 export const decodeAck = (value: unknown) => record(value);
+export function decodeReplay(value: unknown) {
+  const r = record(value);
+  const outcome = text(r.outcome);
+  if (outcome !== "REPLAYED" && outcome !== "REPLAY_LIMIT_REACHED" && outcome !== "NOT_REPLAYABLE")
+    throw new Error("Unexpected replay outcome");
+  return { eventId: id(r.eventId), outcome };
+}
 export function decodeNotification(value: unknown) {
   const r = record(value);
   return {

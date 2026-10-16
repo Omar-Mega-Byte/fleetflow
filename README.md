@@ -38,7 +38,7 @@
 </table>
 
 <sub>VERIFIED SNAPSHOT · 2026-10-15</sub><br>
-<strong><a href="#verification">144 backend + 47 frontend tests passed</a></strong> · <strong><a href="#api-surface">Registered API operations</a></strong> · <strong><a href="#deployment-and-verified-status">Phase 11: CLOSED_PARTIAL</a></strong>
+<strong><a href="#verification">145 backend + 51 frontend tests passed</a></strong> · <strong><a href="#api-surface">Registered API operations</a></strong> · <strong><a href="#deployment-and-verified-status">Phase 11: CLOSED_PARTIAL</a></strong>
 
 ## See FleetFlow in action
 
@@ -229,7 +229,7 @@ The captures below render that test-generated local OpenAPI document in the bund
 
 ## Verification
 
-On 2026-10-15, clean Maven verification passed **144 tests, 0 failures, 0 errors, 0 skips**, including PostgreSQL/PostGIS, Redis, Kafka, Keycloak, fresh migrations and a supported populated upgrade. The frontend passed **47 unit/component tests**, three fixture Playwright checks and one separately configured real signed customer-to-delivery browser workflow. A disposable encrypted backup/restore smoke verified a signed read and cancellation in 56 seconds. [GitHub Actions](.github/workflows/verify.yml) adds exact-commit backend, frontend, live browser, migration, Compose, secret, Trivy, CodeQL and SBOM gates; inspect the linked run before relying on remote status. Scenario records include [atomic assignment](docs/phases/PHASE_6.md), [tracking](docs/phases/Phase9.md), and [zones](docs/phases/Phase10.md).
+On 2026-10-16, clean Maven verification passed **145 tests, 0 failures, 0 errors, 0 skips**, including PostgreSQL/PostGIS, Redis, Kafka, Keycloak, fresh migrations and a supported populated upgrade. The frontend passed **51 unit/component tests** and three fixture Playwright checks. A fresh real signed customer-to-delivery journey and disposable encrypted backup/restore smoke passed locally; the clean `6197b8b` source measured 78.3-second functional RTO. The exact commands, source boundary and remaining CI gates are in the [Day 2 consolidation audit](docs/phases/production/DAY-2-CONSOLIDATION-AUDIT.md). [GitHub Actions](.github/workflows/verify.yml) provides backend, frontend, live browser, migration, Compose, secret, Trivy, CodeQL and SBOM gates; inspect the exact source run before relying on remote status. Scenario records include [atomic assignment](docs/phases/PHASE_6.md), [tracking](docs/phases/Phase9.md), and [zones](docs/phases/Phase10.md).
 
 ## Run locally
 
@@ -261,7 +261,7 @@ The local demo and its evidence do not establish public deployment readiness. Th
 
 The Compose topology is a loopback learning and operations exercise: Keycloak uses development mode, service ports are local, and the optional monitoring scrape stays private. Dated records document signed local workflows, dashboard and load exercises, and restore from an independently retrieved remote archive. These observations do not prove multi-host recovery or public deployment readiness.
 
-**Phase 11 remains `CLOSED_PARTIAL`.** Day 2 adds 144 passing backend tests, 47 frontend tests, one real signed browser workflow and a fresh local restore with 56-second functional RTO. Sustained RPO, replacement-host recovery, target alert delivery, current exact-commit scan disposition and public target acceptance remain open. This is not public-production readiness. See the [phase record](docs/phases/phase11.md), [backup/restore runbook](docs/operations/BACKUP_RESTORE.md), and [security review](docs/operations/PHASE11_SECURITY_AUDIT.md).
+**Phase 11 remains `CLOSED_PARTIAL`.** The 2026-10-16 consolidation rerun has 145 passing backend tests, 51 frontend tests, one real signed browser workflow and a clean-source local restore with 78.3-second functional RTO. Sustained RPO, replacement-host recovery, target alert delivery, current exact-commit scan disposition and public target acceptance remain open. This is not public-production readiness. See the [phase record](docs/phases/phase11.md), [backup/restore runbook](docs/operations/BACKUP_RESTORE.md), and [security review](docs/operations/PHASE11_SECURITY_AUDIT.md).
 
 ## Repository map
 
