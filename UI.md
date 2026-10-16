@@ -1,10 +1,10 @@
 # FleetFlow UI recovery checkpoint
 
-Updated 2026-10-15 (Africa/Cairo). Day 2 Prompt 2 is complete for the real local/test workflow and Prompt 3 has closed the local release checks; see [`docs/phases/production/DAY-2-PROMPT-2-UI-ACCEPTANCE.md`](docs/phases/production/DAY-2-PROMPT-2-UI-ACCEPTANCE.md) and [`docs/phases/production/DAY-2-PROMPT-3-RELEASE-ACCEPTANCE.md`](docs/phases/production/DAY-2-PROMPT-3-RELEASE-ACCEPTANCE.md). Exact-commit remote CI and Git merge status are the remaining integration steps.
+Updated 2026-10-16 (Africa/Cairo). Day 2 Prompt 2 remains complete for its real local/test workflow. The release baseline merged as PR #23; a post-merge run found a transient contrast failure during the page entrance animation. The follow-up CSS correction retains the vertical motion and removes opacity animation; a fresh local signed journey and its six axe audits pass. See [`docs/phases/production/DAY-2-PROMPT-2-UI-ACCEPTANCE.md`](docs/phases/production/DAY-2-PROMPT-2-UI-ACCEPTANCE.md) and [`docs/phases/production/DAY-2-PROMPT-3-RELEASE-ACCEPTANCE.md`](docs/phases/production/DAY-2-PROMPT-3-RELEASE-ACCEPTANCE.md) for evidence. Check the latest PR and merged-target CI before beginning Day 3.
 
 ## Current status
 
-Design exploration, refinement, frontend implementation, fixture QA, one signed real-browser vertical workflow, and local release rehearsals are complete. The tested workflow runs against fresh local/test services and does not establish production readiness. Do not restart design research or regenerate the selected design.
+Design exploration, refinement, frontend implementation, fixture QA, one signed real-browser vertical workflow, and local release rehearsals are complete. The post-merge contrast issue was caused by the page wrapper fading to 50% opacity during its 220 ms entrance; the source correction now uses transform only. The tested workflow runs against fresh local/test services and does not establish production readiness. Do not restart design research or regenerate the selected design.
 
 ## Completed phases
 
@@ -14,7 +14,7 @@ Design exploration, refinement, frontend implementation, fixture QA, one signed 
 4. Browser QA drove revisions: fixed StrictMode dialog closure, duplicate keys, metric semantics, route focus, mobile density, shared empty states and map controls. Added branch/order context retention across navigation. Maps and routes load lazily. GeoJSON geometry validation and driver delivery addresses were tightened last.
 5. Saved desktop/mobile/tablet screenshots, accessibility reports and performance evidence. Built disposable edge image `fleetflow-edge:ui-audit`; no containers were launched from it. Existing Docker stack and volumes were not changed.
 6. Completed the real signed browser workflow in a fresh, uniquely named PostGIS/Redis/Kafka/Keycloak Compose project. The browser prepared and reset synthetic data, created a customer order, followed merchant and dispatcher actions, accepted and completed the driver offer, observed live customer SSE updates, and signed out. An independent post-run SQL check confirmed the final persisted lifecycle. The harness removed its containers, volumes, generated credentials and private configuration.
-7. Prompt 3 added backend/frontend/release CI, sanitized failure-artifact handling, static production Compose/OIDC/TLS validation, fresh and supported migration upgrade checks, and a disposable encrypted backup/restore smoke. The local backup restore reached signed order read/cancel in 56 seconds. Local status and evidence are in the linked Prompt 3 acceptance record; exact-commit CI scan/SBOM results are pending the PR run.
+7. Prompt 3 added backend/frontend/release CI, sanitized failure-artifact handling, static production Compose/OIDC/TLS validation, fresh and supported migration upgrade checks, and a disposable encrypted backup/restore smoke. The local backup restore reached signed order read/cancel in 56 seconds. PR #23 merged the baseline; target run `38760552119` exposed the entrance-animation contrast issue, now corrected in source and covered by a passing local signed journey. The acceptance ledger records the evidence and release limits.
 
 ## Decisions locked
 
@@ -33,6 +33,7 @@ Design exploration, refinement, frontend implementation, fixture QA, one signed 
 - Latest unit run: **47 passed / 13 files**. Lint and production build/typecheck passed after the live acceptance fixes.
 - Last full fixture browser suite: **3 passed**; 9 axe audits reported zero violations; no browser console errors in tested flows. Includes keyboard/dialogs, responsive workflows and context retention.
 - Day 2 live Playwright: **1 passed** in 23.4 seconds. Real Keycloak PKCE; no tokens in URL or browser storage; operator seed generation 1/reset generation 2; real customer, merchant, dispatcher and driver mutations; one customer tracking stream; terminal status visible; no page errors; six Axe audits without violations; customer and driver fit at 390px without horizontal overflow; logout confirmed.
+- Contrast follow-up (2026-10-16): frontend lint, typecheck, build, **47 unit tests**, and the fresh-service signed vertical journey passed after removing opacity from the page entrance. Six axe audits reported no violations; PostgreSQL confirmed `DELIVERED|8`. Evidence: `%LOCALAPPDATA%/FleetFlowDay2Audit/2026-10-16/contrast-fix/`.
 - Independent database postcondition: order `d3455907-c37d-4330-8650-2fb46f414dd5` persisted as `DELIVERED`, version 8, with `CREATED → CONFIRMED → PREPARING → READY_FOR_PICKUP → DISPATCHING → DRIVER_ASSIGNED → PICKED_UP → IN_TRANSIT → DELIVERED` in lifecycle history.
 - Run command: `python scripts/Run-Day2VerticalJourney.py`. Evidence directory: `%LOCALAPPDATA%/FleetFlowDay2Audit/2026-10-15/vertical-journey/` (Playwright summary, database postcondition, redacted logs and desktop/mobile screenshots). The journey used the local profile because customer order creation is an existing `local`/`test`-only contract.
 - Production performance fixture: **1 passed**. Single local sample: CLS 0.0003573, LCP 168 ms, no recorded long tasks. Map absent on initial route and loaded for Tracking; reduced motion passed. These are fixture measurements, not production/backend capacity claims.
@@ -43,13 +44,13 @@ Design exploration, refinement, frontend implementation, fixture QA, one signed 
 
 ## Remaining work
 
-- Complete the exact-commit PR CI review, disposition any applicable scanner findings, inspect the source/image SBOM and image identity artifacts, then merge and verify a clean `main` checkout.
+- Before Day 3, confirm the latest PR and merged-target browser/CI results and start from a synchronized, clean `main` checkout. The Day 2 scanner findings and SBOM limits remain in the release ledger; Phase 8 remains open.
 - Day 3 still needs remaining live persona workflows, failure/recovery UI states, full Playwright and accessibility coverage, alert fire/recovery evidence, target-host recovery/cost review, and immutable candidate controls.
 - The live workflow did not exercise map tiles or zone editing. Their edge/CSP acceptance remains open.
 
 ## Exact next step
 
-Start from the merged target branch and read [`docs/phases/production/DAY-2-PROMPT-3-RELEASE-ACCEPTANCE.md`](docs/phases/production/DAY-2-PROMPT-3-RELEASE-ACCEPTANCE.md). Confirm the recorded CI, scan and SBOM artifacts match the merged commit and the working tree is clean. Then continue Day 3 with the remaining persona journeys and target acceptance. Keep existing development volumes untouched.
+Start from synchronized `main` and read [`docs/phases/production/DAY-2-PROMPT-3-RELEASE-ACCEPTANCE.md`](docs/phases/production/DAY-2-PROMPT-3-RELEASE-ACCEPTANCE.md). Confirm the latest browser/CI run and the scan/SBOM artifacts, then continue Day 3 with the remaining persona journeys and target acceptance. Keep existing development volumes untouched.
 
 ## Resume commands
 

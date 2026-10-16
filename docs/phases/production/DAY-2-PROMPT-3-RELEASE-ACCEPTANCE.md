@@ -1,7 +1,7 @@
 # Day 2 Prompt 3 — release acceptance
 
-**Date:** 2026-10-15 (Africa/Cairo)<br>
-**Status at this ledger revision:** corrective CI passed on PR head `d78903ba9c89cfeafd701721843e6ed5c37dc298`; merge and repository cleanup remain pending.<br>
+**Date:** 2026-10-15; follow-up verification 2026-10-16 (Africa/Cairo)<br>
+**Status at this ledger revision:** PR #23 merged as `2678161754dddda570a8a0c50096341c3ea93d48`. Target CI run `38760552119` exposed a contrast failure during the page entrance animation. The transform-only correction is locally verified on `codex/day2-accessibility-contrast-fix`; follow-up PR and target-branch CI remain open at this ledger revision.<br>
 **Deployment boundary:** private local rehearsals only. No public deployment was made.
 
 This ledger ties the Prompt 1 backend contract and Prompt 2 browser workflow to a reproducible release path. Phase 11 remains `CLOSED_PARTIAL`; this document does not claim production readiness or immutable candidate approval.
@@ -26,7 +26,7 @@ This ledger ties the Prompt 1 backend contract and Prompt 2 browser workflow to 
 
 The live browser config retains traces and screenshots on failure. Before artifact upload, the harness removes authorization/cookie data, OAuth secrets, request bodies and captured network resources; sanitizer tests cover JWTs, code/state values, headers, post data and response bodies. Raw Trivy reports stay on the ephemeral runner; secret results are removed before safe reports are archived. Scanner execution and policy failures remain failures. No environment file is uploaded.
 
-The corrective run passed all PR checks: backend/migrations, frontend and signed browser smoke, runtime image build and real browser journeys, source and image Trivy policy gates, source SBOM, Java/Kotlin and JavaScript/TypeScript CodeQL, GitGuardian, and the GitHub Advanced Security `CodeQL` alert aggregator. GitHub reported zero open code-scanning alerts after the CSRF correction. It also validated the corrected source-SBOM identity and application-version metadata. A later ledger-only update is required to pass the same gates before merge.
+The final PR-head run `38759238613` passed backend/migrations, frontend and signed browser smoke, runtime image build and real browser journeys, source and image Trivy policy gates, source SBOM, Java/Kotlin and JavaScript/TypeScript CodeQL, GitGuardian, and the GitHub Advanced Security `CodeQL` alert aggregator. GitHub reported zero open code-scanning alerts after the CSRF correction. It also validated the corrected source-SBOM identity and application-version metadata. The separate post-merge target run and its accessibility finding are recorded below.
 
 ## Local verification evidence
 
@@ -38,11 +38,17 @@ The command results below ran from the working tree based on `4efc0b0`; their ou
 | Frontend / UI owner | `npm ci`; `npm run lint`; `npm run typecheck`; `npm run test`; `npm run build`; `npm audit --audit-level=high` | PASS — 47 unit/component tests across 13 files; 0 npm audit findings. | Local command output; `web/package-lock.json` unchanged by install |
 | Fixture browser checks / UI owner | `npm run test:e2e` | PASS — 3 tests. The default config excludes both separately managed live harness directories. | Ignored `web/test-results\` |
 | Production-edge signed browser gate / release and UI owners | `python scripts/Run-Day1BrowserSmoke.py` with six `fleetflow-day2-repro` images | PASS — customer PKCE/order/SSE and all four live persona workspaces; driver geolocation available and authenticated location POST returned 204; six axe audits, responsive map checks, proxy/body/rate checks, broker/cache outage, app restart and outbox recovery passed. Loopback only. | `%LOCALAPPDATA%\FleetFlowDay2Audit\2026-10-15\local-repro-verified-app\browser\result.json` and `playwright.log`; app image `dd511e79e251`, edge image `ecd2e56bb586` |
-| Signed vertical workflow / UI and API owners | `python scripts/Run-Day2VerticalJourney.py` | PASS — real Keycloak PKCE login; operator seed and reset; customer order; merchant transitions; dispatcher assignment; driver acceptance, pickup, transit and completion; tracking SSE; logout; customer access denial; persisted final state. Six axe audits reported no violations; 390px customer and driver layouts had no horizontal overflow. | Final rerun evidence under `%LOCALAPPDATA%\FleetFlowDay2Audit\2026-10-15\vertical-journey-final\`; order `c47ab8fb-dbde-4435-b842-0494ff95c9ad`, PostgreSQL `DELIVERED|8`, nine lifecycle states, one tracking stream |
+| Signed vertical workflow / UI and API owners | `python scripts/Run-Day2VerticalJourney.py` | PASS — real Keycloak PKCE login; operator seed and reset; customer order; merchant transitions; dispatcher assignment; driver acceptance, pickup, transit and completion; tracking SSE; logout; customer access denial; persisted final state. Six axe audits reported no violations; 390px customer and driver layouts had no horizontal overflow. | Final 2026-10-15 evidence under `%LOCALAPPDATA%\FleetFlowDay2Audit\2026-10-15\vertical-journey-final\`; order `c47ab8fb-dbde-4435-b842-0494ff95c9ad`, PostgreSQL `DELIVERED|8`, nine lifecycle states, one tracking stream |
 | Trace artifact handling / release engineering | `python scripts/test_day2_trace_sanitizer.py` | PASS — sanitizer unit test passed. Successful journey produced no failure trace; sanitizer still ran before evidence persistence. | `vertical-journey\trace-scrub.log` and test output |
 | Repository secret preflight / security owner | `python scripts/Phase11-Secret-Audit.py` | PASS — 468 paths inspected. | Local command output; repeated immediately before push |
 | Production topology / platform owner | `pwsh -NoProfile -File scripts/Validate-ProductionCompose.ps1` | PASS — rendered and validated; only edge TCP ports 80 and 443 are host published. PostgreSQL, Redis, Kafka, app, Keycloak/admin and management surfaces are private. No production service was started. | Local validator output; CI repeats the JSON-rendered configuration check |
 | Backup and recovery / operations owner | `pwsh -NoLogo -NoProfile -File scripts/Run-Day2BackupRestoreSmoke.ps1` | PASS — encrypted archive round-trip and SHA-256; missing-project backup failure returned nonzero and made no archive; fresh empty target restored PostgreSQL/PostGIS and Keycloak; signed order read/cancel persisted; measured local functional RTO 56 seconds. | `%LOCALAPPDATA%\FleetFlowDay2Audit\2026-10-15\backup-restore\day2-disposable-backup-restore.json`; archive 147,010 bytes; hash recorded there |
+
+## Post-merge accessibility follow-up
+
+The Day 2 signed browser workflow failed on merged `main` in run `38760552119` at the dispatcher matching page. Axe reported text contrast 4.28:1 (`#687874` over `#f2f7f6`) and primary-button contrast 4.4:1 (`#fefefe` over `#19885e`), below WCAG 2.2 AA's 4.5:1 text threshold. The UI's page wrapper animates from 50% opacity to full opacity over 220 ms; auditing while that animation is in progress composites both text and button colors against the page background. This is a transient presentation issue, not a request to change the established color tokens.
+
+The follow-up changes `web/src/styles.css` so `page-enter` keeps its 5px vertical translation but does not animate opacity. FleetFlow's color tokens and the reduced-motion rule remain unchanged. On 2026-10-16, frontend lint, TypeScript, production build and 47 unit tests passed, and `python scripts/Run-Day2VerticalJourney.py` passed against fresh PostGIS, Redis, Kafka and Keycloak services; the signed journey, six axe audits, SSE and persisted `DELIVERED` postcondition passed. Evidence: `C:\Users\Tolis\AppData\Local\Packages\OpenAI.Codex_2p2nqsd0c76g0\LocalCache\Local\FleetFlowDay2Audit\2026-10-16\contrast-fix\` (order `a4b27793-fc2a-4867-afef-beb6da4c24a1`, PostgreSQL `DELIVERED|8`). This Windows local rerun does not replace the required follow-up GitHub PR and merged-target checks.
 
 The backup smoke used unique, loopback-only Compose projects and removed their exact containers, networks, volumes, temporary app image, key and scratch directory. It did not touch the existing development project or volumes. The backup contains PostgreSQL/PostGIS and Keycloak identity data; Redis location state and Kafka broker offsets are intentionally excluded by the existing backup design. This is disposable local preparation, not replacement-host recovery, sustained RPO, or Azure evidence.
 
@@ -123,14 +129,15 @@ The run generated one CycloneDX source SBOM and six image CycloneDX SBOMs, plus 
 | Phase 6 — vertical-client readiness | PASS | Implemented role workspaces and clean frontend/browser checks; the whole product is not yet live-journey complete. |
 | Phase 7 — first vertical workflow | PASS | One real browser flow completes through all four operational personas. |
 | Phase 8 — release preparation | OPEN | Local rehearsal, CI, scan policy and preliminary SBOM gates passed; full roadmap acceptance remains open, including medium/low vulnerability disposition, target deployment controls and immutable candidate provenance. |
-| Git/repository integration | OPEN | Commit, push, PR, CI review, merge and clean target verification remain. |
+| Git/repository integration | OPEN at this ledger revision | PR #23 is merged and verified, but the post-merge axe regression correction still needs its PR checks, merge and target-branch verification. |
 
 ## Git integration
 
-- Working branch: `codex/day2-release-closeout`; target: `main`; PR #23.
+- Original working branch: `codex/day2-release-closeout`; target: `main`; PR #23.
 - Five corrective commits are pushed after `a9c4813`: `85200c8` browser location gate, `e081e9b` sanitized Trivy policy, `8509661` scoped CSRF, `f2e0136` initial release evidence, and `d78903b` SBOM identity plus complete scan disposition.
 - PR run `38757763784` passed every listed required check against head `d78903ba9c89cfeafd701721843e6ed5c37dc298` and merge ref `beaff49d6774518f41672acbdb747c2ad625d878`.
-- Merge, branch cleanup, merged-target smoke and final clean-tree verification remain pending. A later ledger-only update is gated on its own PR checks before merge.
+- PR #23 merged to `main` with merge commit `2678161754dddda570a8a0c50096341c3ea93d48`; its target run `38760552119` failed only at the signed Day 2 browser axe gate.
+- Follow-up working branch at this ledger revision: `codex/day2-accessibility-contrast-fix`. Local frontend and real signed-browser verification passed; follow-up PR CI, merge, target verification, and branch cleanup were still open when this ledger revision was written.
 
 ## Day 3 handoff
 
