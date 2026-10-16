@@ -1,6 +1,6 @@
 # FleetFlow UI recovery checkpoint
 
-Updated 2026-10-16 (Africa/Cairo). Day 2 Prompt 2 remains complete for its real local/test workflow. The release baseline merged as PR #23; a post-merge run found a transient contrast failure during the page entrance animation. The follow-up CSS correction retains the vertical motion and removes opacity animation; a fresh local signed journey and its six axe audits pass. See [`docs/phases/production/DAY-2-PROMPT-2-UI-ACCEPTANCE.md`](docs/phases/production/DAY-2-PROMPT-2-UI-ACCEPTANCE.md) and [`docs/phases/production/DAY-2-PROMPT-3-RELEASE-ACCEPTANCE.md`](docs/phases/production/DAY-2-PROMPT-3-RELEASE-ACCEPTANCE.md) for evidence. Check the latest PR and merged-target CI before beginning Day 3.
+Updated 2026-10-16 (Africa/Cairo). Day 2 Prompt 2 remains complete for its real local/test workflow. The release baseline merged as PR #23; the contrast correction merged as PR #37 at `6be435b7`, and exact-main CI run `38907630136` passed all seven jobs. The Day 2 consolidation audit corrected replay-result feedback and browser-artifact handling. Its fresh signed journey passed with a persisted `DELIVERED|8` order; consolidation remote CI and merge remain to be verified. See [`docs/phases/production/DAY-2-CONSOLIDATION-AUDIT.md`](docs/phases/production/DAY-2-CONSOLIDATION-AUDIT.md) for current evidence.
 
 ## Current status
 
@@ -30,7 +30,7 @@ Design exploration, refinement, frontend implementation, fixture QA, one signed 
 ## Verification evidence
 
 - Cleanup checkpoint: fresh production build (including TypeScript) and lint both passed after final formatting and documentation cleanup.
-- Latest unit run: **47 passed / 13 files**. Lint and production build/typecheck passed after the live acceptance fixes.
+- Latest consolidation unit run: **51 passed / 14 files**. Fresh `npm ci`, lint, typecheck, production build and `npm audit --audit-level=high` passed on 2026-10-16; npm audit found zero vulnerabilities. Three fixture browser tests, the production-build performance fixture, and the fresh signed live journey also passed. The current backup/restore smoke measured 59.1-second local functional RTO; see the consolidation audit for boundaries.
 - Last full fixture browser suite: **3 passed**; 9 axe audits reported zero violations; no browser console errors in tested flows. Includes keyboard/dialogs, responsive workflows and context retention.
 - Day 2 live Playwright: **1 passed** in 23.4 seconds. Real Keycloak PKCE; no tokens in URL or browser storage; operator seed generation 1/reset generation 2; real customer, merchant, dispatcher and driver mutations; one customer tracking stream; terminal status visible; no page errors; six Axe audits without violations; customer and driver fit at 390px without horizontal overflow; logout confirmed.
 - Contrast follow-up (2026-10-16): frontend lint, typecheck, build, **47 unit tests**, and the fresh-service signed vertical journey passed after removing opacity from the page entrance. Six axe audits reported no violations; PostgreSQL confirmed `DELIVERED|8`. Evidence: `%LOCALAPPDATA%/FleetFlowDay2Audit/2026-10-16/contrast-fix/`.
@@ -44,7 +44,7 @@ Design exploration, refinement, frontend implementation, fixture QA, one signed 
 
 ## Remaining work
 
-- Before Day 3, confirm the latest PR and merged-target browser/CI results and start from a synchronized, clean `main` checkout. The Day 2 scanner findings and SBOM limits remain in the release ledger; Phase 8 remains open.
+- Before Day 3, finish the consolidation branch's exact merged-target CI checks, then start from a synchronized, clean `main` checkout. The Day 2 scanner findings and SBOM limits remain in the release ledger; Phase 8 remains open.
 - Day 3 still needs remaining live persona workflows, failure/recovery UI states, full Playwright and accessibility coverage, alert fire/recovery evidence, target-host recovery/cost review, and immutable candidate controls.
 - The live workflow did not exercise map tiles or zone editing. Their edge/CSP acceptance remains open.
 

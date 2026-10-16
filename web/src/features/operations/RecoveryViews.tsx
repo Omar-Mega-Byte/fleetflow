@@ -1,7 +1,8 @@
 import { useRef, useState } from "react";
 import { apiClient } from "../../auth/AuthContext";
+import { ApiProblem } from "../../api/client";
 import { useCommand, useResource } from "../../api/useResource";
-import { decodeAck, decodeFailed, decodeQuarantine } from "../contracts";
+import { decodeFailed, decodeQuarantine, decodeReplay } from "../contracts";
 import { ErrorState } from "../../components/States";
 import {
   DetailList,
@@ -14,7 +15,10 @@ import {
   human,
   shortId,
 } from "../../components/Ui";
-function ReplayForm({ id, onSaved }: { id: string; onSaved: () => void }) {
+function ReplayForm({ id, onSaved }: {
+  id: string;
+  onSaved: (result: ReturnType<typeof decodeReplay>) => void;
+}) {
   const [reason, setReason] = useState("");
   const key = useRef(crypto.randomUUID());
   const command = useCommand();
@@ -24,15 +28,18 @@ function ReplayForm({ id, onSaved }: { id: string; onSaved: () => void }) {
       onSubmit={(e) => {
         e.preventDefault();
         void command.execute(
-          (signal) =>
-            apiClient.post(
+          async (signal) => {
+            const result = await apiClient.post(
               `/v1/operations/outbox/${id}/replay`,
               { reason: reason.trim() },
-              decodeAck,
+              decodeReplay,
               { idempotencyKey: key.current, signal },
-            ),
+            );
+            if (result.eventId !== id) throw new ApiProblem("unexpected");
+            return result;
+          },
           onSaved,
-          "Replay accepted. Publication continues asynchronously.",
+          "Replay request completed.",
         );
       }}
     >
@@ -72,10 +79,10 @@ export function RecoveryViews() {
   const [inspect, setInspect] = useState<
     ReturnType<typeof decodeQuarantine>["content"][number] | null
   >(null);
-  const [message, setMessage] = useState("");
+  const [feedback, setFeedback] = useState<{ message: string; tone: "success" | "danger" } | null>(null);
   return (
     <>
-      {message && <Notice tone="success">{message}</Notice>}
+      {feedback && <Notice tone={feedback.tone}>{feedback.message}</Notice>}
       <div className="operations-grid">
         <Panel
           title="Failed publisher events"
@@ -158,12 +165,14 @@ export function RecoveryViews() {
         <Overlay title="Replay failed event" onClose={() => setReplay("")}>
           <ReplayForm
             id={replay}
-            onSaved={() => {
+            onSaved={(result) => {
               setReplay("");
               failed.refresh();
-              setMessage(
-                "Replay accepted. Publication continues asynchronously.",
-              );
+              setFeedback(result.outcome === "REPLAYED"
+                ? { tone: "success", message: "Replay accepted. Publication continues asynchronously." }
+                : result.outcome === "REPLAY_LIMIT_REACHED"
+                  ? { tone: "danger", message: "Replay limit reached. The event remains failed." }
+                  : { tone: "danger", message: "Event was not queued for replay. Refresh and inspect its current state." });
             }}
           />
         </Overlay>

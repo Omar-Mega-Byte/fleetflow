@@ -231,6 +231,7 @@ jobs:
           cd web
           npx playwright install --with-deps chromium
       - name: Production topology and real signed browser slice
+        id: day1_browser
         env:
           FLEETFLOW_TEST_IMAGE_APP: fleetflow-app:ci
           FLEETFLOW_TEST_IMAGE_KEYCLOAK: fleetflow-keycloak-runtime:ci
@@ -249,6 +250,7 @@ jobs:
       - name: Package application for the Day 2 real browser gate
         run: ./mvnw clean package -DskipTests --batch-mode --no-transfer-progress
       - name: Day 2 signed browser journey against disposable real services
+        id: day2_browser
         env:
           FLEETFLOW_TEST_IMAGE_POSTGRES: postgis/postgis:17-3.5-alpine@sha256:894f570c0cf0664ed5576a8fd5d5bfb8fb1b19d592885b686c3a88c8bd90c41f
           FLEETFLOW_TEST_IMAGE_KEYCLOAK: quay.io/keycloak/keycloak:26.8.1@sha256:79c623a22abacf3fe6c00a5fb30f5b7843d717b234033b80995891c06116d244
@@ -257,23 +259,24 @@ jobs:
           FLEETFLOW_DAY2_AUDIT_DIR: ${{ runner.temp }}/fleetflow-day2-vertical
         run: python3 scripts/Run-Day2VerticalJourney.py
       - name: Preserve sanitized Day 2 browser evidence
-        if: always()
+        if: always() && steps.day2_browser.outputs.trace_scrubbed == 'true'
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
         with:
           name: day2-real-browser-${{ github.sha }}
           path: |
-            ${{ runner.temp }}/fleetflow-day2-vertical/
-            web/test-results/day2-live/
+            ${{ runner.temp }}/fleetflow-day2-vertical/vertical-result.json
+            ${{ runner.temp }}/fleetflow-day2-vertical/database-postcondition.json
+            web/test-results/day2-live/**/*.zip
           if-no-files-found: ignore
           retention-days: 14
       - name: Preserve private-stack smoke evidence
-        if: always()
+        if: always() && steps.day1_browser.outputs.trace_scrubbed == 'true'
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
         with:
           name: live-browser-${{ github.sha }}
           path: |
-            ${{ runner.temp }}/fleetflow-audit/browser/
-            web/test-results/live/
+            ${{ runner.temp }}/fleetflow-audit/browser/result.json
+            web/test-results/live/**/*.zip
           if-no-files-found: ignore
           retention-days: 14
       - name: Prepare private image scan report directory

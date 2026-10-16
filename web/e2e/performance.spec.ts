@@ -83,10 +83,7 @@ test("production frontend profile, lazy maps and reduced motion", async ({
     mapLoadedAfterNavigation: mapLoaded,
     reducedMotion: "PASS",
   };
-  const out = path.resolve(
-    "..",
-    "docs/design/evidence/implementation-v2/performance.json",
-  );
+  const out = path.resolve("test-results", "performance", "performance.json");
   await fs.mkdir(path.dirname(out), { recursive: true });
   await fs.writeFile(out, JSON.stringify(report, null, 2));
 });

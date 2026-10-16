@@ -11,7 +11,9 @@ export default defineConfig({
     ...devices["Desktop Chrome"],
     baseURL: "http://127.0.0.1:5173",
     trace: "retain-on-failure",
-    screenshot: "only-on-failure",
+    // Failure screenshots can capture the identity provider's password form.
+    // The journey saves explicit post-authentication screenshots in its evidence directory.
+    screenshot: "off",
   },
   webServer: {
     command: "npm run dev",

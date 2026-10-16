@@ -54,7 +54,7 @@ class OrderController {
             @Parameter(name = "branchId", in = ParameterIn.QUERY,
                     description = "Optional branch filter within my orders.", schema = @Schema(type = "string", format = "uuid")),
             @Parameter(name = "status", in = ParameterIn.QUERY,
-                    description = "Phase 3 order state.", schema = @Schema(allowableValues = {"CREATED", "CONFIRMED", "PREPARING", "READY_FOR_PICKUP", "CANCELLED"})),
+                    description = "Current order state.", schema = @Schema(allowableValues = {"CREATED", "CONFIRMED", "PREPARING", "READY_FOR_PICKUP", "CANCELLED", "DISPATCHING", "DISPATCH_FAILED", "DRIVER_ASSIGNED", "PICKED_UP", "IN_TRANSIT", "DELIVERED", "DELIVERY_FAILED"})),
             @Parameter(name = "from", in = ParameterIn.QUERY,
                     description = "Inclusive UTC creation time.", schema = @Schema(type = "string", format = "date-time")),
             @Parameter(name = "to", in = ParameterIn.QUERY,

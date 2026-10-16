@@ -3,7 +3,7 @@ import AxeBuilder from "@axe-core/playwright";
 import path from "node:path";
 import fs from "node:fs/promises";
 import { ids, productFixture } from "./fixtures/product";
-const evidence = path.resolve("..", "docs/design/evidence/implementation-v2");
+const evidence = path.resolve("test-results", "fixture", "evidence");
 async function capture(page: Page, name: string) {
   await expect(page.locator(".skeleton-row")).toHaveCount(0);
   await fs.mkdir(evidence, { recursive: true });

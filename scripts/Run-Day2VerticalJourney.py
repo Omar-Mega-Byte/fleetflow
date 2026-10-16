@@ -285,6 +285,9 @@ def main() -> int:
         execute([sys.executable, str(ROOT / "scripts" / "scrub_playwright_trace.py"),
                  "--root", str(ROOT / "web" / "test-results" / "day2-live")],
                 data=json.dumps(secrets_to_redact), log=evidence / "trace-scrub.log")
+        if github_output := os.environ.get("GITHUB_OUTPUT"):
+            with Path(github_output).open("a", encoding="utf-8") as output:
+                output.write("trace_scrubbed=true\n")
         if browser_exit:
             raise RuntimeError("Day 2 Playwright journey failed; inspect redacted browser evidence")
 

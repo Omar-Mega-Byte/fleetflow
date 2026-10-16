@@ -3,6 +3,7 @@ import { defineConfig, devices } from "@playwright/test";
 export default defineConfig({
   testDir: "./e2e",
   testIgnore: ["**/live/**", "**/day2-live/**", "**/performance.spec.ts"],
+  outputDir: "test-results/fixture",
   fullyParallel: false,
   reporter: "list",
   use: {

@@ -3,6 +3,7 @@ import {
   decodeCandidate,
   decodeGeometry,
   decodeNotifications,
+  decodeReplay,
   decodeZone,
 } from "./contracts";
 const id = "10000000-0000-4000-8000-000000000001";
@@ -69,5 +70,11 @@ describe("operational response boundaries", () => {
     expect(() =>
       decodeNotifications({ content: Array(21).fill({}) }),
     ).toThrow();
+  });
+  it("accepts only explicit operator replay outcomes", () => {
+    expect(decodeReplay({ eventId: id, outcome: "REPLAYED" }).outcome).toBe("REPLAYED");
+    expect(decodeReplay({ eventId: id, outcome: "REPLAY_LIMIT_REACHED" }).outcome)
+      .toBe("REPLAY_LIMIT_REACHED");
+    expect(() => decodeReplay({ eventId: id, outcome: "QUEUED" })).toThrow();
   });
 });
