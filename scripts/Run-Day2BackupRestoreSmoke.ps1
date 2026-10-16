@@ -272,8 +272,9 @@ values ('$orderId', '$customerId', '$branchId', 'Restore customer', 'Restore mer
         '-d', $values.DB_NAME, '-c', 'select postgis_full_version()')
     if (($postgis -join "`n") -notmatch 'POSTGIS') { throw 'Restored target does not expose PostGIS.' }
 
+    $phase = 'record source metadata'
     $gitCommit = (& git -C $root rev-parse HEAD).Trim()
-    $sourceStatus = (& git -C $root status --porcelain).Trim()
+    $sourceStatus = ((& git -C $root status --porcelain) -join "`n").Trim()
     $backupMetadata = [ordered]@{
         status = 'PASS_LOCAL_DISPOSABLE_RESTORE_PREPARATION'
         sourceCommit = $gitCommit
