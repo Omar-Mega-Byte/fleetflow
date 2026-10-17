@@ -37,6 +37,8 @@ jobs:
         run: python3 -m unittest discover -s scripts -p test_release_evidence.py -v
       - name: Verify actual owner delivery evidence rules
         run: python3 -m unittest discover -s scripts -p test_owner_alert_evidence.py -v
+      - name: Verify source SBOM dependency coverage rules
+        run: python3 -m unittest discover -s scripts -p test_source_sbom.py -v
       - name: Validate local Compose
         run: docker compose --env-file .env.example -f compose.yaml config --quiet
       - name: Validate production Compose isolation
@@ -158,6 +160,7 @@ jobs:
           --pattern 'fleetflow-*.cdx.json' --pattern 'image-builds-*'
           --pattern 'trivy-*' --pattern 'codeql-*'
           --pattern 'live-browser-*' --pattern 'day2-real-browser-*'
+          --pattern 'source-sbom-coverage-*'
       - name: Verify identities, scans, SBOMs and browser/database results
         env:
           FLEETFLOW_HEAD_COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
@@ -184,6 +187,18 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+      - uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+      - name: Inventory Maven's selected dependencies with authoritative coordinates
+        run: >-
+          ./mvnw org.cyclonedx:cyclonedx-maven-plugin:2.9.3:makeAggregateBom dependency:tree
+          -DincludeTestScope=true -DincludeProvidedScope=true -DoutputFormat=json
+          -DoutputDirectory=target/source-sbom-input -DoutputName=source-java.bom
+          -DoutputType=json -DoutputFile=target/source-maven-tree.json
+          --batch-mode --no-transfer-progress
       - name: Prepare source SBOM identity
         run: |
           python3 - <<'PY'
@@ -198,11 +213,13 @@ jobs:
           if not version:
               raise SystemExit("FleetFlow Maven project version is missing")
           config = "source:\n  name: FleetFlow\n  version: " + json.dumps(version) + "\n"
+          # Maven supplies resolved coordinates; do not guess them from POM declarations/JAR names.
+          config += "select-catalogers:\n  - '-java'\n  - '+sbom-cataloger'\njavascript:\n  include-dev-dependencies: true\n"
           Path(os.environ["RUNNER_TEMP"], "syft-source-config.yaml").write_text(config, encoding="utf-8")
           print(f"Source SBOM identity: FleetFlow {version}")
           PY
       - name: Generate CycloneDX source SBOM
-        uses: anchore/sbom-action@f8bdd1d8ac5e901a77a92f111440fdb1b593736b # v0.20.6
+        uses: anchore/sbom-action@66cbf4bc1f1c0d2edc94016e65bc221b6bb0ad6c # v0.24.3
         with:
           path: .
           config: ${{ runner.temp }}/syft-source-config.yaml
@@ -212,6 +229,21 @@ jobs:
           artifact-name: fleetflow-source-sbom-${{ github.sha }}.cdx.json
           upload-artifact: true
           upload-release-assets: false
+      - name: Verify complete source dependency coverage
+        run: >-
+          python3 scripts/verify_source_sbom.py --sbom fleetflow-source-sbom.cdx.json
+          --npm-lock web/package-lock.json --maven-tree target/source-maven-tree.json
+          --source-commit "$GITHUB_SHA" --output source-sbom-coverage.json
+      - name: Preserve source SBOM coverage and native Maven evidence
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        with:
+          name: source-sbom-coverage-${{ github.sha }}
+          path: |
+            source-sbom-coverage.json
+            target/source-maven-tree.json
+            target/source-sbom-input/source-java.bom.json
+          if-no-files-found: error
+          retention-days: 30
 
   container-images:
     name: Build and scan runtime images
@@ -327,11 +359,11 @@ jobs:
             ${{ runner.temp }}/fleetflow-day2-vertical/recovery-result.json
             ${{ runner.temp }}/fleetflow-day2-vertical/extended-database-postcondition.json
             ${{ runner.temp }}/fleetflow-day2-vertical/identity-preflight.json
-            web/test-results/day2-live/**/*.zip
+            ${{ runner.temp }}/fleetflow-day2-vertical/playwright-output/**/*.zip
           if-no-files-found: ignore
           retention-days: 14
       - name: Preserve private-stack smoke evidence
-        if: always() && steps.day1_browser.outputs.trace_scrubbed == 'true'
+        if: always() && steps.day1_browser.outputs.diagnostics_sanitized == 'true'
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
         with:
           name: live-browser-${{ github.sha }}
@@ -339,7 +371,11 @@ jobs:
             ${{ runner.temp }}/fleetflow-audit/browser/result.json
             ${{ runner.temp }}/fleetflow-audit/browser/basemap-result.json
             ${{ runner.temp }}/fleetflow-audit/browser/owner-notification-successes.json
-            web/test-results/live/**/*.zip
+            ${{ runner.temp }}/fleetflow-audit/browser/start.log
+            ${{ runner.temp }}/fleetflow-audit/browser/containers.log
+            ${{ runner.temp }}/fleetflow-audit/browser/health-*.json
+            ${{ runner.temp }}/fleetflow-audit/browser/cleanup.log
+            ${{ runner.temp }}/fleetflow-audit/browser/playwright-output/**/*.zip
           if-no-files-found: ignore
           retention-days: 14
       - name: Prepare private image scan report directory
@@ -441,7 +477,7 @@ jobs:
           --report trivy-raw/kafka.sarif=trivy-kafka.sarif
       - name: Generate app image CycloneDX SBOM
         if: always() && steps.build_images.outcome == 'success'
-        uses: anchore/sbom-action@f8bdd1d8ac5e901a77a92f111440fdb1b593736b # v0.20.6
+        uses: anchore/sbom-action@66cbf4bc1f1c0d2edc94016e65bc221b6bb0ad6c # v0.24.3
         with:
           image: fleetflow-app:ci
           syft-version: v1.54.1
@@ -450,7 +486,7 @@ jobs:
           artifact-name: fleetflow-app-${{ github.sha }}.cdx.json
       - name: Generate Keycloak runtime CycloneDX SBOM
         if: always() && steps.build_images.outcome == 'success'
-        uses: anchore/sbom-action@f8bdd1d8ac5e901a77a92f111440fdb1b593736b # v0.20.6
+        uses: anchore/sbom-action@66cbf4bc1f1c0d2edc94016e65bc221b6bb0ad6c # v0.24.3
         with:
           image: fleetflow-keycloak-runtime:ci
           syft-version: v1.54.1
@@ -459,7 +495,7 @@ jobs:
           artifact-name: fleetflow-keycloak-${{ github.sha }}.cdx.json
       - name: Generate edge CycloneDX SBOM
         if: always() && steps.build_images.outcome == 'success'
-        uses: anchore/sbom-action@f8bdd1d8ac5e901a77a92f111440fdb1b593736b # v0.20.6
+        uses: anchore/sbom-action@66cbf4bc1f1c0d2edc94016e65bc221b6bb0ad6c # v0.24.3
         with:
           image: fleetflow-edge:ci
           syft-version: v1.54.1
@@ -468,7 +504,7 @@ jobs:
           artifact-name: fleetflow-edge-${{ github.sha }}.cdx.json
       - name: Generate PostGIS CycloneDX SBOM
         if: always() && steps.build_images.outcome == 'success'
-        uses: anchore/sbom-action@f8bdd1d8ac5e901a77a92f111440fdb1b593736b # v0.20.6
+        uses: anchore/sbom-action@66cbf4bc1f1c0d2edc94016e65bc221b6bb0ad6c # v0.24.3
         with:
           image: fleetflow-postgis:ci
           syft-version: v1.54.1
@@ -477,7 +513,7 @@ jobs:
           artifact-name: fleetflow-postgis-${{ github.sha }}.cdx.json
       - name: Generate Redis CycloneDX SBOM
         if: always() && steps.build_images.outcome == 'success'
-        uses: anchore/sbom-action@f8bdd1d8ac5e901a77a92f111440fdb1b593736b # v0.20.6
+        uses: anchore/sbom-action@66cbf4bc1f1c0d2edc94016e65bc221b6bb0ad6c # v0.24.3
         with:
           image: fleetflow-redis:ci
           syft-version: v1.54.1
@@ -486,7 +522,7 @@ jobs:
           artifact-name: fleetflow-redis-${{ github.sha }}.cdx.json
       - name: Generate Kafka CycloneDX SBOM
         if: always() && steps.build_images.outcome == 'success'
-        uses: anchore/sbom-action@f8bdd1d8ac5e901a77a92f111440fdb1b593736b # v0.20.6
+        uses: anchore/sbom-action@66cbf4bc1f1c0d2edc94016e65bc221b6bb0ad6c # v0.24.3
         with:
           image: fleetflow-kafka:ci
           syft-version: v1.54.1

@@ -1,4 +1,5 @@
 import json
+import hashlib
 from pathlib import Path
 import tempfile
 import unittest
@@ -28,6 +29,12 @@ class ReleaseEvidenceTests(unittest.TestCase):
         for name in (*IMAGES, "source", "java", "javascript"):
             filename = {"source": "trivy-results.sarif", "java": "java.sarif", "javascript": "javascript.sarif"}.get(name, f"trivy-{name}.sarif")
             self.write(filename, {"version": "2.1.0", "runs": [{"tool": {"driver": {"rules": []}}, "results": []}]})
+        self.write("source-maven-tree.json", {"children": []})
+        self.write("source-sbom-coverage.json", {"verification": "PASS", "sourceCommit": SHA,
+                   "sbomSha256": hashlib.sha256((self.root / f"fleetflow-source-sbom-{SHA}.cdx.json").read_bytes()).hexdigest(),
+                   "mavenTreeSha256": hashlib.sha256((self.root / "source-maven-tree.json").read_bytes()).hexdigest(),
+                   "npmLockSha256": hashlib.sha256((Path(__file__).resolve().parent.parent / "web/package-lock.json").read_bytes()).hexdigest(),
+                   "selectedMavenComponents": 1, "lockedNpmComponents": 1, "unknownVersions": 0})
         self.write("result.json", {"result": "PASS", "publicDeployment": False, "hostBinding": "127.0.0.1",
                    "issuerSpoofingBlocked": True, "brokerOutageBusinessCommit": True, "databaseRecoveredWithoutAppRestart": True,
                    "redisOutageGauge": 0, "redisRecoveryGauge": 1, "databaseOutageGauge": 0, "databaseRecoveryGauge": 1,
@@ -72,6 +79,13 @@ class ReleaseEvidenceTests(unittest.TestCase):
             record(self.root, "b" * 40, SHA, RUN, True)
         (self.root / f"fleetflow-app-{SHA}.cdx.json").unlink()
         with self.assertRaisesRegex(ValueError, "exactly one"):
+            record(self.root, SHA, SHA, RUN, True)
+
+    def test_rejects_source_coverage_from_a_different_sbom(self):
+        coverage = self.load("source-sbom-coverage.json")
+        coverage["sbomSha256"] = "0" * 64
+        self.write("source-sbom-coverage.json", coverage)
+        with self.assertRaisesRegex(ValueError, "Source SBOM coverage"):
             record(self.root, SHA, SHA, RUN, True)
 
     def test_missing_owner_delivery_is_a_visible_pr_limit_and_a_trusted_push_failure(self):

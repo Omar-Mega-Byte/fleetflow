@@ -50,12 +50,12 @@ The 2026-10-17 Day 3 private closeout passed the signed customer, merchant, driv
 ## Remaining work
 
 - The 2026-10-17 live run closes the requested local persona, authorization, error/retry, accessibility/mobile, interrupted-reset, SSE, private-metrics, dependency/outbox, and owner-alert gates. See the Day 3 acceptance ledger for the exact run records.
-- Remaining release work is a vendor-supported disposition for the 50 open Keycloak medium/low findings, external target-host recovery/cost review, and Phase 8 registry candidate controls. Exact-commit CI passed; its CI smoke intentionally reports owner-alert delivery as missing because the secure Discord webhook is not supplied to GitHub Actions. Local owner delivery is separately verified.
-- The live run rendered the PostGIS zone overlay and saved desktop/mobile captures. Basemap tile completion was best-effort and zone editing was not exercised; their edge/CSP acceptance remains open.
+- Remaining release work is a vendor-supported disposition for the 50 open Keycloak medium/low findings, external target-host recovery/cost review, and Phase 8 registry candidate controls. The updated trusted-push CI requires actual owner alert delivery through an encrypted repository secret; PR runs intentionally receive no webhook. The current audit records each run and its limits.
+- The Days 1-3 signed suite verifies keyboard/map zone editing, unknown create recovery, conflicts and real serviceability. A private production-edge browser loaded actual OpenStreetMap tiles and the authorized PostGIS overlay. Public target tile/CSP acceptance remains separate.
 
 ## Exact next step
 
-Continue on `codex/day3-persona-closeout` from [`docs/phases/production/DAY-3-PROMPT-3-RELEASE-ACCEPTANCE.md`](docs/phases/production/DAY-3-PROMPT-3-RELEASE-ACCEPTANCE.md). Obtain a vendor-supported Keycloak runtime fix for the 50 open findings, rebuild and rescan it, then complete the target-host recovery, cost, DNS/TLS and immutable-candidate gates. Keep Day 3 partial until those gates have evidence.
+Continue on `codex/day3-persona-closeout` from [`docs/phases/production/DAY-3-PROMPT-3-RELEASE-ACCEPTANCE.md`](docs/phases/production/DAY-3-PROMPT-3-RELEASE-ACCEPTANCE.md). Finish updated-commit CI and the fresh local audit evidence, then obtain a vendor-supported Keycloak runtime fix and complete the registry/target-host recovery, cost and DNS/TLS gates. Keep Day 3 partial until those gates have evidence.
 
 ## Resume commands
 

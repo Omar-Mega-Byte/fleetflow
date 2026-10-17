@@ -63,6 +63,17 @@ def record(root: Path, source: str, head: str, ci_run: str, owner_required: bool
             raise ValueError("SBOM source identity does not match its build: " + name)
         sboms[name] = {**identity(root, path), "specVersion": document["specVersion"], "components": len(document["components"])}
     scans = {}
+    coverage_path = one(root, "source-sbom-coverage.json")
+    coverage = read(coverage_path)
+    tree_path = one(root, "source-maven-tree.json")
+    checkout_lock = Path(__file__).resolve().parent.parent / "web/package-lock.json"
+    if (coverage.get("verification") != "PASS" or coverage.get("sourceCommit") != source
+            or coverage.get("sbomSha256") != sboms["source-sbom"]["sha256"]
+            or coverage.get("mavenTreeSha256") != identity(root, tree_path)["sha256"]
+            or coverage.get("npmLockSha256") != hashlib.sha256(checkout_lock.read_bytes()).hexdigest()
+            or coverage.get("unknownVersions") != 0
+            or coverage.get("selectedMavenComponents", 0) < 1 or coverage.get("lockedNpmComponents", 0) < 1):
+        raise ValueError("Source SBOM coverage does not match this source and inventory")
     with tempfile.TemporaryDirectory(prefix="fleetflow-release-sarif-") as scratch:
         for name in (*IMAGES, "source"):
             path = one(root, "trivy-results.sarif" if name == "source" else f"trivy-{name}.sarif")
@@ -146,6 +157,9 @@ def record(root: Path, source: str, head: str, ci_run: str, owner_required: bool
     return {"kind": "VERIFIED_BUILD_EVIDENCE", "candidateApproved": False, "verification": "PASS",
             "sourceCommit": source, "headCommit": head, "ciRun": ci_run, "imageMetadata": identity(root, build_path),
             "images": build["images"], "sboms": sboms, "trivy": scans, "codeql": codeql,
+            "sourceCoverage": {**identity(root, coverage_path), "mavenTree": identity(root, tree_path),
+                               "selectedMavenComponents": coverage["selectedMavenComponents"],
+                               "lockedNpmComponents": coverage["lockedNpmComponents"], "unknownVersions": 0},
             "ownerAlertDelivery": "VERIFIED" if owner_verified else "NOT_VERIFIED_MISSING_INPUT",
             "ownerAlertRequired": owner_required,
             "ownerNotificationEvidence": owner_evidence,

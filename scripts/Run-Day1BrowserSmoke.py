@@ -23,12 +23,15 @@ DEMO_HOST = "demo.fleetflow.localhost"
 IDENTITY_HOST = "identity.fleetflow.localhost"
 
 
-def execute(command, *, data=None, env=None, log=None):
+def execute(command, *, data=None, env=None, log=None, redact_values=()):
     result = subprocess.run(command, input=data, text=True, capture_output=True, cwd=ROOT, env=env)
     if log:
         # A failed privacy assertion must not upload the very credentials it detected.
         retained = re.sub(r"eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+", "[REDACTED_JWT]", result.stdout + result.stderr)
         retained = re.sub(r"(\b(?:GET|POST|PUT|PATCH|DELETE)\s+[^\s?\"]+)\?[^\s\"]+", r"\1?[REDACTED_QUERY]", retained)
+        for value in redact_values:
+            if value:
+                retained = retained.replace(value, "[REDACTED_SECRET]")
         webhook_file = os.environ.get("FLEETFLOW_DISCORD_WEBHOOK_FILE")
         if webhook_file and Path(webhook_file).is_file():
             webhook_value = Path(webhook_file).read_text(encoding="utf-8").strip()
@@ -90,6 +93,10 @@ def configure_alert_delivery(document, private, project, webhook_file):
     alert_config.write_bytes((ROOT / "ops/monitoring/prometheus-alerting.yml").read_bytes())
     rules_config.write_bytes((ROOT / "ops/monitoring/alerts.yml").read_bytes())
     receiver_config.write_bytes((ROOT / "ops/monitoring/alertmanager.yml").read_bytes())
+    # These contain only public configuration; the enclosing temporary directory
+    # is private. Explicit modes also work when CI's host umask is 0077.
+    for public_config in (alert_config, rules_config, receiver_config):
+        public_config.chmod(0o644)
 
     document.setdefault("networks", {})["monitoring"] = {
         "name": project + "_monitoring",
@@ -105,7 +112,10 @@ def configure_alert_delivery(document, private, project, webhook_file):
     document.setdefault("volumes", {})["alertmanager_data"] = {
         "name": project + "_alertmanager_data",
     }
-    document.setdefault("secrets", {})["discord_webhook_url"] = {"file": str(path)}
+    # A CI host file is 0600 and cannot be read by Alertmanager's nobody UID.
+    # Copy it into the existing ephemeral secret volume with container ownership.
+    (private / "discord_webhook_url").write_text(path.read_text(encoding="utf-8").strip(), encoding="utf-8")
+    (private / "discord_webhook_url").chmod(0o600)
     document["services"]["alertmanager"] = {
         "image": "prom/alertmanager:v0.34.1@sha256:e9733bafb1bdef9b00e25a21f8f99dc26a22224bf16641ad754d1649f4c3357a",
         "command": ["--config.file=/etc/alertmanager/alertmanager.yml", "--storage.path=/alertmanager",
@@ -113,8 +123,9 @@ def configure_alert_delivery(document, private, project, webhook_file):
         "volumes": [
             {"type": "bind", "source": str(receiver_config), "target": "/etc/alertmanager/alertmanager.yml", "read_only": True},
             {"type": "volume", "source": "alertmanager_data", "target": "/alertmanager"},
+            {"type": "volume", "source": "runtime_secrets", "target": "/run/secrets/discord_webhook_url",
+             "read_only": True, "volume": {"subpath": "discord_webhook_url"}},
         ],
-        "secrets": [{"source": "discord_webhook_url", "target": "discord_webhook_url"}],
         "networks": ["monitoring"],
     }
     document["services"]["prometheus"] = {
@@ -269,8 +280,9 @@ def main():
             for value in accounts.values()]
         (private / "realm.json").write_text(json.dumps(realm), encoding="utf-8")
         document["services"]["keycloak"]["command"] = ["start", "--optimized", "--import-realm"]
-        document["services"]["keycloak"]["volumes"].append({"type": "bind", "source": str(private / "realm.json"),
-            "target": "/opt/keycloak/data/import/fleetflow-realm.json", "read_only": True})
+        document["services"]["keycloak"]["volumes"].append({"type": "volume", "source": "runtime_secrets",
+            "target": "/opt/keycloak/data/import/fleetflow-realm.json", "read_only": True,
+            "volume": {"subpath": "realm_json"}})
         config_path.write_text(json.dumps(document), encoding="utf-8")
         execute(["docker", "volume", "create", "--label", "com.docker.compose.project=" + project,
                  "--label", "com.docker.compose.volume=runtime_secrets", secret_volume])
@@ -282,7 +294,11 @@ def main():
                  "chmod 0400 /run/secrets/*; chmod 0444 /run/secrets/app_db_password; "
                  "chown 70:0 /run/secrets/postgres_db_password; chmod 0440 /run/secrets/keycloak_db_password; "
                  "chown 1000:0 /run/secrets/keycloak_db_password /run/secrets/keycloak_admin_password; "
-                 "chown 101:101 /run/secrets/tls_fullchain /run/secrets/tls_private_key"], log=evidence / "secrets.log")
+                 "cp /source/realm.json /run/secrets/realm_json; chown 1000:0 /run/secrets/realm_json; "
+                 "chmod 0400 /run/secrets/realm_json; "
+                 "chown 101:101 /run/secrets/tls_fullchain /run/secrets/tls_private_key; "
+                 "if [ -f /source/discord_webhook_url ]; then cp /source/discord_webhook_url /run/secrets/; "
+                 "chown 65534:65534 /run/secrets/discord_webhook_url; chmod 0400 /run/secrets/discord_webhook_url; fi"], log=evidence / "secrets.log")
         print("Starting isolated production topology on loopback 80/443", flush=True)
         execute(compose + ["up", "--detach", "--wait", "--wait-timeout", "300"], log=evidence / "start.log")
         pg = execute(compose + ["ps", "--quiet", "postgres"]).strip()
@@ -605,6 +621,8 @@ def main():
         succeeded = True
         print("PASS: real HTTPS browser-to-Keycloak-to-API-to-PostgreSQL/SSE slice", flush=True)
     finally:
+        diagnostic_secrets = list(locals().get("passwords", {}).values())
+        diagnostic_secrets.extend(account["password"] for account in locals().get("accounts", {}).values())
         browser_results = (evidence / "playwright-output").resolve()
         scrub_failure = None
         trace_scrubbed = False
@@ -632,7 +650,7 @@ def main():
                     for index, container in enumerate(containers):
                         execute(["docker", "inspect", "--format", "{{json .State}}", container],
                                 log=evidence / f"health-{index}.json")
-                    execute(compose + ["logs", "--no-color"], log=evidence / "containers.log")
+                    execute(compose + ["logs", "--no-color"], log=evidence / "containers.log", redact_values=diagnostic_secrets)
                 finally:
                     execute(compose + ["down", "--volumes", "--remove-orphans"], log=evidence / "cleanup.log")
         finally:
@@ -646,6 +664,9 @@ def main():
         if trace_scrubbed and (github_output := os.environ.get("GITHUB_OUTPUT")):
             with Path(github_output).open("a", encoding="utf-8") as output:
                 output.write("trace_scrubbed=true\n")
+        if created and (github_output := os.environ.get("GITHUB_OUTPUT")):
+            with Path(github_output).open("a", encoding="utf-8") as output:
+                output.write("diagnostics_sanitized=true\n")
         if not succeeded:
             print("FAIL: private browser fixture; evidence retained without a success claim", flush=True)
 
