@@ -29,6 +29,23 @@ def sarif_with(findings):
 
 
 class TrivySarifGateTests(unittest.TestCase):
+    def test_empty_scanner_execution_cannot_report_a_clean_scan(self):
+        with tempfile.TemporaryDirectory(prefix="fleetflow-trivy-") as directory:
+            raw, safe = (Path(directory) / name for name in ("raw.sarif", "safe.sarif"))
+            raw.write_text(json.dumps({"version": "2.1.0", "runs": []}))
+            with self.assertRaisesRegex(ValueError, "at least one scanner run"):
+                sanitize_sarif(raw, safe)
+            self.assertFalse(safe.exists())
+
+    def test_unknown_severity_requires_review_instead_of_passing_policy(self):
+        with tempfile.TemporaryDirectory(prefix="fleetflow-trivy-") as directory:
+            raw, safe = (Path(directory) / name for name in ("raw.sarif", "safe.sarif"))
+            raw.write_text(json.dumps(sarif_with([
+                ("unknown-match", "OsPackageVulnerability", "UNKNOWN", "Unclassified advisory")
+            ])), encoding="utf-8")
+            stats = sanitize_sarif(raw, safe)
+            self.assertEqual((stats["unknown"], stats["blockers"]), (1, 1))
+
     def test_keeps_medium_low_inventory_and_passes_without_secrets_or_high_findings(self):
         with tempfile.TemporaryDirectory(prefix="fleetflow-trivy-") as directory:
             raw = Path(directory) / "raw.sarif"
@@ -64,6 +81,16 @@ class TrivySarifGateTests(unittest.TestCase):
             self.assertEqual(len(run["results"]), 1)
             self.assertEqual(run["properties"]["fleetflowSecretFindingSummary"][0]["ruleId"], "aws-access-key-id")
             self.assertFalse(any(rule.get("id") == "aws-access-key-id" for rule in run["tool"]["driver"]["rules"]))
+
+    def test_rescanning_sanitized_evidence_cannot_erase_a_blocking_secret_finding(self):
+        with tempfile.TemporaryDirectory(prefix="fleetflow-trivy-") as directory:
+            raw, safe, again = (Path(directory) / name for name in ("raw.sarif", "safe.sarif", "again.sarif"))
+            raw.write_text(json.dumps(sarif_with([("example-secret", "Secret", "HIGH", "synthetic-secret-value")])))
+            first = sanitize_sarif(raw, safe)
+            second = sanitize_sarif(safe, again)
+            self.assertEqual((first["secrets"], second["secrets"], second["blockers"]), (1, 1, 1))
+            self.assertNotIn("synthetic-secret-value", again.read_text())
+            self.assertEqual(len(json.loads(again.read_text())["runs"][0]["properties"]["fleetflowSecretFindingSummary"]), 1)
 
 
 if __name__ == "__main__":

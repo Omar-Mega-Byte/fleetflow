@@ -1,5 +1,7 @@
 # Day 1 authoritative evidence ledger — 2026-10-14
 
+> Current Days 1-3 audit: [2026-10-17 full audit](DAYS-1-3-FULL-AUDIT-2026-10-17.md) supersedes stale current-state claims below. Historical commits, commands and results remain dated evidence. Day 3 remains PARTIAL / NOT COMPLETE; Phase 11 remains CLOSED_PARTIAL.
+
 ## Final Day 1 status
 
 **DAY 1 CONDITIONALLY COMPLETE — EXTERNAL DEPENDENCY**

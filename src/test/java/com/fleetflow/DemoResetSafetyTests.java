@@ -2,6 +2,7 @@ package com.fleetflow;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
@@ -64,6 +65,32 @@ class DemoResetSafetyTests {
         token = "Bearer " + TestOidc.token(subject);
         mvc = MockMvcBuilders.webAppContextSetup(context)
                 .addFilters(new CorrelationIdFilter(), context.getBean("springSecurityFilterChain", Filter.class)).build();
+    }
+
+    @Test
+    void syntheticRouteIsReadOnlyAndLimitedToTheSeededActiveDriver() throws Exception {
+        action("seed", "route-seed", SEED).andExpect(status().isOk());
+        String path = "/api/v1/demo/driver-route";
+        mvc.perform(get(path)).andExpect(status().isUnauthorized());
+        mvc.perform(get(path).header("Authorization", token)).andExpect(status().isForbidden());
+        mvc.perform(get(path).header("Authorization", "Bearer " + TestOidc.token("fleetflow-demo-driver")))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.generation").value(1))
+                .andExpect(jsonPath("$.points.length()").value(5))
+                .andExpect(jsonPath("$.points[0].latitude").value(30.0444))
+                .andExpect(jsonPath("$.points[4].longitude").value(31.2422));
+        UUID other = UUID.randomUUID();
+        String subject = "other-driver-" + other;
+        jdbc.update("insert into actors(id, issuer, subject, active, created_at, updated_at) values (?, ?, ?, true, now(), now())",
+                other, TestOidc.ISSUER, subject);
+        jdbc.update("insert into actor_roles(actor_id, role) values (?, 'DRIVER')", other);
+        mvc.perform(get(path).header("Authorization", "Bearer " + TestOidc.token(subject))).andExpect(status().isForbidden());
+        jdbc.update("update actors set active = false where id = ?", demoId("actor:driver"));
+        mvc.perform(get(path).header("Authorization", "Bearer " + TestOidc.token("fleetflow-demo-driver")))
+                .andExpect(status().isForbidden());
+        assertThat(generation()).isEqualTo(1);
+        assertThat(jdbc.queryForObject("select count(*) from outbox_events", Integer.class)).isZero();
+        assertThat(jdbc.queryForObject("select operational_status from drivers where id = ?", String.class, demoId("driver")))
+                .isEqualTo("OFFLINE");
     }
 
     @Test

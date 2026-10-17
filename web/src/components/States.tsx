@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
-import { useEffect, useState } from "react";
 import type { ApiProblem } from "../api/client";
+import { useNow } from "./Expiry";
 
 export function LoadingState({
   label = "Loading your information",
@@ -64,15 +64,11 @@ export function ErrorState({
   onRetry?: () => void;
   onReauthenticate?: () => void;
 }) {
-  const [remaining, setRemaining] = useState(problem.retryAfterSeconds ?? 0);
-  useEffect(() => {
-    if (!problem.retryAfterSeconds) return;
-    const timer = setInterval(
-      () => setRemaining((value) => Math.max(0, value - 1)),
-      1000,
-    );
-    return () => clearInterval(timer);
-  }, [problem.retryAfterSeconds]);
+  const now = useNow();
+  const remaining = Math.min(
+    problem.retryAfterSeconds ?? 0,
+    Math.max(0, Math.ceil(((problem.retryAt ?? now) - now) / 1000)),
+  );
   const titles = {
     validation: "Review your request",
     unauthenticated: "Sign in again",

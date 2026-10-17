@@ -1,5 +1,7 @@
 # FleetFlow UI recovery checkpoint
 
+> Current 2026-10-17 Days 1-3 audit: [full audit](docs/phases/production/DAYS-1-3-FULL-AUDIT-2026-10-17.md). The updated client passes 66 component tests, three fixture journeys and three signed live journeys. Zone editing/serviceability and controlled synthetic movement are implemented; demo drivers never request device GPS. Source and runtime CI must run on the updated commit. Preserve the approved design. Day 3 remains PARTIAL / NOT COMPLETE and legacy Phase 11 CLOSED_PARTIAL.
+
 Updated 2026-10-17 (Africa/Cairo). Day 2 Prompt 2 remains complete for its real local/test workflow. The release baseline merged as PR #23, the contrast correction as PR #37, and the Day 2 consolidation as PR #38 at `0e0a21e`. Exact merged-main CI run `38918855000` passed all seven jobs. Consolidation corrected replay-result feedback, browser-artifact handling and local backup evidence. Its fresh signed journey and the exact-main CI journey each persisted a `DELIVERED|8` order. See [`docs/phases/production/DAY-2-CONSOLIDATION-AUDIT.md`](docs/phases/production/DAY-2-CONSOLIDATION-AUDIT.md) for evidence and limits.
 
 ## Current status

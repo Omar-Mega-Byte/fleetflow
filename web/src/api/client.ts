@@ -20,8 +20,10 @@ const COPY: Record<ProblemKind, string> = {
 };
 
 export class ApiProblem extends Error {
+  readonly retryAt: number | undefined;
   constructor(readonly kind: ProblemKind, readonly status?: number, readonly retryAfterSeconds?: number) {
     super(COPY[kind]); this.name = 'ApiProblem';
+    this.retryAt = retryAfterSeconds === undefined ? undefined : Date.now() + retryAfterSeconds * 1000;
   }
 }
 export interface ApiClientOptions {

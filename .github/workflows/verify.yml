@@ -33,6 +33,10 @@ jobs:
         run: python3 -m unittest discover -s scripts -p test_day2_trace_sanitizer.py -v
       - name: Verify Trivy SARIF policy and redaction
         run: python3 -m unittest discover -s scripts -p test_trivy_sarif_gate.py -v
+      - name: Verify release evidence identity and completeness rules
+        run: python3 -m unittest discover -s scripts -p test_release_evidence.py -v
+      - name: Verify actual owner delivery evidence rules
+        run: python3 -m unittest discover -s scripts -p test_owner_alert_evidence.py -v
       - name: Validate local Compose
         run: docker compose --env-file .env.example -f compose.yaml config --quiet
       - name: Validate production Compose isolation
@@ -83,6 +87,8 @@ jobs:
         run: npx playwright install --with-deps chromium
       - name: Signed PKCE browser smoke
         run: npm run test:e2e
+      - name: Production fixture performance and reduced motion
+        run: npm run test:performance
       - name: Preserve browser traces on failure
         if: always()
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
@@ -130,6 +136,45 @@ jobs:
           name: trivy-source-${{ github.sha }}
           path: trivy-results.sarif
           if-no-files-found: ignore
+          retention-days: 30
+
+  release-evidence:
+    name: Verify exact-run release evidence
+    needs: [backend, frontend, source-security, source-sbom, container-images, codeql]
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      actions: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Download this run's sanitized evidence
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: >-
+          gh run download "$GITHUB_RUN_ID" --dir "$RUNNER_TEMP/release-evidence"
+          --pattern 'fleetflow-*.cdx.json' --pattern 'image-builds-*'
+          --pattern 'trivy-*' --pattern 'codeql-*'
+          --pattern 'live-browser-*' --pattern 'day2-real-browser-*'
+      - name: Verify identities, scans, SBOMs and browser/database results
+        env:
+          FLEETFLOW_HEAD_COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
+          FLEETFLOW_OWNER_REQUIRED: ${{ github.event_name == 'push' && github.repository == 'Omar-Mega-Byte/fleetflow' && 'true' || 'false' }}
+        run: |
+          owner_args=()
+          if [[ "$FLEETFLOW_OWNER_REQUIRED" == true ]]; then owner_args+=(--owner-alert-required); fi
+          python3 scripts/record_release_evidence.py --root "$RUNNER_TEMP/release-evidence" \
+            --source-commit "$GITHUB_SHA" --head-commit "$FLEETFLOW_HEAD_COMMIT" \
+            --ci-run "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID" \
+            "${owner_args[@]}" --output release-evidence.json
+      - name: Preserve verified build evidence
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        with:
+          name: release-evidence-${{ github.sha }}
+          path: release-evidence.json
+          if-no-files-found: error
           retention-days: 30
 
   source-sbom:
@@ -232,6 +277,7 @@ jobs:
           npx playwright install --with-deps chromium
       - name: Production topology and real signed browser slice
         id: day1_browser
+        shell: bash
         env:
           FLEETFLOW_TEST_IMAGE_APP: fleetflow-app:ci
           FLEETFLOW_TEST_IMAGE_KEYCLOAK: fleetflow-keycloak-runtime:ci
@@ -240,7 +286,18 @@ jobs:
           FLEETFLOW_TEST_IMAGE_REDIS: fleetflow-redis:ci
           FLEETFLOW_TEST_IMAGE_KAFKA: fleetflow-kafka:ci
           FLEETFLOW_AUDIT_DIR: ${{ runner.temp }}/fleetflow-audit
-        run: python3 scripts/Run-Day1BrowserSmoke.py
+          FLEETFLOW_OWNER_ALERT_WEBHOOK: ${{ github.event_name == 'push' && secrets.FLEETFLOW_DISCORD_WEBHOOK || '' }}
+          FLEETFLOW_REQUIRE_OWNER_ALERT_DELIVERY: ${{ github.event_name == 'push' && github.repository == 'Omar-Mega-Byte/fleetflow' && 'true' || 'false' }}
+        run: |
+          webhook_file="$RUNNER_TEMP/fleetflow-discord-webhook"
+          trap 'rm -f "$webhook_file"' EXIT
+          if [[ -n "$FLEETFLOW_OWNER_ALERT_WEBHOOK" ]]; then
+            umask 077
+            printf '%s' "$FLEETFLOW_OWNER_ALERT_WEBHOOK" > "$webhook_file"
+            export FLEETFLOW_DISCORD_WEBHOOK_FILE="$webhook_file"
+          fi
+          unset FLEETFLOW_OWNER_ALERT_WEBHOOK
+          python3 scripts/Run-Day1BrowserSmoke.py
       - name: Prepare Day 2 browser application
         uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
         with:
@@ -266,6 +323,10 @@ jobs:
           path: |
             ${{ runner.temp }}/fleetflow-day2-vertical/vertical-result.json
             ${{ runner.temp }}/fleetflow-day2-vertical/database-postcondition.json
+            ${{ runner.temp }}/fleetflow-day2-vertical/zone-result.json
+            ${{ runner.temp }}/fleetflow-day2-vertical/recovery-result.json
+            ${{ runner.temp }}/fleetflow-day2-vertical/extended-database-postcondition.json
+            ${{ runner.temp }}/fleetflow-day2-vertical/identity-preflight.json
             web/test-results/day2-live/**/*.zip
           if-no-files-found: ignore
           retention-days: 14
@@ -276,6 +337,8 @@ jobs:
           name: live-browser-${{ github.sha }}
           path: |
             ${{ runner.temp }}/fleetflow-audit/browser/result.json
+            ${{ runner.temp }}/fleetflow-audit/browser/basemap-result.json
+            ${{ runner.temp }}/fleetflow-audit/browser/owner-notification-successes.json
             web/test-results/live/**/*.zip
           if-no-files-found: ignore
           retention-days: 14

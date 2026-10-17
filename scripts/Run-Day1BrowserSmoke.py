@@ -108,7 +108,8 @@ def configure_alert_delivery(document, private, project, webhook_file):
     document.setdefault("secrets", {})["discord_webhook_url"] = {"file": str(path)}
     document["services"]["alertmanager"] = {
         "image": "prom/alertmanager:v0.34.1@sha256:e9733bafb1bdef9b00e25a21f8f99dc26a22224bf16641ad754d1649f4c3357a",
-        "command": ["--config.file=/etc/alertmanager/alertmanager.yml", "--storage.path=/alertmanager"],
+        "command": ["--config.file=/etc/alertmanager/alertmanager.yml", "--storage.path=/alertmanager",
+                    "--log.level=debug", "--log.format=json"],
         "volumes": [
             {"type": "bind", "source": str(receiver_config), "target": "/etc/alertmanager/alertmanager.yml", "read_only": True},
             {"type": "volume", "source": "alertmanager_data", "target": "/alertmanager"},
@@ -158,12 +159,29 @@ def query_value(output):
 
 def discord_delivery_successes(prometheus):
     attempted = query_value(promtool_query(
-        prometheus, 'sum(alertmanager_notifications_total{integration="discord"})',
+        prometheus, 'sum(alertmanager_notification_requests_total{integration="discord"})',
     ))
     failed = query_value(promtool_query(
-        prometheus, 'sum(alertmanager_notifications_failed_total{integration="discord"})',
+        prometheus, 'sum(alertmanager_notification_requests_failed_total{integration="discord"})',
     ))
     return max(0, int(attempted - failed))
+
+
+def owner_notification_successes(alertmanager):
+    """A counter alone cannot identify which alert reached its receiver."""
+    successes = []
+    result = subprocess.run(["docker", "logs", alertmanager], capture_output=True, text=True, check=True)
+    for line in (result.stdout + result.stderr).splitlines():
+        try:
+            event = json.loads(line)
+        except ValueError:
+            continue
+        if (event.get("msg") == "Notify success" and event.get("receiver") == "fleetflow-discord"
+                and event.get("integration") == "discord[0]"
+                and 'alertname="FleetFlowOutboxBacklog"' in str(event.get("aggrGroup", ""))):
+            successes.append({key: event.get(key) for key in
+                              ("time", "msg", "receiver", "integration", "aggrGroup", "alerts", "numAlerts")})
+    return successes
 
 
 def main():
@@ -231,6 +249,8 @@ def main():
         alert_delivery_enabled, alert_delivery_missing_input = configure_alert_delivery(
             document, private, project, os.environ.get("FLEETFLOW_DISCORD_WEBHOOK_FILE"),
         )
+        if os.environ.get("FLEETFLOW_REQUIRE_OWNER_ALERT_DELIVERY") == "true" and not alert_delivery_enabled:
+            raise RuntimeError("Required owner alert delivery is unavailable: " + alert_delivery_missing_input)
         realm = runpy.run_path(str(ROOT / "ops/production/render-realm.py"))["realm_config"](DEMO_HOST, IDENTITY_HOST)
         local = json.loads((ROOT / "src/main/resources/oidc/fleetflow-realm.json").read_text(encoding="utf-8"))
         bootstrap = next(client for client in local["clients"] if client["clientId"] == "fleetflow-cli")
@@ -346,15 +366,21 @@ def main():
             raise RuntimeError("Optional dependency loss caused a process restart loop")
         if alert_delivery_enabled:
             prometheus = execute(compose + ["ps", "--quiet", "prometheus"]).strip()
+            alertmanager = execute(compose + ["ps", "--quiet", "alertmanager"]).strip()
             firing_expression = 'sum(ALERTS{alertname="FleetFlowOutboxBacklog",alertstate="firing"})'
             deadline = time.monotonic() + 240
             firing_seen = False
             deliveries_before_backlog = discord_delivery_successes(prometheus)
+            group_deliveries_before = len(owner_notification_successes(alertmanager))
             firing_successes = 0.0
+            firing_delivery_seen = False
             while time.monotonic() < deadline:
                 firing_seen = query_value(promtool_query(prometheus, firing_expression)) > 0
                 firing_successes = float(discord_delivery_successes(prometheus))
-                if firing_seen and firing_successes >= deliveries_before_backlog + 1:
+                firing_group_deliveries = len(owner_notification_successes(alertmanager))
+                if (firing_seen and firing_successes >= deliveries_before_backlog + 1
+                        and firing_group_deliveries >= group_deliveries_before + 1):
+                    firing_delivery_seen = True
                     break
                 time.sleep(5)
             alert_delivery_result = {
@@ -362,6 +388,9 @@ def main():
                 "notificationsAcceptedBeforeBacklogFire": deliveries_before_backlog,
                 "firingAlertObserved": firing_seen,
                 "firingDiscordNotificationsAccepted": int(firing_successes),
+                "firingDeliveryObserved": firing_delivery_seen,
+                "firingNotificationDelta": max(0, int(firing_successes - deliveries_before_backlog)),
+                "firingGroupSuccessDelta": max(0, firing_group_deliveries - group_deliveries_before),
                 "resolvedAlertObserved": False,
                 "resolvedDiscordNotificationsAccepted": 0,
                 "receiverConfigSendResolved": True,
@@ -392,17 +421,25 @@ def main():
             while time.monotonic() < deadline:
                 active_value = query_value(promtool_query(prometheus, firing_expression))
                 resolved_successes = float(discord_delivery_successes(prometheus))
-                if active_value == 0 and resolved_successes >= firing_successes + 1:
+                group_successes = owner_notification_successes(alertmanager)
+                if (active_value == 0 and resolved_successes >= firing_successes + 1
+                        and len(group_successes) >= firing_group_deliveries + 1):
                     resolved_seen = True
                     break
                 time.sleep(5)
             alert_delivery_result["resolvedAlertObserved"] = resolved_seen
             alert_delivery_result["resolvedDiscordNotificationsAccepted"] = int(resolved_successes)
+            alert_delivery_result["resolvedNotificationDelta"] = max(0, int(resolved_successes - firing_successes))
+            alert_delivery_result["resolvedGroupSuccessDelta"] = max(0, len(group_successes) - firing_group_deliveries)
+            (evidence / "owner-notification-successes.json").write_text(json.dumps(group_successes, indent=2), encoding="utf-8")
             alert_delivery_result["verified"] = bool(
                 alert_delivery_result["firingAlertObserved"]
-                and alert_delivery_result["firingDiscordNotificationsAccepted"] >= 1
+                and alert_delivery_result["firingDeliveryObserved"]
+                and alert_delivery_result["firingNotificationDelta"] >= 1
                 and alert_delivery_result["resolvedAlertObserved"]
-                and alert_delivery_result["resolvedDiscordNotificationsAccepted"] >= 2
+                and alert_delivery_result["resolvedNotificationDelta"] >= 1
+                and alert_delivery_result["firingGroupSuccessDelta"] >= 1
+                and alert_delivery_result["resolvedGroupSuccessDelta"] >= 1
             )
         print("Exercising Redis loss and recovery separately", flush=True)
         execute(compose + ["stop", "redis"], log=evidence / "redis-outage.log")
@@ -451,6 +488,82 @@ def main():
                 raise RuntimeError("Private Redis availability gauge did not recover to one")
             time.sleep(2)
         (evidence / "redis-recovery.prom").write_text(metrics, encoding="utf-8")
+        print("Exercising PostgreSQL readiness loss and recovery without restarting the app", flush=True)
+        app_started = execute(["docker", "inspect", "--format", "{{.State.StartedAt}}", app]).strip()
+        database_alert_firing = None
+        database_alert_resolved = None
+        execute(compose + ["stop", "postgres"], log=evidence / "database-outage.log")
+        deadline = time.monotonic() + 120
+        while True:
+            metrics = execute(["docker", "exec", app, "wget", "-q", "-O", "-",
+                               "http://127.0.0.1:9095/actuator/prometheus"])
+            database_gauge = re.search(r"^fleetflow_operations_database_available(?:\{[^}]*\})?\s+([0-9.]+)",
+                                       metrics, re.MULTILINE)
+            if database_gauge and float(database_gauge.group(1)) == 0:
+                break
+            if time.monotonic() >= deadline:
+                raise RuntimeError("Private database gauge did not report the outage")
+            time.sleep(2)
+        (evidence / "database-outage.prom").write_text(metrics, encoding="utf-8")
+        readiness = execute(["docker", "exec", app, "sh", "-ec",
+            "wget -S -O - http://127.0.0.1:9095/actuator/health/readiness 2>&1 || true"])
+        if not re.search(r"HTTP/\S+\s+503", readiness):
+            raise RuntimeError("PostgreSQL loss did not make readiness unavailable")
+        liveness = execute(["docker", "exec", app, "wget", "-q", "-O", "-",
+                            "http://127.0.0.1:9095/actuator/health/liveness"])
+        if json.loads(liveness).get("status") != "UP":
+            raise RuntimeError("PostgreSQL loss changed process liveness")
+        if alert_delivery_enabled:
+            database_expression = 'sum(ALERTS{alertname="FleetFlowDatabaseReadinessLoss",alertstate="firing"})'
+            deadline = time.monotonic() + 180
+            while time.monotonic() < deadline:
+                if query_value(promtool_query(prometheus, database_expression)) > 0:
+                    database_alert_firing = True
+                    break
+                time.sleep(3)
+            if not database_alert_firing:
+                raise RuntimeError("The real PostgreSQL readiness alert did not fire")
+        execute(compose + ["start", "postgres"], log=evidence / "database-recovery.log")
+        deadline = time.monotonic() + 120
+        while True:
+            pg_health = execute(["docker", "inspect", "--format", "{{.State.Health.Status}}", pg]).strip()
+            if pg_health == "healthy":
+                break
+            if time.monotonic() >= deadline:
+                raise RuntimeError("PostgreSQL did not recover")
+            time.sleep(2)
+        while True:
+            metrics = execute(["docker", "exec", app, "wget", "-q", "-O", "-",
+                               "http://127.0.0.1:9095/actuator/prometheus"])
+            database_gauge = re.search(r"^fleetflow_operations_database_available(?:\{[^}]*\})?\s+([0-9.]+)",
+                                       metrics, re.MULTILINE)
+            if database_gauge and float(database_gauge.group(1)) == 1:
+                break
+            if time.monotonic() >= deadline:
+                raise RuntimeError("Private database gauge did not recover to one")
+            time.sleep(2)
+        (evidence / "database-recovery.prom").write_text(metrics, encoding="utf-8")
+        readiness = execute(["docker", "exec", app, "wget", "-q", "-O", "-",
+                             "http://127.0.0.1:9095/actuator/health/readiness"])
+        if json.loads(readiness).get("status") != "UP":
+            raise RuntimeError("Readiness did not recover after PostgreSQL returned")
+        if app_started != execute(["docker", "inspect", "--format", "{{.State.StartedAt}}", app]).strip():
+            raise RuntimeError("PostgreSQL recovery required an application restart")
+        if alert_delivery_enabled:
+            deadline = time.monotonic() + 120
+            while time.monotonic() < deadline:
+                if query_value(promtool_query(prometheus, database_expression)) == 0:
+                    database_alert_resolved = True
+                    break
+                time.sleep(3)
+            if not database_alert_resolved:
+                raise RuntimeError("The PostgreSQL readiness alert did not clear")
+        # The existing generation survived the same database container's restart.
+        token = https("/realms/fleetflow/protocol/openid-connect/token", host=IDENTITY_HOST, method="POST",
+            body=urllib.parse.urlencode({"grant_type": "password", "client_id": "fleetflow-test-bootstrap",
+                "username": accounts["bootstrap"]["username"], "password": accounts["bootstrap"]["password"]}))["access_token"]
+        if https("/api/v1/demo", token=token).get("generation") != 2:
+            raise RuntimeError("PostgreSQL restart lost the committed generation")
         # Exercise public-edge controls after browser work so pressure cannot disrupt its login flow.
         discovery = https("/realms/fleetflow/.well-known/openid-configuration", host=IDENTITY_HOST,
             extra_headers={"Forwarded": "host=attacker.invalid;proto=http", "X-Forwarded-Host": "attacker.invalid",
@@ -474,6 +587,10 @@ def main():
             "brokerOutageBusinessCommit": True, "restartRetainedGeneration": 2,
             "optionalDependencyLivenessReadiness": "UP", "redisOutageGauge": 0,
             "redisRecoveryGauge": 1, "outboxRemaining": int(remaining),
+            "databaseOutageGauge": 0, "databaseRecoveryGauge": 1,
+            "databaseReadinessOutageStatus": 503, "databaseRecoveredWithoutAppRestart": True,
+            "databaseAlertFiringObserved": database_alert_firing,
+            "databaseAlertResolvedObserved": database_alert_resolved,
             "processedMarkers": actual, "expectedProcessedMarkers": expected,
             "ownerAlertDelivery": alert_delivery_result,
             "ownerAlertDeliveryMissingInput": alert_delivery_missing_input,

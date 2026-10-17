@@ -2,7 +2,7 @@
 
 > Current Day 1 assessment: **COMPLETE for Day 1 slice**. [Consolidation ledger](DAY-1-EVIDENCE-LEDGER.md) supersedes earlier execution snapshots. Full release-phase exit criteria below remain independent.
 
-**Status: IN_PROGRESS. Priority: P0.** React/Vite, PKCE, typed API/SSE and all role workspaces exist. A real signed delivery path now passes through customer, merchant, dispatcher and driver; additional persona journeys and public-issuer/target proof remain open.
+**Status: IN_PROGRESS. Priority: P0.** React/Vite, PKCE, typed API/SSE and all role workspaces exist. The Days 1-3 audit passes three signed journeys across all five personas, zone and dispatch recovery, plus private production-edge PKCE, mobile/focus and synthetic movement checks. Exact updated-commit CI is required; public-issuer/target proof belongs to Phase 9.
 
 ## Objective
 

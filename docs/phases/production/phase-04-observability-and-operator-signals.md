@@ -2,7 +2,7 @@
 
 > Current Day 1 assessment: **COMPLETE for Day 1 foundation; full release phase remains PARTIAL**. [Consolidation ledger](DAY-1-EVIDENCE-LEDGER.md) supersedes earlier execution snapshots. Full release-phase exit criteria below remain independent.
 
-**Status: IN_PROGRESS. Priority: P1.** Structured logs, correlation IDs, health, Micrometer metrics and local Grafana/alerts exist. The 2026-10-17 Day 3 closeout verified private metrics, dependency recovery, and actual Discord firing/resolved delivery in a disposable topology. PostgreSQL health-transition acceptance and production-target qualification remain open.
+**Status: IN_PROGRESS. Priority: P1.** Structured logs, correlation IDs, health, Micrometer metrics and local Grafana/alerts exist. The 2026-10-17 Day 3 closeout verified private metrics, dependency recovery, and actual Discord firing/resolved delivery in a disposable topology. PostgreSQL stop/start readiness recovery is now verified locally; production-target qualification and backup/certificate signal integration remain open.
 
 ## Objective
 
@@ -90,7 +90,7 @@ MEDIUM. Missing or noisy signals delay recovery; public diagnostic exposure leak
 - Liveness is process-only; readiness requires application state and PostgreSQL. Redis/Kafka/Keycloak are omitted from readiness to avoid restart loops; affected operations fail closed or report bounded stale/unavailable outcomes as described in the runbook.
 - Added a structured request-log test with synthetic tokens, passwords, client secret, address, GPS, polygon and incident text. It asserts the log contains only the matched route template among request attributes.
 - `CorrelationIdFilterTests`, `TrackingHubBoundsTests`, `OperationalMetersTests` and the pure JVM group passed (15 tests). Prometheus 3.15.0 `promtool check rules` found all 9 rules valid and `promtool test rules` passed fire/recovery cases for database readiness, outbox age, sustained application 5xx and quarantine. This is offline rule evaluation, not Alertmanager delivery.
-- Historical note: the Docker-backed PostgreSQL health transition test was blocked when Testcontainers could not reach Docker Desktop's named-pipe endpoint. The separate 2026-10-17 Day 3 run later verified a private scrape of 13 required meters, prohibited-label rejection, edge non-exposure, Redis availability recovery and real Discord alert delivery. The PostgreSQL health-transition test and production-target qualification remain open; status remains `IN_PROGRESS`.
+- Historical note: the Docker-backed PostgreSQL health transition test was blocked when Testcontainers could not reach Docker Desktop's named-pipe endpoint. The separate 2026-10-17 Day 3 run later verified a private scrape of 13 required meters, prohibited-label rejection, edge non-exposure, Redis availability recovery and real Discord alert delivery. The Days 1-3 audit subsequently passed the PostgreSQL stop/start readiness test and private live database alert fire/clear exercise. Production-target qualification remains open; status remains `IN_PROGRESS`.
 
 
 ## Consolidation audit — 2026-10-14

@@ -1,6 +1,8 @@
 package com.fleetflow.demo;
 
 import java.nio.charset.StandardCharsets;
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.security.MessageDigest;
 import java.sql.Timestamp;
 import java.time.Clock;
@@ -66,6 +68,32 @@ class DemoSeedService {
     DemoView state() {
         long generation = generation();
         return view(generation, generation > 0 ? "READY" : "NOT_SEEDED");
+    }
+
+    @Transactional(readOnly = true)
+    DriverRoute driverRoute(UUID actorId) {
+        if (!id("actor:driver").equals(actorId) || !Boolean.TRUE.equals(jdbc.queryForObject("""
+                select exists(select 1 from synthetic_demo_ownership
+                  where resource_type = 'ACTOR' and resource_id = ?)
+                """, Boolean.class, actorId))) {
+            throw new ApiFailure(HttpStatus.FORBIDDEN, "FORBIDDEN", "Synthetic movement is limited to the seeded demo driver");
+        }
+        long current = generation();
+        var orders = jdbc.query("""
+                select pickup_latitude, pickup_longitude, delivery_latitude, delivery_longitude
+                from orders where id = ? and demo_generation = ?
+                """, (rs, row) -> new RouteEndpoints(rs.getDouble(1), rs.getDouble(2), rs.getDouble(3), rs.getDouble(4)),
+                id("order:" + current), current);
+        if (orders.isEmpty()) {
+            throw new ApiFailure(HttpStatus.CONFLICT, "DEMO_NOT_READY", "Prepare the synthetic dataset before using fixture positions");
+        }
+        RouteEndpoints route = orders.getFirst();
+        var points = java.util.stream.IntStream.rangeClosed(0, 4).mapToObj(step -> {
+            double fraction = step / 4.0;
+            return new FixturePosition(BigDecimal.valueOf(route.pickupLat() + fraction * (route.deliveryLat() - route.pickupLat())).setScale(6, RoundingMode.HALF_UP),
+                    BigDecimal.valueOf(route.pickupLon() + fraction * (route.deliveryLon() - route.pickupLon())).setScale(6, RoundingMode.HALF_UP));
+        }).toList();
+        return new DriverRoute(current, points);
     }
 
     @Transactional
@@ -415,6 +443,9 @@ class DemoSeedService {
     }
 
     record Persona(String key, String role, String displayName) { }
+    record FixturePosition(BigDecimal latitude, BigDecimal longitude) { }
+    record DriverRoute(long generation, List<FixturePosition> points) { }
+    private record RouteEndpoints(double pickupLat, double pickupLon, double deliveryLat, double deliveryLon) { }
     record DemoView(long generation, String result, List<UUID> orderIds, List<Persona> personas,
                     String zoneName, String trackingBaseline) { }
     private record ActorIdentity(String issuer, String subject, boolean active) { }

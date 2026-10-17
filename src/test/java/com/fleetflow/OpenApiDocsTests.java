@@ -91,7 +91,7 @@ class OpenApiDocsTests extends ProfileTestDatabase {
                 }
             }
         });
-        assertThat(actual).hasSize(64).containsExactlyInAnyOrderElementsOf(registered);
+        assertThat(actual).hasSize(65).containsExactlyInAnyOrderElementsOf(registered);
         assertThat(document.path("paths").has("/actuator/health")).isFalse();
         assertThat(document.path("components").path("securitySchemes").path("bearerAuth")
                 .path("scheme").asText()).isEqualTo("bearer");
