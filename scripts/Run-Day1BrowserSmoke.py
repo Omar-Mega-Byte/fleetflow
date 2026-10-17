@@ -178,7 +178,7 @@ def discord_delivery_successes(prometheus):
     return max(0, int(attempted - failed))
 
 
-def owner_notification_successes(alertmanager):
+def owner_notification_successes(alertmanager, alert_name="FleetFlowOutboxBacklog"):
     """A counter alone cannot identify which alert reached its receiver."""
     successes = []
     result = subprocess.run(["docker", "logs", alertmanager], capture_output=True, text=True, check=True)
@@ -189,7 +189,7 @@ def owner_notification_successes(alertmanager):
             continue
         if (event.get("msg") == "Notify success" and event.get("receiver") == "fleetflow-discord"
                 and event.get("integration") == "discord[0]"
-                and 'alertname="FleetFlowOutboxBacklog"' in str(event.get("aggrGroup", ""))):
+                and f'alertname="{alert_name}"' in str(event.get("aggrGroup", ""))):
             successes.append({key: event.get(key) for key in
                               ("time", "msg", "receiver", "integration", "aggrGroup", "alerts", "numAlerts")})
     return successes
@@ -508,6 +508,11 @@ def main():
         app_started = execute(["docker", "inspect", "--format", "{{.State.StartedAt}}", app]).strip()
         database_alert_firing = None
         database_alert_resolved = None
+        database_owner_firing = None
+        database_owner_resolved = None
+        database_owner_delta = None
+        if alert_delivery_enabled:
+            database_deliveries_before = len(owner_notification_successes(alertmanager, "FleetFlowDatabaseReadinessLoss"))
         execute(compose + ["stop", "postgres"], log=evidence / "database-outage.log")
         deadline = time.monotonic() + 120
         while True:
@@ -533,12 +538,14 @@ def main():
             database_expression = 'sum(ALERTS{alertname="FleetFlowDatabaseReadinessLoss",alertstate="firing"})'
             deadline = time.monotonic() + 180
             while time.monotonic() < deadline:
-                if query_value(promtool_query(prometheus, database_expression)) > 0:
+                if (query_value(promtool_query(prometheus, database_expression)) > 0
+                        and len(owner_notification_successes(alertmanager, "FleetFlowDatabaseReadinessLoss")) >= database_deliveries_before + 1):
                     database_alert_firing = True
+                    database_owner_firing = True
                     break
                 time.sleep(3)
             if not database_alert_firing:
-                raise RuntimeError("The real PostgreSQL readiness alert did not fire")
+                raise RuntimeError("The real PostgreSQL readiness alert did not fire and reach its owner")
         execute(compose + ["start", "postgres"], log=evidence / "database-recovery.log")
         deadline = time.monotonic() + 120
         while True:
@@ -568,12 +575,17 @@ def main():
         if alert_delivery_enabled:
             deadline = time.monotonic() + 120
             while time.monotonic() < deadline:
-                if query_value(promtool_query(prometheus, database_expression)) == 0:
+                database_successes = owner_notification_successes(alertmanager, "FleetFlowDatabaseReadinessLoss")
+                if (query_value(promtool_query(prometheus, database_expression)) == 0
+                        and len(database_successes) >= database_deliveries_before + 2):
                     database_alert_resolved = True
+                    database_owner_resolved = True
                     break
                 time.sleep(3)
             if not database_alert_resolved:
-                raise RuntimeError("The PostgreSQL readiness alert did not clear")
+                raise RuntimeError("The PostgreSQL readiness alert did not clear and deliver recovery to its owner")
+            (evidence / "database-owner-notification-successes.json").write_text(json.dumps(database_successes, indent=2), encoding="utf-8")
+            database_owner_delta = len(database_successes) - database_deliveries_before
         # The existing generation survived the same database container's restart.
         token = https("/realms/fleetflow/protocol/openid-connect/token", host=IDENTITY_HOST, method="POST",
             body=urllib.parse.urlencode({"grant_type": "password", "client_id": "fleetflow-test-bootstrap",
@@ -607,6 +619,9 @@ def main():
             "databaseReadinessOutageStatus": 503, "databaseRecoveredWithoutAppRestart": True,
             "databaseAlertFiringObserved": database_alert_firing,
             "databaseAlertResolvedObserved": database_alert_resolved,
+            "databaseOwnerFiringDeliveryObserved": database_owner_firing,
+            "databaseOwnerResolvedDeliveryObserved": database_owner_resolved,
+            "databaseOwnerNotificationDelta": database_owner_delta,
             "processedMarkers": actual, "expectedProcessedMarkers": expected,
             "ownerAlertDelivery": alert_delivery_result,
             "ownerAlertDeliveryMissingInput": alert_delivery_missing_input,

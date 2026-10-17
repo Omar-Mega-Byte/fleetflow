@@ -1,6 +1,6 @@
 # Release Phase 7 — Persona workflows and browser acceptance
 
-**Status: IN_PROGRESS. Priority: P0.** The signed 2026-10-17 Day 3 live journey covers customer, merchant, dispatcher, driver and operator workflows, object/role denials, interrupted reset retry, SSE reconnect, error handling, and 390px accessibility checks. Local acceptance and exact-commit CI passed; target-host acceptance and the remaining phase exit criteria are recorded in the [Day 3 Prompt 3 evidence](DAY-3-PROMPT-3-RELEASE-ACCEPTANCE.md).
+**Status: COMPLETE. Priority: P0.** Complete for the declared private synthetic persona workflows after the 2026-10-17 Days 1-3 local and exact-commit CI checks. Evidence, commands and scope are in [the full audit](DAYS-1-3-FULL-AUDIT-2026-10-17.md). This does not approve a public host or release candidate; Phase 9 owns target-host acceptance.
 
 ## Objective
 
@@ -87,6 +87,10 @@ HIGH. Inaccurate state or weak role presentation can mislead reviewers even when
 
 - Integrated CI/release packaging and public demo review.
 
-## Day 3 closeout — 2026-10-17
+## Historical Day 3 closeout — 2026-10-17
 
 The disposable signed journey passed 1/1, 11 axe audits with zero violations, and five 390px mobile checks without horizontal overflow. The interrupted reset committed and same-body/idempotency-key retry confirmed generation 2; a deliberately dropped first SSE request reconnected and observed delivery. Authorization denials and reset 429/503 feedback passed. Direct-push and PR CI passed exact feature commit `bca17c48024b59cb26935e0d465f40d69344da96`; the remaining target-host acceptance gates keep this phase `IN_PROGRESS`. See the Day 3 acceptance ledger for run evidence.
+
+## Days 1-3 completion addendum — 2026-10-17
+
+The current declared private scope is complete. The later audit supersedes the earlier single-journey and Docker-blocked snapshots. Public target/issuer acceptance remains a separate Phase 9 gate. See the full audit and exact-head CI acceptance artifact for current evidence.

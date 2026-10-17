@@ -31,6 +31,17 @@ def identity(root: Path, path: Path) -> dict:
     return {"path": path.relative_to(root).as_posix(), "sha256": hashlib.sha256(path.read_bytes()).hexdigest()}
 
 
+def notification_evidence(root: Path, filename: str, alert_name: str) -> dict:
+    path = one(root, filename)
+    events = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(events, list) or len(events) < 2 or any(
+            not isinstance(event, dict) or event.get("msg") != "Notify success"
+            or event.get("receiver") != "fleetflow-discord" or event.get("integration") != "discord[0]"
+            or f'alertname="{alert_name}"' not in str(event.get("aggrGroup", "")) for event in events):
+        raise ValueError("Completed notifications for the actual owner alert group are missing: " + alert_name)
+    return {**identity(root, path), "completedGroupNotifications": len(events)}
+
+
 def record(root: Path, source: str, head: str, ci_run: str, owner_required: bool) -> dict:
     if any(not re.fullmatch(r"[0-9a-f]{40}", sha) for sha in (source, head)):
         raise ValueError("Full source and head commit SHAs are required")
@@ -116,19 +127,16 @@ def record(root: Path, source: str, head: str, ci_run: str, owner_required: bool
                              delivery.get(field, 0) >= 1 for field in ("firingNotificationDelta", "resolvedNotificationDelta",
                                                                      "firingGroupSuccessDelta", "resolvedGroupSuccessDelta"))
     if owner_required and (browser.get("result") != "PASS" or not owner_verified or browser.get("ownerAlertDeliveryMissingInput")
-                           or browser.get("databaseAlertFiringObserved") is not True or browser.get("databaseAlertResolvedObserved") is not True):
+                           or browser.get("databaseAlertFiringObserved") is not True or browser.get("databaseAlertResolvedObserved") is not True
+                           or browser.get("databaseOwnerFiringDeliveryObserved") is not True
+                           or browser.get("databaseOwnerResolvedDeliveryObserved") is not True
+                           or (browser.get("databaseOwnerNotificationDelta") or 0) < 2):
         raise ValueError("Required owner firing and recovery delivery was not verified")
     owner_evidence = None
+    database_owner_evidence = None
     if owner_verified:
-        owner_path = one(root, "owner-notification-successes.json")
-        owner_events = json.loads(owner_path.read_text(encoding="utf-8"))
-        if not isinstance(owner_events, list) or len(owner_events) < 2 or any(
-                not isinstance(event, dict) or event.get("msg") != "Notify success"
-                or event.get("receiver") != "fleetflow-discord" or event.get("integration") != "discord[0]"
-                or 'alertname="FleetFlowOutboxBacklog"' not in str(event.get("aggrGroup", ""))
-                for event in owner_events):
-            raise ValueError("Completed notifications for the actual owner alert group are missing")
-        owner_evidence = {**identity(root, owner_path), "completedGroupNotifications": len(owner_events)}
+        owner_evidence = notification_evidence(root, "owner-notification-successes.json", "FleetFlowOutboxBacklog")
+        database_owner_evidence = notification_evidence(root, "database-owner-notification-successes.json", "FleetFlowDatabaseReadinessLoss")
     journey_path = one(root, "vertical-result.json")
     journey = read(journey_path)
     if journey.get("finalCustomerStatus") != "DELIVERED" or journey.get("logoutConfirmed") is not True:
@@ -155,6 +163,8 @@ def record(root: Path, source: str, head: str, ci_run: str, owner_required: bool
     if database.get("orderId") != journey.get("orderId") or extra.get("zoneId") != zone.get("zoneId") or extra.get("recoveryOrderId") != recovery.get("orderId"):
         raise ValueError("Evidence resource identities do not match their database postconditions")
     return {"kind": "VERIFIED_BUILD_EVIDENCE", "candidateApproved": False, "verification": "PASS",
+            "acceptanceDecision": "PARTIAL_NOT_COMPLETE", "legacyPhase11": "CLOSED_PARTIAL",
+            "acceptanceScope": "Days 1-3 private workflow/build verification; public and candidate gates remain separate",
             "sourceCommit": source, "headCommit": head, "ciRun": ci_run, "imageMetadata": identity(root, build_path),
             "images": build["images"], "sboms": sboms, "trivy": scans, "codeql": codeql,
             "sourceCoverage": {**identity(root, coverage_path), "mavenTree": identity(root, tree_path),
@@ -163,6 +173,7 @@ def record(root: Path, source: str, head: str, ci_run: str, owner_required: bool
             "ownerAlertDelivery": "VERIFIED" if owner_verified else "NOT_VERIFIED_MISSING_INPUT",
             "ownerAlertRequired": owner_required,
             "ownerNotificationEvidence": owner_evidence,
+            "databaseOwnerNotificationEvidence": database_owner_evidence,
             "browserEvidence": [identity(root, path) for path in (browser_path, journey_path, zone_path, recovery_path, database_path, extra_path)],
             "remainingReleaseGates": (["vendor-supported disposition of open image findings"] if any(item["findings"] for item in scans.values()) else [])
                 + ["published registry digests and candidate provenance", "explicit candidate approval", "external target acceptance"],

@@ -98,3 +98,7 @@ MEDIUM. Missing or noisy signals delay recovery; public diagnostic exposure leak
 Actual private scrape includes HTTP histograms, pool/DB/Redis, outbox, quarantine, incident age, SSE and native Kafka fetch lag. Fifteen dashboard panels reference concrete sources; all 26 PromQL queries parse and every metric name maps to the live scrape or actual source registration. Nine alert rules validate and firing/recovery fixtures pass. PostgreSQL readiness and optional-dependency restart behavior execute. Application/proxy redaction passes, including real logout-token canaries. The Day 3 disposable run additionally delivered one Discord firing and one resolved notification to the configured owner receiver. Public-host monitoring, long-running delivery, backup sentinel integration and certificate probe remain open.
 
 See [reconciliation and stable contracts](DAY-1-CONSOLIDATION-AUDIT.md), [execution ledger](DAY-1-EVIDENCE-LEDGER.md) and [redacted machine evidence](evidence/day1-consolidation-2026-10-14.json).
+
+## Days 1-3 full audit — 2026-10-17
+
+[Current evidence and remaining gates](DAYS-1-3-FULL-AUDIT-2026-10-17.md) supersede earlier execution snapshots. Private metrics/redaction, PostgreSQL readiness recovery and actual owner notification gates have evidence. Target monitoring, backup-age and certificate integration remain open; full phase status stays IN_PROGRESS.

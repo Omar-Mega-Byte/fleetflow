@@ -96,3 +96,7 @@ See [reconciliation and stable contracts](DAY-1-CONSOLIDATION-AUDIT.md), [execut
 ## Day 3 closeout — 2026-10-17
 
 Local source policy and five non-Keycloak runtime image scans passed with zero findings; the pinned Keycloak runtime has 50 open medium/low findings and no supported fix is established. Local immutable IDs and seven SBOM SHA-256 values are in the Day 3 ledger. Exact-commit CI and CI-produced immutable image identities remain required before repository-controlled release acceptance closes. No registry digests or approved candidate are claimed.
+
+## Days 1-3 full audit — 2026-10-17
+
+[Current evidence and remaining gates](DAYS-1-3-FULL-AUDIT-2026-10-17.md) supersede earlier execution snapshots. Current source/runtime scans, exhaustive Maven/npm SBOM coverage and exact-run build/acceptance metadata operate in CI. Fifty Keycloak findings and published registry/provenance/approval gates remain open; full phase status stays IN_PROGRESS.

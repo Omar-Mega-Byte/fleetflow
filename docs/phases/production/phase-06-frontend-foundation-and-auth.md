@@ -2,7 +2,7 @@
 
 > Current Day 1 assessment: **COMPLETE for Day 1 slice**. [Consolidation ledger](DAY-1-EVIDENCE-LEDGER.md) supersedes earlier execution snapshots. Full release-phase exit criteria below remain independent.
 
-**Status: IN_PROGRESS. Priority: P0.** React/Vite, PKCE, typed API/SSE and all role workspaces exist. The Days 1-3 audit passes three signed journeys across all five personas, zone and dispatch recovery, plus private production-edge PKCE, mobile/focus and synthetic movement checks. Exact updated-commit CI is required; public-issuer/target proof belongs to Phase 9.
+**Status: COMPLETE. Priority: P0.** Complete for the declared client foundation after the 2026-10-17 Days 1-3 local and exact-commit CI checks. Evidence, commands and scope are in [the full audit](DAYS-1-3-FULL-AUDIT-2026-10-17.md). This does not approve a public host or release candidate; Phase 9 owns target-host acceptance.
 
 ## Objective
 
@@ -35,7 +35,7 @@ Backend invariants, authorization, error/rate contracts and identity claims are 
 - On 2026-10-14, `npm ci`, `npm run lint`, `npm run typecheck`, `npm run test` (21 tests), `npm run build`, and `npm run test:e2e` all passed. The production output was 351.49 kB JavaScript (106.14 kB gzip) plus 12.16 kB CSS (3.64 kB gzip). The mock-issuer smoke proves browser PKCE and UI routing only.
 - The customer order detail component renders lifecycle and tracking status from the owner-scoped API response shapes in a component test. A live browser-to-Keycloak-to-backend/database run remains blocked by the local Docker Engine endpoint failure.
 - Visual decisions and the design-research limitation are recorded in [the Day 1 frontend design decision](day-1-frontend-design-decision.md).
-- This phase remains `IN_PROGRESS`: provision the named demo subjects in the disposable IdP without frontend credentials, then prove a real browser token against backend authorization, seeded PostgreSQL rows and tracking behavior. Complete mobile/keyboard review and include browser checks in release CI before closing.
+- At that historical Day 1 checkpoint this phase was `IN_PROGRESS`: provision the named demo subjects in the disposable IdP without frontend credentials, then prove a real browser token against backend authorization, seeded PostgreSQL rows and tracking behavior. Complete mobile/keyboard review and include browser checks in release CI before closing.
 
 ## Work included
 
@@ -108,3 +108,7 @@ HIGH. Browser token/session mistakes can expose every synthetic persona; an unne
 Clean npm install, audit, lint, typecheck, 39 tests across nine files, production build and signed OIDC smoke pass. Real Keycloak-to-API/PostGIS/browser/lifecycle-SSE flow also passes, with memory-only token reload/re-auth/logout and foreign-role boundaries. Runtime decoders, callback/session-race guards, bounded API/SSE, explicit unavailable location, keyboard route focus, contrast and inspected 1440/390 px screenshots strengthen the foundation. Full persona workflows remain Phase 7.
 
 See [reconciliation and stable contracts](DAY-1-CONSOLIDATION-AUDIT.md), [execution ledger](DAY-1-EVIDENCE-LEDGER.md) and [redacted machine evidence](evidence/day1-consolidation-2026-10-14.json).
+
+## Days 1-3 completion addendum — 2026-10-17
+
+The current declared private scope is complete. The later audit supersedes the earlier single-journey and Docker-blocked snapshots. Public target/issuer acceptance remains a separate Phase 9 gate. See the full audit and exact-head CI acceptance artifact for current evidence.

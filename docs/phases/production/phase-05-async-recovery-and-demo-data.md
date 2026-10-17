@@ -103,3 +103,7 @@ HIGH. An unsafe replay/reset can duplicate or destroy durable demo data.
 JDBC audit bindings and reset zone/history/state defects are fixed. Consumer handling uses three attempts before quarantine; no unbounded poison loop. Broker-DNS loss defers listener startup with capped backoff, and actual app restart with Kafka/Redis stopped becomes ready. A committed generation 2 persists and both consumers drain to four processed markers. Seven seed/reset tests cover repeat/concurrency/interruption/ownership/busy refusal/rate/audit/version safety. Five personas are explicit. Failed outbox replay returns through the normal dedupe path; arbitrary malformed quarantine replay/skip remains unsupported.
 
 See [reconciliation and stable contracts](DAY-1-CONSOLIDATION-AUDIT.md), [execution ledger](DAY-1-EVIDENCE-LEDGER.md) and [redacted machine evidence](evidence/day1-consolidation-2026-10-14.json).
+
+## Days 1-3 full audit — 2026-10-17
+
+[Current evidence and remaining gates](DAYS-1-3-FULL-AUDIT-2026-10-17.md) supersede earlier execution snapshots. The private Day 3 MUST slice has evidence; full phase status remains IN_PROGRESS for the broader gates itemized there. Unsupported optional malformed-poison actions are not silently treated as implemented or as Day 3 MUST blockers.

@@ -41,6 +41,8 @@ class ReleaseEvidenceTests(unittest.TestCase):
                    "databaseReadinessOutageStatus": 503, "outboxRemaining": 0, "processedMarkers": 4, "expectedProcessedMarkers": 4,
                    "restartRetainedGeneration": 2, "edgeBodyLimit": 413,
                    "databaseAlertFiringObserved": True, "databaseAlertResolvedObserved": True,
+                   "databaseOwnerFiringDeliveryObserved": True, "databaseOwnerResolvedDeliveryObserved": True,
+                   "databaseOwnerNotificationDelta": 2,
                    "images": {"postgres" if name == "postgis" else name: self.images["keycloak-runtime" if name == "keycloak" else name]["imageId"] for name in IMAGES},
                    "ownerAlertDelivery": {"verified": True, "firingAlertObserved": True, "firingDeliveryObserved": True,
                                           "resolvedAlertObserved": True, "firingNotificationDelta": 1, "resolvedNotificationDelta": 1,
@@ -50,6 +52,8 @@ class ReleaseEvidenceTests(unittest.TestCase):
                    "interruptedOrderCreateConfirmed": True, "syntheticPositionsConfirmed": 2})
         self.write("owner-notification-successes.json", [{"msg": "Notify success", "receiver": "fleetflow-discord",
                    "integration": "discord[0]", "aggrGroup": '{}:{alertname="FleetFlowOutboxBacklog"}'}] * 2)
+        self.write("database-owner-notification-successes.json", [{"msg": "Notify success", "receiver": "fleetflow-discord",
+                   "integration": "discord[0]", "aggrGroup": '{}:{alertname="FleetFlowDatabaseReadinessLoss"}'}] * 2)
         self.write("zone-result.json", {"zoneId": "zone-one", **{field: True for field in
                    ("createSameBodyAndKey", "keyboardEditing", "mapDrawingInsideExistingBoundary", "incompleteBoundaryRejected",
                     "concurrentUpdateDenied", "enforcedInsideCovered", "enforcedOutsideRejected", "unrestrictedOutsideCovered", "foreignBranchDenied")}})
@@ -70,6 +74,8 @@ class ReleaseEvidenceTests(unittest.TestCase):
         self.assertEqual(len(result["images"]), 6)
         self.assertEqual(result["ownerAlertDelivery"], "VERIFIED")
         self.assertFalse(result["candidateApproved"])
+        self.assertEqual(result["acceptanceDecision"], "PARTIAL_NOT_COMPLETE")
+        self.assertEqual(result["legacyPhase11"], "CLOSED_PARTIAL")
         self.assertEqual(result["ownerNotificationEvidence"]["completedGroupNotifications"], 2)
         self.assertEqual(result["sourceCommit"], SHA)
         self.assertTrue(all(len(item["sha256"]) == 64 for item in result["sboms"].values()))
@@ -93,6 +99,13 @@ class ReleaseEvidenceTests(unittest.TestCase):
         browser.update({"result": "PARTIAL", "ownerAlertDelivery": None, "ownerAlertDeliveryMissingInput": "private credential missing"})
         self.write("result.json", browser)
         self.assertEqual(record(self.root, SHA, SHA, RUN, False)["ownerAlertDelivery"], "NOT_VERIFIED_MISSING_INPUT")
+        with self.assertRaisesRegex(ValueError, "owner firing and recovery"):
+            record(self.root, SHA, SHA, RUN, True)
+
+    def test_database_rule_clear_without_owner_recovery_delivery_fails(self):
+        browser = self.load("result.json")
+        browser.update({"databaseOwnerResolvedDeliveryObserved": False, "databaseOwnerNotificationDelta": 1})
+        self.write("result.json", browser)
         with self.assertRaisesRegex(ValueError, "owner firing and recovery"):
             record(self.root, SHA, SHA, RUN, True)
 

@@ -371,6 +371,7 @@ jobs:
             ${{ runner.temp }}/fleetflow-audit/browser/result.json
             ${{ runner.temp }}/fleetflow-audit/browser/basemap-result.json
             ${{ runner.temp }}/fleetflow-audit/browser/owner-notification-successes.json
+            ${{ runner.temp }}/fleetflow-audit/browser/database-owner-notification-successes.json
             ${{ runner.temp }}/fleetflow-audit/browser/start.log
             ${{ runner.temp }}/fleetflow-audit/browser/containers.log
             ${{ runner.temp }}/fleetflow-audit/browser/health-*.json

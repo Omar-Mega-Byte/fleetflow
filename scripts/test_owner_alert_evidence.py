@@ -84,6 +84,15 @@ class OwnerAlertEvidenceTests(unittest.TestCase):
         self.assertEqual(len(result), 1)
         self.assertNotIn("must-not-be-retained", json.dumps(result))
 
+    def test_database_delivery_cannot_be_satisfied_by_a_backlog_notification(self):
+        base = {"msg": "Notify success", "receiver": "fleetflow-discord", "integration": "discord[0]"}
+        events = [{**base, "aggrGroup": '{}:{alertname="FleetFlowOutboxBacklog"}'},
+                  {**base, "aggrGroup": '{}:{alertname="FleetFlowDatabaseReadinessLoss"}'}]
+        with patch("subprocess.run", return_value=SimpleNamespace(stdout="", stderr="\n".join(json.dumps(row) for row in events))):
+            result = successes("private-alertmanager", "FleetFlowDatabaseReadinessLoss")
+        self.assertEqual(len(result), 1)
+        self.assertIn("FleetFlowDatabaseReadinessLoss", result[0]["aggrGroup"])
+
 
 if __name__ == "__main__":
     unittest.main()
