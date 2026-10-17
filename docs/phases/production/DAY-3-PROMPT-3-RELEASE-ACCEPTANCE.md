@@ -5,7 +5,8 @@
 - **Live persona, recovery, and owner-alert addendum:** 2026-10-17 (Africa/Cairo)
 - **Base commit:** `8fc2903403e6f01530e25bb6753de6f289cc5bfe`
 - **Working branch:** `codex/day3-persona-closeout`
-**Decision:** **PARTIAL — the requested local persona, failure/recovery, private-metrics, owner-alert, and supply-chain checks pass; exact-commit CI, open Keycloak findings, and external release gates remain.**
+- **Feature commit with direct-push CI:** `8e2907fc513fac2c59e75274cd20778f93425f3d`
+- **Decision:** **PARTIAL / NOT COMPLETE — local acceptance and exact-commit CI pass; 50 Keycloak findings and external release gates remain open.**
 
 The 2026-10-17 entries below are the current scan and artifact status. The earlier persona, recovery, monitoring, backend, and frontend evidence was collected on 2026-10-16 and is retained with its original scope.
 
@@ -128,6 +129,40 @@ The final source report contains no findings. The final app, edge, PostGIS, Redi
 
 The six earlier source findings were low `DS-0026` notices requesting a Dockerfile `HEALTHCHECK`. They affected `Dockerfile`, `ops/production/keycloak.Dockerfile`, `ops/production/kafka.Dockerfile`, `ops/production/postgis.Dockerfile`, `ops/production/redis.Dockerfile`, and `web/Dockerfile.release`. The supported fix was to add Dockerfile healthchecks using the same service endpoints or built-in readiness utilities as the existing Compose probes. The final source report confirms zero findings; no scanner finding was suppressed.
 
+## Exact-commit CI and immutable artifacts — 2026-10-17
+
+The feature branch head `8e2907fc513fac2c59e75274cd20778f93425f3d` was tested by a **direct push** run, so its `github.sha`, the run's head SHA, and `image-builds.json`'s `sourceCommit` all match that exact commit. The [direct-push verification run 38986933538](https://github.com/Omar-Mega-Byte/fleetflow/actions/runs/38986933538) completed successfully. The [PR #40 integration run 38986936841](https://github.com/Omar-Mega-Byte/fleetflow/actions/runs/38986936841) also passed for the same branch head; PR #40 remains a draft and is unmerged.
+
+| Exact-commit gate | Result | Run evidence |
+| --- | --- | --- |
+| Backend, migrations, API contracts, safety preflights, Compose validation | PASS | [Backend job](https://github.com/Omar-Mega-Byte/fleetflow/actions/runs/38986933538/job/117260468934) |
+| Frontend lint, typecheck, tests, build, signed browser smoke | PASS | [Frontend job](https://github.com/Omar-Mega-Byte/fleetflow/actions/runs/38986933538/job/117260469061) |
+| Source Trivy scan and SARIF policy | PASS — 0 source findings | [Source security job](https://github.com/Omar-Mega-Byte/fleetflow/actions/runs/38986933538/job/117261518540) |
+| Source CycloneDX SBOM | PASS — CycloneDX 1.7, 39 components | [Source SBOM artifact and run](https://github.com/Omar-Mega-Byte/fleetflow/actions/runs/38986933538) |
+| Runtime image build, live production-topology smoke, signed vertical journey, six Trivy scans, six image SBOMs, artifact metadata | PASS | [Runtime image job](https://github.com/Omar-Mega-Byte/fleetflow/actions/runs/38986933538/job/117260469040) |
+| CodeQL Java/Kotlin and JavaScript/TypeScript | PASS | [Java/Kotlin job](https://github.com/Omar-Mega-Byte/fleetflow/actions/runs/38986933538/job/117260469140), [JavaScript/TypeScript job](https://github.com/Omar-Mega-Byte/fleetflow/actions/runs/38986933538/job/117260469107) |
+| GitGuardian PR check | PASS | [PR #40 checks](https://github.com/Omar-Mega-Byte/fleetflow/pull/40) |
+
+The CI Trivy report has **0 findings** for source, app, edge, PostGIS, Redis, and Kafka. Keycloak has **50 findings (25 medium, 25 low)**; its 27 distinct finding IDs exactly match the checked-in inventory in `DAY-3-SUPPLY-CHAIN-FINDINGS-2026-10-17.csv`. No finding was suppressed. The policy job passed because the Trivy-classified inventory contains no critical/high findings, secrets, or unclassified results; the 50 medium/low findings remain open.
+
+The exact-run evidence artifacts are attached to run 38986933538: `image-builds-8e2907fc513fac2c59e75274cd20778f93425f3d`, `trivy-images-8e2907fc513fac2c59e75274cd20778f93425f3d`, `trivy-source-8e2907fc513fac2c59e75274cd20778f93425f3d`, `live-browser-8e2907fc513fac2c59e75274cd20778f93425f3d`, `day2-real-browser-8e2907fc513fac2c59e75274cd20778f93425f3d`, and the source plus six image CycloneDX JSON artifacts named with the same SHA.
+
+CI image IDs below are immutable Docker build IDs recorded by the run's `BUILD_METADATA_ONLY` artifact. `registryDigests` is empty for every image: these are not registry digests, and no image was published. The `image-builds.json` artifact SHA-256 is `dd6369ae21e720667e41649bb4f2158910c8f2347b0b70b3cafdaf58c2a77076`.
+
+| Component | CI image ID for commit `8e2907f` | CycloneDX artifact SHA-256 |
+| --- | --- | --- |
+| App | `sha256:318099915aef4991bb10bc96527ac4b4116be000e2691ec0620378827787f6d0` | `fad6c9774c98c1be977f4a4ae7e2499176e6f3d5b9fe24c4dc045b3488d983f7` |
+| Keycloak runtime | `sha256:70497771a055901542faa4bee42d73894224a3896502cef08e2524451c158620` | `6a108bbf72ce3f6fd19425734a7f1372f18395dac18371e171191010bcab59d0` |
+| Edge | `sha256:69e1efa4c5cbe058085d8712a0e24c969d840748c6ccb4a2fb74cb52810e50ea` | `c822866760dd43907a6fe69a9f20f9dc8d629e66a6b5c545e3528ad822d2aa1e` |
+| PostGIS | `sha256:5cafd74112bb995c0dd899dabe238e6b59b61621198ef6d4de60bcb3a5596068` | `47bb7cf292f4d584304998819a4b7a6e4b3244efb88b97b0e27774a460c29f88` |
+| Redis | `sha256:6ae12e0d7fdfffc606ef52f55a6d6afda0308177baaff9a1975e0ccc5210e92c` | `b5a29d557af75e5724db4724bf3d9033d81cc7f218a47b8928cccd1882dcaffd` |
+| Kafka | `sha256:26747e8f7753a99ef8ea75a365519d030d73363b67e50e8342389d0d05d4a14b` | `5de5c1431fefb0ca8f504730814e0083bcba82a51696ae22205d29280d7a2b83` |
+| Source SBOM | — | `8b02092d9506440c6070ebd1fe0431eda0e8bdc8d49a5651fc8ddbc49e74a2ea` |
+
+The CI production-topology evidence reports `publicDeployment:false`, 51 edge pressure rejections, a Kafka outage business commit, generation 2 retained after restart, outbox 0 with 4/4 consumer markers, and Redis availability 0→1. Its `result.json` is **PARTIAL** solely for owner-alert delivery because CI did not receive `FLEETFLOW_DISCORD_WEBHOOK_FILE`; the exact missing CI input is a secure owner Discord webhook secret. The separate 2026-10-17 local run did use the configured owner webhook and recorded both accepted Discord firing and resolved sends, as detailed below. CI did not claim alert delivery.
+
+The exact-run signed vertical journey artifact recorded reset generation 2, two tracking-stream attempts (failed first request plus reconnect), a persisted `DELIVERED|8` order, and logout. Its sanitized database and vertical-result JSON SHA-256 values are `649597504ce72fe547e6970d0a2b2677a18dc58bf5b48c0ef1ae5fb137315963` and `b3cdc185a520adb17945a8354b98f67fead20e7dc2dfc7dca38d0eda3fa578ee` respectively.
+
 ## Previously collected local acceptance evidence
 
 | Gate | Result | Evidence and scope |
@@ -210,10 +245,10 @@ Day 2 evidence is under `C:\Users\Tolis\AppData\Local\Packages\OpenAI.Codex_2p2n
 ## Remaining release gates
 
 - The 50 Keycloak medium/low findings remain open pending vendor-supported fixes; the policy gate reports zero blockers because no critical/high, secret, or unclassified findings were detected.
-- Exact-commit CI is outstanding. The passing GitHub run above is base-SHA-only and does not validate this working tree.
+- Direct-push CI passed on feature commit `8e2907fc513fac2c59e75274cd20778f93425f3d` at run [38986933538](https://github.com/Omar-Mega-Byte/fleetflow/actions/runs/38986933538), and PR integration run [38986936841](https://github.com/Omar-Mega-Byte/fleetflow/actions/runs/38986936841) passed. The earlier base-SHA run remains historical only.
 - The local owner-alert firing and recovery reached the configured Discord webhook, but public-host monitoring, credential rotation, and long-running alert behavior remain outside this disposable test.
 - Public Azure, external-port, cost, DNS/certificate, and independent target-restore gates have not been run in this Day 3 closeout.
 
-Phases 4, 5, 7, and 8 remain **IN_PROGRESS** pending their remaining acceptance evidence, including exact-commit CI for the live-test changes. Phase 11 remains **CLOSED_PARTIAL**. Day 3 remains **PARTIAL / NOT COMPLETE** until the open Keycloak findings have supported disposition, exact-commit CI passes, and the remaining mandatory external evidence is recorded.
+Phases 4, 5, 7, and 8 remain **IN_PROGRESS** for their remaining phase-specific acceptance gates: PostgreSQL/target observability qualification, target recovery and unsupported poison disposition, target-host persona acceptance, and supported Keycloak findings plus registry candidate provenance. Phase 11 remains **CLOSED_PARTIAL**. Day 3 remains **PARTIAL / NOT COMPLETE** until those open findings and mandatory external evidence are resolved.
 
 No public deployment or release approval was performed.

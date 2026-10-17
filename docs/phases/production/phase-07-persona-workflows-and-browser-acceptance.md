@@ -1,6 +1,6 @@
 # Release Phase 7 — Persona workflows and browser acceptance
 
-**Status: IN_PROGRESS. Priority: P0.** The signed 2026-10-17 Day 3 live journey covers customer, merchant, dispatcher, driver and operator workflows, object/role denials, interrupted reset retry, SSE reconnect, error handling, and 390px accessibility checks. Local acceptance passed; exact-commit CI and remaining target-host acceptance are recorded in the [Day 3 Prompt 3 evidence](DAY-3-PROMPT-3-RELEASE-ACCEPTANCE.md).
+**Status: IN_PROGRESS. Priority: P0.** The signed 2026-10-17 Day 3 live journey covers customer, merchant, dispatcher, driver and operator workflows, object/role denials, interrupted reset retry, SSE reconnect, error handling, and 390px accessibility checks. Local acceptance and exact-commit CI passed; target-host acceptance and the remaining phase exit criteria are recorded in the [Day 3 Prompt 3 evidence](DAY-3-PROMPT-3-RELEASE-ACCEPTANCE.md).
 
 ## Objective
 

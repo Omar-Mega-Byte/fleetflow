@@ -112,7 +112,7 @@ No P0 item moves to post-launch. A failed P0 gate means the candidate is not app
 
 **Primary goal:** make every required persona workflow usable and have the complete critical browser suite running in CI before the end of the day.
 
-**Prompt 3 acceptance record:** [Day 3 Prompt 3 — Release Acceptance](DAY-3-PROMPT-3-RELEASE-ACCEPTANCE.md) — private persona, recovery, metrics/redaction and owner-alert evidence passed; exact-commit CI and documented supply-chain/target release gates determine final disposition.
+**Prompt 3 acceptance record:** [Day 3 Prompt 3 — Release Acceptance](DAY-3-PROMPT-3-RELEASE-ACCEPTANCE.md) — private persona, recovery, metrics/redaction, owner-alert delivery, and exact-commit CI passed; open Keycloak findings and target release gates keep Day 3 partial.
 
 **Active phases:** 4–8 and completion of any still-open Phase 1–3/5 defects; 9–11 preparation.
 

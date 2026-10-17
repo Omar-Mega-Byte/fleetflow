@@ -6,7 +6,7 @@ Updated 2026-10-17 (Africa/Cairo). Day 2 Prompt 2 remains complete for its real 
 
 Design exploration, refinement, frontend implementation, fixture QA, one signed real-browser vertical workflow, and local release rehearsals are complete. The post-merge contrast issue was caused by the page wrapper fading to 50% opacity during its 220 ms entrance; the source correction now uses transform only. The tested workflow runs against fresh local/test services and does not establish production readiness. Do not restart design research or regenerate the selected design.
 
-The 2026-10-17 Day 3 private closeout passed the signed customer, merchant, driver, dispatcher, and operator journeys; authorization denials; interrupted reset retry; SSE reconnect; all five 390px accessibility checks; private metrics/redaction; Kafka outbox and Redis recovery; and actual Discord firing/resolved delivery. Evidence and exact remaining release gates are in [`docs/phases/production/DAY-3-PROMPT-3-RELEASE-ACCEPTANCE.md`](docs/phases/production/DAY-3-PROMPT-3-RELEASE-ACCEPTANCE.md). Day 3 remains partial pending exact-commit CI, the 50 open Keycloak findings, and external release evidence.
+The 2026-10-17 Day 3 private closeout passed the signed customer, merchant, driver, dispatcher, and operator journeys; authorization denials; interrupted reset retry; SSE reconnect; all five 390px accessibility checks; private metrics/redaction; Kafka outbox and Redis recovery; and actual Discord firing/resolved delivery. Direct-push CI passed exact feature commit `8e2907fc513fac2c59e75274cd20778f93425f3d` in [run 38986933538](https://github.com/Omar-Mega-Byte/fleetflow/actions/runs/38986933538); PR integration run [38986936841](https://github.com/Omar-Mega-Byte/fleetflow/actions/runs/38986936841) also passed. Evidence and remaining release gates are in [`docs/phases/production/DAY-3-PROMPT-3-RELEASE-ACCEPTANCE.md`](docs/phases/production/DAY-3-PROMPT-3-RELEASE-ACCEPTANCE.md). Day 3 remains partial because 50 Keycloak findings and external release gates remain open.
 
 ## Completed phases
 
@@ -48,12 +48,12 @@ The 2026-10-17 Day 3 private closeout passed the signed customer, merchant, driv
 ## Remaining work
 
 - The 2026-10-17 live run closes the requested local persona, authorization, error/retry, accessibility/mobile, interrupted-reset, SSE, private-metrics, dependency/outbox, and owner-alert gates. See the Day 3 acceptance ledger for the exact run records.
-- Remaining release work is exact-commit CI, supported disposition for the 50 open Keycloak medium/low findings, external target-host recovery/cost review, and Phase 8 immutable candidate controls.
+- Remaining release work is a vendor-supported disposition for the 50 open Keycloak medium/low findings, external target-host recovery/cost review, and Phase 8 registry candidate controls. Exact-commit CI passed; its CI smoke intentionally reports owner-alert delivery as missing because the secure Discord webhook is not supplied to GitHub Actions. Local owner delivery is separately verified.
 - The live run rendered the PostGIS zone overlay and saved desktop/mobile captures. Basemap tile completion was best-effort and zone editing was not exercised; their edge/CSP acceptance remains open.
 
 ## Exact next step
 
-Continue on `codex/day3-persona-closeout` from [`docs/phases/production/DAY-3-PROMPT-3-RELEASE-ACCEPTANCE.md`](docs/phases/production/DAY-3-PROMPT-3-RELEASE-ACCEPTANCE.md). Preserve the dirty working tree; obtain CI for the exact reviewed commit, then resolve the supported Keycloak findings and remaining external release gates. The prior base-commit CI does not validate these changes.
+Continue on `codex/day3-persona-closeout` from [`docs/phases/production/DAY-3-PROMPT-3-RELEASE-ACCEPTANCE.md`](docs/phases/production/DAY-3-PROMPT-3-RELEASE-ACCEPTANCE.md). Obtain a vendor-supported Keycloak runtime fix for the 50 open findings, rebuild and rescan it, then complete the target-host recovery, cost, DNS/TLS and immutable-candidate gates. Keep Day 3 partial until those gates have evidence.
 
 ## Resume commands
 
