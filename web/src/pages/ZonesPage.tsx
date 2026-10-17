@@ -250,7 +250,7 @@ export function ZonesPage() {
       ) : (
         <EmptyState title="Select your branch’s delivery area">
           <p>
-            Enter an authorized branch ID to load its actual PostGIS boundaries.
+            Enter an authorized branch ID to load its delivery boundaries.
           </p>
         </EmptyState>
       )}

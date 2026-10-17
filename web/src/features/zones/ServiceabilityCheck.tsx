@@ -43,7 +43,7 @@ export function ServiceabilityCheck({
   return (
     <Panel title="Check a destination">
       <p className="muted small">
-        Check the branch’s current PostGIS coverage before changing its policy
+        Check the branch’s current delivery coverage before changing its policy
         or accepting work.
       </p>
       <form className="form-stack" ref={form} onSubmit={submit}>
