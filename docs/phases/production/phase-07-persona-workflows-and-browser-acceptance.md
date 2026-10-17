@@ -1,6 +1,6 @@
 # Release Phase 7 — Persona workflows and browser acceptance
 
-**Status: IN_PROGRESS. Priority: P0.** A signed real-service workflow now prepares/resets synthetic data, creates a customer order, follows merchant and dispatcher actions, accepts and completes the driver delivery, observes customer SSE and verifies the persisted final state. Remaining persona journeys, operator recovery and failure-state acceptance are still open; see the [Day 2 Prompt 3 evidence](DAY-2-PROMPT-3-RELEASE-ACCEPTANCE.md).
+**Status: IN_PROGRESS. Priority: P0.** The signed 2026-10-17 Day 3 live journey covers customer, merchant, dispatcher, driver and operator workflows, object/role denials, interrupted reset retry, SSE reconnect, error handling, and 390px accessibility checks. Local acceptance passed; exact-commit CI and remaining target-host acceptance are recorded in the [Day 3 Prompt 3 evidence](DAY-3-PROMPT-3-RELEASE-ACCEPTANCE.md).
 
 ## Objective
 
@@ -86,3 +86,7 @@ HIGH. Inaccurate state or weak role presentation can mislead reviewers even when
 ## Unlocks
 
 - Integrated CI/release packaging and public demo review.
+
+## Day 3 closeout — 2026-10-17
+
+The disposable signed journey passed 1/1, 11 axe audits with zero violations, and five 390px mobile checks without horizontal overflow. The interrupted reset committed and same-body/idempotency-key retry confirmed generation 2; a deliberately dropped first SSE request reconnected and observed delivery. Authorization denials and reset 429/503 feedback passed. See the Day 3 acceptance ledger for run evidence and exact CI status. Phase remains `IN_PROGRESS` until exact-commit CI and remaining release-target gates pass.

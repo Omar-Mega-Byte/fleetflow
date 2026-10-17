@@ -2,7 +2,7 @@
 
 > Current Day 1 assessment: **COMPLETE for Day 1 foundation; full release phase remains PARTIAL**. [Consolidation ledger](DAY-1-EVIDENCE-LEDGER.md) supersedes earlier execution snapshots. Full release-phase exit criteria below remain independent.
 
-**Status: IN_PROGRESS. Priority: P1.** Structured logs, correlation IDs, health, Micrometer metrics and local Grafana/alerts exist; the signal-to-action path must be checked before failure drills and target qualification.
+**Status: IN_PROGRESS. Priority: P1.** Structured logs, correlation IDs, health, Micrometer metrics and local Grafana/alerts exist. The 2026-10-17 Day 3 closeout verified private metrics, dependency recovery, and actual Discord firing/resolved delivery in a disposable topology. PostgreSQL health-transition acceptance and production-target qualification remain open.
 
 ## Objective
 
@@ -90,11 +90,11 @@ MEDIUM. Missing or noisy signals delay recovery; public diagnostic exposure leak
 - Liveness is process-only; readiness requires application state and PostgreSQL. Redis/Kafka/Keycloak are omitted from readiness to avoid restart loops; affected operations fail closed or report bounded stale/unavailable outcomes as described in the runbook.
 - Added a structured request-log test with synthetic tokens, passwords, client secret, address, GPS, polygon and incident text. It asserts the log contains only the matched route template among request attributes.
 - `CorrelationIdFilterTests`, `TrackingHubBoundsTests`, `OperationalMetersTests` and the pure JVM group passed (15 tests). Prometheus 3.15.0 `promtool check rules` found all 9 rules valid and `promtool test rules` passed fire/recovery cases for database readiness, outbox age, sustained application 5xx and quarantine. This is offline rule evaluation, not Alertmanager delivery.
-- The Docker-backed PostgreSQL health transition test and live dashboard scrape remain unverified because Testcontainers could not reach Docker Desktop's named-pipe endpoint. Status remains `IN_PROGRESS` pending those runtime checks.
+- Historical note: the Docker-backed PostgreSQL health transition test was blocked when Testcontainers could not reach Docker Desktop's named-pipe endpoint. The separate 2026-10-17 Day 3 run later verified a private scrape of 13 required meters, prohibited-label rejection, edge non-exposure, Redis availability recovery and real Discord alert delivery. The PostgreSQL health-transition test and production-target qualification remain open; status remains `IN_PROGRESS`.
 
 
 ## Consolidation audit — 2026-10-14
 
-Actual private scrape includes HTTP histograms, pool/DB/Redis, outbox, quarantine, incident age, SSE and native Kafka fetch lag. Fifteen dashboard panels reference concrete sources; all 26 PromQL queries parse and every metric name maps to the live scrape or actual source registration. Nine alert rules validate and firing/recovery fixtures pass. PostgreSQL readiness and optional-dependency restart behavior execute. Application/proxy redaction passes, including real logout-token canaries. Target notification destination/delivery, backup sentinel integration and certificate probe remain external/later gates.
+Actual private scrape includes HTTP histograms, pool/DB/Redis, outbox, quarantine, incident age, SSE and native Kafka fetch lag. Fifteen dashboard panels reference concrete sources; all 26 PromQL queries parse and every metric name maps to the live scrape or actual source registration. Nine alert rules validate and firing/recovery fixtures pass. PostgreSQL readiness and optional-dependency restart behavior execute. Application/proxy redaction passes, including real logout-token canaries. The Day 3 disposable run additionally delivered one Discord firing and one resolved notification to the configured owner receiver. Public-host monitoring, long-running delivery, backup sentinel integration and certificate probe remain open.
 
 See [reconciliation and stable contracts](DAY-1-CONSOLIDATION-AUDIT.md), [execution ledger](DAY-1-EVIDENCE-LEDGER.md) and [redacted machine evidence](evidence/day1-consolidation-2026-10-14.json).

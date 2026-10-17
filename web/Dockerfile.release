@@ -22,3 +22,4 @@ COPY nginx/proxy-headers.conf /etc/nginx/snippets/proxy-headers.conf
 COPY --from=build /web/dist/ /usr/share/nginx/html/
 USER nginx
 EXPOSE 80 443
+HEALTHCHECK --interval=10s --timeout=3s --retries=5 CMD ["wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8081/healthz"]

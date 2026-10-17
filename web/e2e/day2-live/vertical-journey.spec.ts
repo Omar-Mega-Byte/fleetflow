@@ -28,6 +28,14 @@ async function audit(page: Page) {
   }))).toEqual([]);
 }
 
+async function mobileAcceptance(page: Page, evidence: string, persona: string) {
+  await page.setViewportSize({ width: 390, height: 844 });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  await audit(page);
+  await page.screenshot({ path: path.join(evidence, `${persona}-mobile.png`), fullPage: true });
+  await page.setViewportSize({ width: 1440, height: 1000 });
+}
+
 async function login(
   browser: Browser,
   persona: keyof Accounts,
@@ -104,6 +112,7 @@ test("signed browser completes a customer order through every real persona and t
     sessions.push(operator);
     await expect(operator.page.getByRole("heading", { name: "Synthetic dataset" })).toBeVisible();
     await audit(operator.page);
+    await mobileAcceptance(operator.page, evidence, "operator");
 
     const seedResponsePromise = operator.page.waitForResponse((response) =>
       new URL(response.url()).pathname === "/api/v1/demo/seed" &&
@@ -121,6 +130,20 @@ test("signed browser completes a customer order through every real persona and t
     await expect(operator.page.getByText("Synthetic demo prepared successfully.")).toBeVisible();
     await expect(operator.page.locator(".success-state")).toContainText("generation 1 with 1 synthetic order");
 
+    const resetRequests: Array<{ body: string | null; key: string | null }> = [];
+    let committedReset: { generation: number; result: string; orderIds: string[] } | null = null;
+    await operator.page.route("**/api/v1/demo/reset", async (route) => {
+      const request = route.request();
+      resetRequests.push({ body: request.postData(), key: await request.headerValue("Idempotency-Key") });
+      if (resetRequests.length === 1) {
+        const response = await route.fetch();
+        expect(response.status()).toBe(200);
+        committedReset = await response.json() as { generation: number; result: string; orderIds: string[] };
+        await route.abort("failed");
+        return;
+      }
+      await route.continue();
+    });
     const resetResponsePromise = operator.page.waitForResponse((response) =>
       new URL(response.url()).pathname === "/api/v1/demo/reset" &&
       response.request().method() === "POST",
@@ -130,11 +153,20 @@ test("signed browser completes a customer order through every real persona and t
     await operator.page.getByLabel("Type RESET FLEETFLOW DEMO").fill("RESET FLEETFLOW DEMO");
     await operator.page.getByRole("dialog", { name: "Reset synthetic demo" })
       .getByRole("button", { name: "Reset synthetic demo", exact: true }).click();
+    await expect(operator.page.getByRole("heading", { name: "Connection unavailable" })).toBeVisible();
+    await expect(operator.page.getByText(/The result is unknown\. Retry this same request/)).toBeVisible();
+    await expect(operator.page.getByLabel("Audit reason")).toBeDisabled();
+    await expect(operator.page.getByRole("button", { name: "Close dialog" })).toBeDisabled();
+    await operator.page.getByRole("button", { name: "Try again", exact: true }).click();
     const resetResponse = await resetResponsePromise;
     expect(resetResponse.status()).toBe(200);
     const reset = await resetResponse.json() as { generation: number; result: string; orderIds: string[] };
     expect(reset).toMatchObject({ generation: 2, result: "RESET" });
     expect(reset.orderIds).toHaveLength(1);
+    expect(committedReset).toMatchObject(reset);
+    expect(resetRequests).toHaveLength(2);
+    expect(JSON.parse(resetRequests[1]!.body!)).toEqual(JSON.parse(resetRequests[0]!.body!));
+    expect(resetRequests[1]!.key).toBe(resetRequests[0]!.key);
     await expect(operator.page.getByText("Synthetic demo reset successfully.")).toBeVisible();
     await expect(operator.page.locator(".success-state")).toContainText("generation 2 with 1 synthetic order");
 
@@ -149,9 +181,19 @@ test("signed browser completes a customer order through every real persona and t
     await driver.page.getByRole("button", { name: "Refresh heartbeat", exact: true }).click();
     await expect(driver.page.getByText("Heartbeat refreshed.", { exact: true })).toBeVisible();
     await audit(driver.page);
+    await mobileAcceptance(driver.page, evidence, "driver");
 
     const customer = await login(browser, "customer", "/customer/orders");
     sessions.push(customer);
+    let customerStreamAttempts = 0;
+    await customer.page.route("**/api/v1/orders/*/tracking/stream", async (route) => {
+      customerStreamAttempts += 1;
+      if (customerStreamAttempts === 1) {
+        await route.abort("failed");
+        return;
+      }
+      await route.continue();
+    });
     await expect(customer.page.getByRole("heading", { name: "Your orders" })).toBeVisible();
     await customer.page.evaluate(() => {
       history.pushState({}, "", "/workspace/admin");
@@ -181,8 +223,10 @@ test("signed browser completes a customer order through every real persona and t
     await expect(customer.page.getByRole("heading", { name: "Downtown Branch" })).toBeVisible();
     await expect(customer.page.locator(".detail-heading .status-pill")).toHaveText("Created");
     await expect(customer.page.getByText("Live updates", { exact: true })).toBeVisible();
-    await expect.poll(() => customer.streamRequests.length).toBe(1);
+    await expect.poll(() => customer.streamRequests.length).toBeGreaterThanOrEqual(2);
+    expect(customerStreamAttempts).toBeGreaterThanOrEqual(2);
     await audit(customer.page);
+    await mobileAcceptance(customer.page, evidence, "customer");
 
     const merchant = await login(browser, "merchant", `/workspace/merchant?branchId=${branch}`);
     sessions.push(merchant);
@@ -193,6 +237,7 @@ test("signed browser completes a customer order through every real persona and t
     await expect(merchant.page.getByText(orderId, { exact: true })).toBeVisible();
     await expect(merchant.page.getByRole("button", { name: "Confirm order", exact: true })).toBeVisible();
     await audit(merchant.page);
+    await mobileAcceptance(merchant.page, evidence, "merchant");
     await merchant.page.getByRole("button", { name: "Confirm order", exact: true }).click();
     await expect(merchant.page.getByRole("button", { name: "Start preparation", exact: true })).toBeVisible();
     await expect(customer.page.locator(".detail-heading .status-pill")).toHaveText("Confirmed", { timeout: 45_000 });
@@ -206,6 +251,7 @@ test("signed browser completes a customer order through every real persona and t
     sessions.push(dispatcher);
     await expect(dispatcher.page.getByRole("heading", { name: "Matching evidence" })).toBeVisible();
     await audit(dispatcher.page);
+    await mobileAcceptance(dispatcher.page, evidence, "dispatcher");
     await dispatcher.page.getByRole("button", { name: "Start matching", exact: true }).click();
     const eligible = dispatcher.page.getByText("Eligible", { exact: true });
     await expect(eligible).toBeVisible({ timeout: 45_000 });
@@ -230,7 +276,8 @@ test("signed browser completes a customer order through every real persona and t
     await expect(driver.page.getByText("Delivered", { exact: true })).toBeVisible();
     await expect(customer.page.locator(".detail-heading .status-pill")).toHaveText("Delivered", { timeout: 45_000 });
     await expect(customer.page.getByText("Tracking ended", { exact: true })).toBeVisible();
-    await expect.poll(() => customer.streamRequests.length).toBe(1);
+    await expect.poll(() => customer.streamRequests.length).toBe(2);
+    expect(customerStreamAttempts).toBe(2);
     await audit(customer.page);
 
     await customer.page.setViewportSize({ width: 390, height: 844 });

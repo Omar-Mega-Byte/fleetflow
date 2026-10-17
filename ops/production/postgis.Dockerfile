@@ -7,3 +7,4 @@ RUN apk upgrade --no-cache \
     && sed -i 's/exec gosu postgres/exec su-exec postgres/' /usr/local/bin/docker-entrypoint.sh \
     && rm /usr/local/bin/gosu
 USER postgres:root
+HEALTHCHECK --interval=5s --timeout=3s --retries=10 --start-period=10s CMD ["sh", "-ec", "pg_isready -U \"$POSTGRES_USER\" -d \"$POSTGRES_DB\""]

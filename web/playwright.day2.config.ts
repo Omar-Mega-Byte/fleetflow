@@ -6,7 +6,7 @@ export default defineConfig({
   workers: 1,
   timeout: 180_000,
   reporter: "list",
-  outputDir: "test-results/day2-live",
+  outputDir: process.env.FLEETFLOW_E2E_PLAYWRIGHT_OUTPUT_DIR ?? "test-results/day2-live",
   use: {
     ...devices["Desktop Chrome"],
     baseURL: "http://127.0.0.1:5173",

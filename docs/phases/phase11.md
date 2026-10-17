@@ -1,8 +1,8 @@
 # Phase 11 — production hardening and demo proof
 
-**Current-goal note:** Phase 11 remains a local synthetic-demo closeout. The user's subsequent request for a complete public portfolio product reopens relevant security, recovery, UI, and hosting gaps as work tracked in the [authoritative production roadmap](../PRODUCTION-ROADMAP.md); those gaps are not complete by this phase status.
+**Current-goal note:** Preserve Phase 11 as `CLOSED_PARTIAL`. The local synthetic-demo work and its evidence do not close the broader production hardening, recovery, security, UI, and hosting gaps tracked in the [authoritative production roadmap](../PRODUCTION-ROADMAP.md).
 
-**Status: COMPLETE for the local synthetic-demo scope as of 2026-10-14 on branch `codex/phase11-acceptance-closeout`.** At the user's direction, the extended operational acceptance requirements listed below were removed from this project's active scope. Their historical results remain documented; unverified checks are not represented as passed. This status does not mean public-production readiness. PR #13 previously merged the broader partial scope to `main` at `39c878e`; merge this closeout branch to propagate the revised status. The daily 02:00 Cairo backup remains enabled at the operator's direction.
+**Status: CLOSED_PARTIAL.** The local synthetic-demo scope has substantial implementation and acceptance evidence, including the 2026-10-17 Day 3 private closeout, but the broader Phase 11 operational acceptance remains partial. Its historical results are preserved; unverified checks are not represented as passed. This status does not mean public-production readiness. The daily 02:00 Cairo backup remains enabled at the operator's direction.
 
 ## Objective and starting boundary
 

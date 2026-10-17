@@ -29,6 +29,11 @@ def execute(command, *, data=None, env=None, log=None):
         # A failed privacy assertion must not upload the very credentials it detected.
         retained = re.sub(r"eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+", "[REDACTED_JWT]", result.stdout + result.stderr)
         retained = re.sub(r"(\b(?:GET|POST|PUT|PATCH|DELETE)\s+[^\s?\"]+)\?[^\s\"]+", r"\1?[REDACTED_QUERY]", retained)
+        webhook_file = os.environ.get("FLEETFLOW_DISCORD_WEBHOOK_FILE")
+        if webhook_file and Path(webhook_file).is_file():
+            webhook_value = Path(webhook_file).read_text(encoding="utf-8").strip()
+            if webhook_value:
+                retained = retained.replace(webhook_value, "[REDACTED_WEBHOOK]")
         log.write_text(retained, encoding="utf-8")
     if result.returncode:
         raise RuntimeError(f"{command[0]} failed; inspect the private evidence log")
@@ -62,6 +67,105 @@ def https(path, **options):
     return json.loads(payload) if payload else None
 
 
+def configure_alert_delivery(document, private, project, webhook_file):
+    """Attach private monitoring services only when an owner webhook file is supplied."""
+    if not webhook_file:
+        return False, "FLEETFLOW_DISCORD_WEBHOOK_FILE was not supplied"
+    path = Path(webhook_file).resolve()
+    if not path.is_file():
+        return False, "FLEETFLOW_DISCORD_WEBHOOK_FILE must name an existing private file"
+    try:
+        from urllib.parse import urlsplit
+        target = urlsplit(path.read_text(encoding="utf-8").strip())
+        valid = (target.scheme == "https" and target.hostname in {"discord.com", "discordapp.com"}
+                 and re.fullmatch(r"/api/webhooks/[0-9]+/[^/]+", target.path) is not None)
+    except (OSError, UnicodeError):
+        valid = False
+    if not valid:
+        return False, "FLEETFLOW_DISCORD_WEBHOOK_FILE must contain a valid Discord webhook URL"
+
+    alert_config = private / "prometheus-alerting.yml"
+    rules_config = private / "alerts.yml"
+    receiver_config = private / "alertmanager.yml"
+    alert_config.write_bytes((ROOT / "ops/monitoring/prometheus-alerting.yml").read_bytes())
+    rules_config.write_bytes((ROOT / "ops/monitoring/alerts.yml").read_bytes())
+    receiver_config.write_bytes((ROOT / "ops/monitoring/alertmanager.yml").read_bytes())
+
+    document.setdefault("networks", {})["monitoring"] = {
+        "name": project + "_monitoring",
+        "driver": "bridge",
+    }
+    app_networks = document["services"]["app"].get("networks", [])
+    if isinstance(app_networks, list):
+        if "monitoring" not in app_networks:
+            app_networks.append("monitoring")
+    else:
+        app_networks["monitoring"] = {}
+
+    document.setdefault("volumes", {})["alertmanager_data"] = {
+        "name": project + "_alertmanager_data",
+    }
+    document.setdefault("secrets", {})["discord_webhook_url"] = {"file": str(path)}
+    document["services"]["alertmanager"] = {
+        "image": "prom/alertmanager:v0.34.1@sha256:e9733bafb1bdef9b00e25a21f8f99dc26a22224bf16641ad754d1649f4c3357a",
+        "command": ["--config.file=/etc/alertmanager/alertmanager.yml", "--storage.path=/alertmanager"],
+        "volumes": [
+            {"type": "bind", "source": str(receiver_config), "target": "/etc/alertmanager/alertmanager.yml", "read_only": True},
+            {"type": "volume", "source": "alertmanager_data", "target": "/alertmanager"},
+        ],
+        "secrets": [{"source": "discord_webhook_url", "target": "discord_webhook_url"}],
+        "networks": ["monitoring"],
+    }
+    document["services"]["prometheus"] = {
+        "image": "prom/prometheus:v3.15.0@sha256:efd719c99d83b060d9daefdcf00360461adf279f45ef5391f8d111892118753e",
+        "command": [
+            "--config.file=/etc/prometheus/prometheus-alerting.yml",
+            "--storage.tsdb.path=/prometheus",
+            "--storage.tsdb.retention.time=7d",
+        ],
+        "volumes": [
+            {"type": "bind", "source": str(alert_config), "target": "/etc/prometheus/prometheus-alerting.yml", "read_only": True},
+            {"type": "bind", "source": str(rules_config), "target": "/etc/prometheus/alerts.yml", "read_only": True},
+        ],
+        "networks": ["monitoring"],
+        "depends_on": {
+            "app": {"condition": "service_healthy"},
+            "alertmanager": {"condition": "service_started"},
+        },
+    }
+    # Prometheus can observe the notification counter without publishing either service port.
+    config_text = alert_config.read_text(encoding="utf-8")
+    config_text += (
+        "\n  - job_name: alertmanager\n"
+        "    static_configs:\n"
+        "      - targets: [\"alertmanager:9093\"]\n"
+    )
+    alert_config.write_text(config_text, encoding="utf-8")
+    return True, None
+
+
+def promtool_query(prometheus, expression):
+    return execute([
+        "docker", "exec", prometheus, "promtool", "query", "instant",
+        "http://127.0.0.1:9090", expression,
+    ]).strip()
+
+
+def query_value(output):
+    values = re.findall(r"=>\s*(-?(?:[0-9]+(?:\.[0-9]*)?|\.[0-9]+)(?:[eE][+-]?[0-9]+)?)", output)
+    return float(values[-1]) if values else 0.0
+
+
+def discord_delivery_successes(prometheus):
+    attempted = query_value(promtool_query(
+        prometheus, 'sum(alertmanager_notifications_total{integration="discord"})',
+    ))
+    failed = query_value(promtool_query(
+        prometheus, 'sum(alertmanager_notifications_failed_total{integration="discord"})',
+    ))
+    return max(0, int(attempted - failed))
+
+
 def main():
     base = Path(os.environ.get("FLEETFLOW_AUDIT_DIR", str(Path(os.environ.get("LOCALAPPDATA", tempfile.gettempdir()))
                 / "FleetFlowDay1Audit" / datetime.now(timezone.utc).strftime("%Y-%m-%d"))))
@@ -74,6 +178,9 @@ def main():
     compose = ["docker", "compose", "--project-name", project, "--file", str(config_path)]
     created = False
     succeeded = False
+    alert_delivery_enabled = False
+    alert_delivery_missing_input = None
+    alert_delivery_result = None
     try:
         print("Preparing private runtime secrets and realm", flush=True)
         passwords = {name: secrets.token_urlsafe(32) for name in ("postgres_db_password", "app_db_password",
@@ -121,6 +228,9 @@ def main():
         document["services"]["edge"].pop("profiles", None)
         document["services"]["app"]["environment"]["SPRING_PROFILES_ACTIVE"] = "prod,monitoring"
         document["services"]["app"]["healthcheck"]["test"][-1] = "http://127.0.0.1:9095/actuator/health/readiness"
+        alert_delivery_enabled, alert_delivery_missing_input = configure_alert_delivery(
+            document, private, project, os.environ.get("FLEETFLOW_DISCORD_WEBHOOK_FILE"),
+        )
         realm = runpy.run_path(str(ROOT / "ops/production/render-realm.py"))["realm_config"](DEMO_HOST, IDENTITY_HOST)
         local = json.loads((ROOT / "src/main/resources/oidc/fleetflow-realm.json").read_text(encoding="utf-8"))
         bootstrap = next(client for client in local["clients"] if client["clientId"] == "fleetflow-cli")
@@ -183,7 +293,8 @@ def main():
         browser_env = os.environ.copy()
         browser_env.update({"FLEETFLOW_E2E_ACCOUNTS": json.dumps(accounts), "FLEETFLOW_E2E_ORDER": seed["orderIds"][0],
             "FLEETFLOW_E2E_BRANCH": branch, "FLEETFLOW_E2E_PROJECT": project, "FLEETFLOW_E2E_COMPOSE": str(config_path),
-            "FLEETFLOW_E2E_EVIDENCE_DIR": str(evidence)})
+            "FLEETFLOW_E2E_EVIDENCE_DIR": str(evidence),
+            "FLEETFLOW_E2E_PLAYWRIGHT_OUTPUT_DIR": str(evidence / "playwright-output")})
         execute(["npm.cmd" if os.name == "nt" else "npm", "--prefix", "web", "run", "test:e2e:live"],
             env=browser_env, log=evidence / "playwright.log")
         state = execute(["docker", "exec", pg, "sh", "-ec", 'psql -At -U "$POSTGRES_USER" -d "$POSTGRES_DB" '
@@ -203,8 +314,8 @@ def main():
         if re.search(r"[{,](?:actor_id|order_id|token|address|latitude|longitude|polygon|reason)=", metrics):
             raise RuntimeError("Private scrape contains a prohibited identifier label")
         (evidence / "healthy.prom").write_text(metrics, encoding="utf-8")
-        print("Exercising committed reset with Kafka down, app restart, and Redis loss", flush=True)
-        execute(compose + ["stop", "kafka", "redis"], log=evidence / "optional-outage.log")
+        print("Exercising committed reset with Kafka down and app restart", flush=True)
+        execute(compose + ["stop", "kafka"], log=evidence / "broker-outage.log")
         status, _, payload = probe("/api/v1/demo/reset", method="POST", token=token,
             body={"confirmation": "RESET FLEETFLOW DEMO", "reason": "Disposable broker and restart verification"},
             extra_headers={"Idempotency-Key": "browser-recovery-reset"})
@@ -222,7 +333,7 @@ def main():
             if health == "healthy":
                 break
             if time.monotonic() >= deadline:
-                raise RuntimeError("Application did not become ready with Redis/Kafka unavailable")
+                raise RuntimeError("Application did not become ready with Kafka unavailable")
             time.sleep(2)
         for group in ("liveness", "readiness"):
             result = execute(["docker", "exec", app, "wget", "-q", "-O", "-",
@@ -233,13 +344,35 @@ def main():
         (evidence / "optional-outage.prom").write_text(metrics, encoding="utf-8")
         if execute(["docker", "inspect", "--format", "{{.RestartCount}}", app]).strip() != "0":
             raise RuntimeError("Optional dependency loss caused a process restart loop")
+        if alert_delivery_enabled:
+            prometheus = execute(compose + ["ps", "--quiet", "prometheus"]).strip()
+            firing_expression = 'sum(ALERTS{alertname="FleetFlowOutboxBacklog",alertstate="firing"})'
+            deadline = time.monotonic() + 240
+            firing_seen = False
+            deliveries_before_backlog = discord_delivery_successes(prometheus)
+            firing_successes = 0.0
+            while time.monotonic() < deadline:
+                firing_seen = query_value(promtool_query(prometheus, firing_expression)) > 0
+                firing_successes = float(discord_delivery_successes(prometheus))
+                if firing_seen and firing_successes >= deliveries_before_backlog + 1:
+                    break
+                time.sleep(5)
+            alert_delivery_result = {
+                "target": "configured private Discord webhook; credential omitted",
+                "notificationsAcceptedBeforeBacklogFire": deliveries_before_backlog,
+                "firingAlertObserved": firing_seen,
+                "firingDiscordNotificationsAccepted": int(firing_successes),
+                "resolvedAlertObserved": False,
+                "resolvedDiscordNotificationsAccepted": 0,
+                "receiverConfigSendResolved": True,
+            }
         # Refresh the signed operator credential after the restart wait; credentials stay in this process.
         token = https("/realms/fleetflow/protocol/openid-connect/token", host=IDENTITY_HOST, method="POST",
             body=urllib.parse.urlencode({"grant_type": "password", "client_id": "fleetflow-test-bootstrap",
                 "username": accounts["bootstrap"]["username"], "password": accounts["bootstrap"]["password"]}))["access_token"]
         if https("/api/v1/demo", token=token).get("generation") != 2:
             raise RuntimeError("Restart lost committed demo generation")
-        execute(compose + ["start", "kafka", "redis"], log=evidence / "optional-recovery.log")
+        execute(compose + ["start", "kafka"], log=evidence / "broker-recovery.log")
         deadline = time.monotonic() + 180
         while True:
             remaining = execute(["docker", "exec", pg, "sh", "-ec", 'psql -At -U "$POSTGRES_USER" -d "$POSTGRES_DB" '
@@ -252,6 +385,72 @@ def main():
             if time.monotonic() >= deadline:
                 raise RuntimeError("Durable outbox did not drain through both deduplicating consumers")
             time.sleep(2)
+        if alert_delivery_enabled:
+            deadline = time.monotonic() + 240
+            resolved_seen = False
+            resolved_successes = 0.0
+            while time.monotonic() < deadline:
+                active_value = query_value(promtool_query(prometheus, firing_expression))
+                resolved_successes = float(discord_delivery_successes(prometheus))
+                if active_value == 0 and resolved_successes >= firing_successes + 1:
+                    resolved_seen = True
+                    break
+                time.sleep(5)
+            alert_delivery_result["resolvedAlertObserved"] = resolved_seen
+            alert_delivery_result["resolvedDiscordNotificationsAccepted"] = int(resolved_successes)
+            alert_delivery_result["verified"] = bool(
+                alert_delivery_result["firingAlertObserved"]
+                and alert_delivery_result["firingDiscordNotificationsAccepted"] >= 1
+                and alert_delivery_result["resolvedAlertObserved"]
+                and alert_delivery_result["resolvedDiscordNotificationsAccepted"] >= 2
+            )
+        print("Exercising Redis loss and recovery separately", flush=True)
+        execute(compose + ["stop", "redis"], log=evidence / "redis-outage.log")
+        execute(compose + ["restart", "--no-deps", "app"], log=evidence / "redis-outage-app-restart.log")
+        app = execute(compose + ["ps", "--quiet", "app"]).strip()
+        deadline = time.monotonic() + 180
+        while True:
+            health = execute(["docker", "inspect", "--format", "{{.State.Health.Status}}", app]).strip()
+            if health == "healthy":
+                break
+            if time.monotonic() >= deadline:
+                raise RuntimeError("Application did not become ready with Redis unavailable")
+            time.sleep(2)
+        for group in ("liveness", "readiness"):
+            result = execute(["docker", "exec", app, "wget", "-q", "-O", "-",
+                              "http://127.0.0.1:9095/actuator/health/" + group])
+            if json.loads(result).get("status") != "UP":
+                raise RuntimeError("Redis loss changed application " + group)
+        metrics = execute(["docker", "exec", app, "wget", "-q", "-O", "-", "http://127.0.0.1:9095/actuator/prometheus"])
+        (evidence / "redis-outage.prom").write_text(metrics, encoding="utf-8")
+        redis_gauge = re.search(r"^fleetflow_operations_redis_available(?:\{[^}]*\})?\s+([0-9.]+)",
+                                metrics, re.MULTILINE)
+        if not redis_gauge or float(redis_gauge.group(1)) != 0:
+            raise RuntimeError("Private Redis availability gauge did not report zero during outage")
+        if execute(["docker", "inspect", "--format", "{{.RestartCount}}", app]).strip() != "0":
+            raise RuntimeError("Redis loss caused an application restart loop")
+        execute(compose + ["start", "redis"], log=evidence / "redis-recovery.log")
+        redis_container = execute(compose + ["ps", "--quiet", "redis"]).strip()
+        deadline = time.monotonic() + 120
+        while True:
+            redis_health = execute(["docker", "inspect", "--format", "{{.State.Health.Status}}", redis_container]).strip()
+            if redis_health == "healthy":
+                break
+            if time.monotonic() >= deadline:
+                raise RuntimeError("Redis did not recover to healthy")
+            time.sleep(2)
+        deadline = time.monotonic() + 120
+        while True:
+            metrics = execute(["docker", "exec", app, "wget", "-q", "-O", "-",
+                               "http://127.0.0.1:9095/actuator/prometheus"])
+            redis_gauge = re.search(r"^fleetflow_operations_redis_available(?:\{[^}]*\})?\s+([0-9.]+)",
+                                    metrics, re.MULTILINE)
+            if redis_gauge and float(redis_gauge.group(1)) == 1:
+                break
+            if time.monotonic() >= deadline:
+                raise RuntimeError("Private Redis availability gauge did not recover to one")
+            time.sleep(2)
+        (evidence / "redis-recovery.prom").write_text(metrics, encoding="utf-8")
         # Exercise public-edge controls after browser work so pressure cannot disrupt its login flow.
         discovery = https("/realms/fleetflow/.well-known/openid-configuration", host=IDENTITY_HOST,
             extra_headers={"Forwarded": "host=attacker.invalid;proto=http", "X-Forwarded-Host": "attacker.invalid",
@@ -268,18 +467,28 @@ def main():
         if not rejected or any(not headers.get("Retry-After") or json.loads(payload).get("code") != "RATE_LIMITED"
                                for headers, payload in rejected):
             raise RuntimeError("Spoofed forwarding headers bypassed the edge budget or its 429 contract")
-        (evidence / "result.json").write_text(json.dumps({"result": "PASS", "project": project, "images": images,
+        result_record = {"result": "PASS", "project": project, "images": images,
             "orderStatus": state, "hostBinding": "127.0.0.1", "identity": "real disposable Keycloak",
             "database": "isolated PostgreSQL/PostGIS", "appDatabaseRole": "non-superuser",
             "edgeBodyLimit": 413, "edgePressureRejections": len(rejected), "issuerSpoofingBlocked": True,
             "brokerOutageBusinessCommit": True, "restartRetainedGeneration": 2,
-            "optionalDependencyLivenessReadiness": "UP", "outboxRemaining": int(remaining),
+            "optionalDependencyLivenessReadiness": "UP", "redisOutageGauge": 0,
+            "redisRecoveryGauge": 1, "outboxRemaining": int(remaining),
             "processedMarkers": actual, "expectedProcessedMarkers": expected,
-            "publicDeployment": False}, indent=2), encoding="utf-8")
+            "ownerAlertDelivery": alert_delivery_result,
+            "ownerAlertDeliveryMissingInput": alert_delivery_missing_input,
+            "publicDeployment": False}
+        if alert_delivery_missing_input:
+            result_record["result"] = "PARTIAL"
+        elif alert_delivery_enabled and not alert_delivery_result["verified"]:
+            result_record["result"] = "FAIL"
+        (evidence / "result.json").write_text(json.dumps(result_record, indent=2), encoding="utf-8")
+        if alert_delivery_enabled and not alert_delivery_result["verified"]:
+            raise RuntimeError("The Discord receiver did not confirm both firing and resolved notifications")
         succeeded = True
         print("PASS: real HTTPS browser-to-Keycloak-to-API-to-PostgreSQL/SSE slice", flush=True)
     finally:
-        browser_results = ROOT / "web" / "test-results" / "live"
+        browser_results = (evidence / "playwright-output").resolve()
         scrub_failure = None
         trace_scrubbed = False
         try:

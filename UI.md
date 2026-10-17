@@ -1,10 +1,12 @@
 # FleetFlow UI recovery checkpoint
 
-Updated 2026-10-16 (Africa/Cairo). Day 2 Prompt 2 remains complete for its real local/test workflow. The release baseline merged as PR #23, the contrast correction as PR #37, and the Day 2 consolidation as PR #38 at `0e0a21e`. Exact merged-main CI run `38918855000` passed all seven jobs. Consolidation corrected replay-result feedback, browser-artifact handling and local backup evidence. Its fresh signed journey and the exact-main CI journey each persisted a `DELIVERED|8` order. See [`docs/phases/production/DAY-2-CONSOLIDATION-AUDIT.md`](docs/phases/production/DAY-2-CONSOLIDATION-AUDIT.md) for evidence and limits.
+Updated 2026-10-17 (Africa/Cairo). Day 2 Prompt 2 remains complete for its real local/test workflow. The release baseline merged as PR #23, the contrast correction as PR #37, and the Day 2 consolidation as PR #38 at `0e0a21e`. Exact merged-main CI run `38918855000` passed all seven jobs. Consolidation corrected replay-result feedback, browser-artifact handling and local backup evidence. Its fresh signed journey and the exact-main CI journey each persisted a `DELIVERED|8` order. See [`docs/phases/production/DAY-2-CONSOLIDATION-AUDIT.md`](docs/phases/production/DAY-2-CONSOLIDATION-AUDIT.md) for evidence and limits.
 
 ## Current status
 
 Design exploration, refinement, frontend implementation, fixture QA, one signed real-browser vertical workflow, and local release rehearsals are complete. The post-merge contrast issue was caused by the page wrapper fading to 50% opacity during its 220 ms entrance; the source correction now uses transform only. The tested workflow runs against fresh local/test services and does not establish production readiness. Do not restart design research or regenerate the selected design.
+
+The 2026-10-17 Day 3 private closeout passed the signed customer, merchant, driver, dispatcher, and operator journeys; authorization denials; interrupted reset retry; SSE reconnect; all five 390px accessibility checks; private metrics/redaction; Kafka outbox and Redis recovery; and actual Discord firing/resolved delivery. Evidence and exact remaining release gates are in [`docs/phases/production/DAY-3-PROMPT-3-RELEASE-ACCEPTANCE.md`](docs/phases/production/DAY-3-PROMPT-3-RELEASE-ACCEPTANCE.md). Day 3 remains partial pending exact-commit CI, the 50 open Keycloak findings, and external release evidence.
 
 ## Completed phases
 
@@ -33,6 +35,7 @@ Design exploration, refinement, frontend implementation, fixture QA, one signed 
 - Latest consolidation unit run: **51 passed / 14 files**. Fresh `npm ci`, lint, typecheck, production build and `npm audit --audit-level=high` passed on 2026-10-16; npm audit found zero vulnerabilities. Three fixture browser tests, the production-build performance fixture, and the fresh signed live journey also passed. The clean-source backup/restore smoke measured 78.3-second local functional RTO; see the consolidation audit for boundaries.
 - Last full fixture browser suite: **3 passed**; 9 axe audits reported zero violations; no browser console errors in tested flows. Includes keyboard/dialogs, responsive workflows and context retention.
 - Day 2 live Playwright: **1 passed** in 23.4 seconds. Real Keycloak PKCE; no tokens in URL or browser storage; operator seed generation 1/reset generation 2; real customer, merchant, dispatcher and driver mutations; one customer tracking stream; terminal status visible; no page errors; six Axe audits without violations; customer and driver fit at 390px without horizontal overflow; logout confirmed.
+- Day 3 live closeout (2026-10-17): the signed five-persona Playwright journey passed **1/1** with 11 axe audits, zero violations, all five roles at 390px without horizontal overflow, a committed reset with dropped response and same-key retry, first-request SSE failure and reconnect, and persisted `DELIVERED|8`. The production-topology browser smoke passed **2/2**; the owner Discord receiver accepted firing and resolved notifications, the broker outbox drained to zero with 4/4 consumer markers, and Redis availability recovered from 0 to 1. Exact evidence paths and limits are in the Day 3 acceptance ledger.
 - Contrast follow-up (2026-10-16): frontend lint, typecheck, build, **47 unit tests**, and the fresh-service signed vertical journey passed after removing opacity from the page entrance. Six axe audits reported no violations; PostgreSQL confirmed `DELIVERED|8`. Evidence: `%LOCALAPPDATA%/FleetFlowDay2Audit/2026-10-16/contrast-fix/`.
 - Independent database postcondition: order `d3455907-c37d-4330-8650-2fb46f414dd5` persisted as `DELIVERED`, version 8, with `CREATED → CONFIRMED → PREPARING → READY_FOR_PICKUP → DISPATCHING → DRIVER_ASSIGNED → PICKED_UP → IN_TRANSIT → DELIVERED` in lifecycle history.
 - Run command: `python scripts/Run-Day2VerticalJourney.py`. Evidence directory: `%LOCALAPPDATA%/FleetFlowDay2Audit/2026-10-15/vertical-journey/` (Playwright summary, database postcondition, redacted logs and desktop/mobile screenshots). The journey used the local profile because customer order creation is an existing `local`/`test`-only contract.
@@ -40,17 +43,17 @@ Design exploration, refinement, frontend implementation, fixture QA, one signed 
 - Approximate production bundle: initial JS 381.63 kB / 114.37 kB gzip; lazy map JS 151.79 kB / 44.63 kB gzip; initial CSS 23.66 kB / 5.71 kB gzip, plus map CSS.
 - Latest Docker edge build succeeded after the driver-address change. Image manifest: `sha256:441f81ac5fd83d7329b0b7f4174cafcf367b00ed0ecf2ddbc22281b5b45823d6`.
 - Evidence: `docs/design/evidence/implementation-v2/`; performance: `performance.json`. Baseline and earlier design/implementation captures are preserved separately; some v1 map fixtures are obsolete.
-- The separate broader `web/e2e/live/personas.spec.ts` suite remains unrun; it is outside this single Day 2 lifecycle acceptance. No production-readiness claim.
+- No production-readiness claim. The Day 3 evidence is from disposable local services and does not replace exact-commit CI or public/target-host acceptance.
 
 ## Remaining work
 
-- Day 3 can start from the synchronized, clean `main` checkout after PR #38. Its exact merged-target CI passed. The Day 2 scanner findings and SBOM limits remain in the consolidation audit and release ledger; Phase 8 remains open.
-- Day 3 still needs remaining live persona workflows, failure/recovery UI states, full Playwright and accessibility coverage, alert fire/recovery evidence, target-host recovery/cost review, and immutable candidate controls.
-- The live workflow did not exercise map tiles or zone editing. Their edge/CSP acceptance remains open.
+- The 2026-10-17 live run closes the requested local persona, authorization, error/retry, accessibility/mobile, interrupted-reset, SSE, private-metrics, dependency/outbox, and owner-alert gates. See the Day 3 acceptance ledger for the exact run records.
+- Remaining release work is exact-commit CI, supported disposition for the 50 open Keycloak medium/low findings, external target-host recovery/cost review, and Phase 8 immutable candidate controls.
+- The live run rendered the PostGIS zone overlay and saved desktop/mobile captures. Basemap tile completion was best-effort and zone editing was not exercised; their edge/CSP acceptance remains open.
 
 ## Exact next step
 
-Start from synchronized `main` and read [`docs/phases/production/DAY-2-CONSOLIDATION-AUDIT.md`](docs/phases/production/DAY-2-CONSOLIDATION-AUDIT.md). Use exact-main run `38918855000` as the Day 2 code checkpoint, then continue Day 3 with the remaining persona journeys and target acceptance. Keep existing development volumes untouched.
+Continue on `codex/day3-persona-closeout` from [`docs/phases/production/DAY-3-PROMPT-3-RELEASE-ACCEPTANCE.md`](docs/phases/production/DAY-3-PROMPT-3-RELEASE-ACCEPTANCE.md). Preserve the dirty working tree; obtain CI for the exact reviewed commit, then resolve the supported Keycloak findings and remaining external release gates. The prior base-commit CI does not validate these changes.
 
 ## Resume commands
 

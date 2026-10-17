@@ -270,6 +270,7 @@ def main() -> int:
             "FLEETFLOW_E2E_ACCOUNTS": json.dumps(accounts),
             "FLEETFLOW_E2E_BRANCH": stable_branch_id(),
             "FLEETFLOW_E2E_EVIDENCE_DIR": str(evidence),
+            "FLEETFLOW_E2E_PLAYWRIGHT_OUTPUT_DIR": str(evidence / "playwright-output"),
             "FLEETFLOW_E2E_BACKEND_URL": f"http://127.0.0.1:{ports['APP_PORT']}",
             "FLEETFLOW_E2E_OIDC_ISSUER": issuer,
             "VITE_LOCAL_ORDER_CREATION": "true",
@@ -283,7 +284,7 @@ def main() -> int:
         except RuntimeError:
             browser_exit = 1
         execute([sys.executable, str(ROOT / "scripts" / "scrub_playwright_trace.py"),
-                 "--root", str(ROOT / "web" / "test-results" / "day2-live")],
+                 "--root", browser_env["FLEETFLOW_E2E_PLAYWRIGHT_OUTPUT_DIR"]],
                 data=json.dumps(secrets_to_redact), log=evidence / "trace-scrub.log")
         if github_output := os.environ.get("GITHUB_OUTPUT"):
             with Path(github_output).open("a", encoding="utf-8") as output:
