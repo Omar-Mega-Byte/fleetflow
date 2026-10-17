@@ -21,7 +21,11 @@ export const decodeAck = (value: unknown) => record(value);
 export function decodeReplay(value: unknown) {
   const r = record(value);
   const outcome = text(r.outcome);
-  if (outcome !== "REPLAYED" && outcome !== "REPLAY_LIMIT_REACHED" && outcome !== "NOT_REPLAYABLE")
+  if (
+    outcome !== "REPLAYED" &&
+    outcome !== "REPLAY_LIMIT_REACHED" &&
+    outcome !== "NOT_REPLAYABLE"
+  )
     throw new Error("Unexpected replay outcome");
   return { eventId: id(r.eventId), outcome };
 }
@@ -114,6 +118,19 @@ export function decodeDriver(value: unknown) {
     version: integer(r.version),
   };
 }
+export function decodeDemoDriverRoute(value: unknown) {
+  const r = record(value);
+  const points = array(r.points, 5).map((value) => {
+    const p = record(value);
+    const latitude = number(p.latitude);
+    const longitude = number(p.longitude);
+    if (Math.abs(latitude) > 90 || Math.abs(longitude) > 180)
+      throw new Error("Invalid fixture coordinate");
+    return { latitude, longitude };
+  });
+  if (points.length !== 5) throw new Error("Expected five fixture positions");
+  return { generation: integer(r.generation), points };
+}
 export function decodeDriverOffer(value: unknown) {
   const r = record(value);
   return {
@@ -202,12 +219,11 @@ export function decodeGeometry(value: unknown): Polygon | MultiPolygon {
     if (!rings.length) throw new Error("Empty polygon");
     return rings.map(ring);
   };
-  return r.type === "Polygon"
-    ? { type: "Polygon", coordinates: polygon(r.coordinates) }
-    : {
-        type: "MultiPolygon",
-        coordinates: array(r.coordinates, 100).map(polygon),
-      };
+  if (r.type === "Polygon")
+    return { type: "Polygon", coordinates: polygon(r.coordinates) };
+  const polygons = array(r.coordinates, 100);
+  if (!polygons.length) throw new Error("Empty multipolygon");
+  return { type: "MultiPolygon", coordinates: polygons.map(polygon) };
 }
 export function decodeZone(value: unknown) {
   const r = record(value);
@@ -227,6 +243,17 @@ export const decodeZones = (value: unknown) =>
 export function decodePolicy(value: unknown) {
   const r = record(value);
   return { mode: text(r.mode), version: integer(r.version) };
+}
+export function decodeServiceability(value: unknown) {
+  const r = record(value);
+  if (r.mode !== "UNRESTRICTED" && r.mode !== "ENFORCED")
+    throw new Error("Unknown coverage mode");
+  return {
+    supported: bool(r.supported),
+    mode: r.mode,
+    policyVersion: integer(r.policyVersion),
+    zoneId: r.zoneId === null ? null : id(r.zoneId),
+  };
 }
 export function decodeFailed(value: unknown) {
   return page(value, (v) => {

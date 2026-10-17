@@ -3,3 +3,4 @@ FROM ${REDIS_BASE_IMAGE}
 # Preserve Redis 7.4.11; refresh signed security packages and record the output digest/SBOM.
 RUN apk upgrade --no-cache
 USER redis
+HEALTHCHECK --interval=5s --timeout=3s --retries=10 CMD ["redis-cli", "ping"]

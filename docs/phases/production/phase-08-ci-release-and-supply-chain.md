@@ -2,7 +2,7 @@
 
 > Current Day 1 assessment: **COMPLETE for Day 1 foundation; exact-candidate acceptance remains open**. [Consolidation ledger](DAY-1-EVIDENCE-LEDGER.md) supersedes earlier execution snapshots. Full release-phase exit criteria below remain independent.
 
-**Status: IN_PROGRESS. Priority: P0.** CI now contains backend/Testcontainers migration and route verification, frontend checks, fixture and signed live Playwright gates, Trivy source/container scans, CodeQL, source/image SBOMs and local/production Compose boundary validation. Day 1's 2026-10-14 local scans and seven SBOMs passed for their recorded base-commit plus source fingerprint; that evidence is historical for the Day 1 tree. The 2026-10-15 Day 2 source/image scan findings and SBOM artifacts must be reviewed from the exact pushed PR run before this phase's gate closes. No published candidate or attestation is claimed.
+**Status: IN_PROGRESS. Priority: P0.** CI contains backend/Testcontainers migration and route verification, frontend checks, fixture and signed live Playwright gates, Trivy source/container scans, CodeQL, source/image SBOMs and local/production Compose boundary validation. The Day 3 local audit built and scanned all six current runtime images and generated source plus six image SBOMs; the exact-commit CI run, its image metadata, and its SBOM/scan artifacts are recorded in the [Day 3 acceptance ledger](DAY-3-PROMPT-3-RELEASE-ACCEPTANCE.md). Fifty Keycloak medium/low findings remain open without a supported fix; no registry publication, candidate approval or attestation is claimed.
 
 ## Objective
 
@@ -92,3 +92,11 @@ HIGH. An untraceable or vulnerable image invalidates all runtime evidence.
 CI's prior working tree contained backend/migration/OpenAPI, frontend/browser, private production-topology browser, safety-unit, source/image scans, CodeQL and source/six-image SBOM jobs. Actionlint passed. Trivy 0.76.0 strict high/critical and secret gates passed for source plus all six runtime images for source fingerprint `a9e676bd9b200122176783324567c53701195ab65f96d9d2df505acc2615c3ba`; Syft 1.54.1 produced seven CycloneDX artifacts. All 157 initial finding entries in that dated audit inventory were remediated without an ignore policy. This is not a current scan of the Day 2 tree and does not replace exact-commit PR CI. No published candidate or attestation is claimed.
 
 See [reconciliation and stable contracts](DAY-1-CONSOLIDATION-AUDIT.md), [execution ledger](DAY-1-EVIDENCE-LEDGER.md) and [redacted machine evidence](evidence/day1-consolidation-2026-10-14.json).
+
+## Day 3 closeout — 2026-10-17
+
+Local source policy and five non-Keycloak runtime image scans passed with zero findings; the pinned Keycloak runtime has 50 open medium/low findings and no supported fix is established. Local immutable IDs and seven SBOM SHA-256 values are in the Day 3 ledger. Exact-commit CI and CI-produced immutable image identities remain required before repository-controlled release acceptance closes. No registry digests or approved candidate are claimed.
+
+## Days 1-3 full audit — 2026-10-17
+
+[Current evidence and remaining gates](DAYS-1-3-FULL-AUDIT-2026-10-17.md) supersede earlier execution snapshots. Current source/runtime scans, exhaustive Maven/npm SBOM coverage and exact-run build/acceptance metadata operate in CI. Fifty Keycloak findings and published registry/provenance/approval gates remain open; full phase status stays IN_PROGRESS.

@@ -6,6 +6,10 @@ The authoritative order, current maturity status, dependency graph, critical pat
 
 The compressed execution order, staffing assumptions, daily release gates and final acceptance sequence are in [Five-day public-demo execution schedule](EXECUTION-SCHEDULE-5-DAY.md). This is a plan, not evidence that a phase has passed.
 
+The current Day 4 baseline, readiness gates, deployment steps and blocked-deployment outcome are in [Day 4 plan](Day4.md). This is also a plan, not target acceptance evidence.
+
+The ordered handoff for every remaining public-demo gate is [FleetFlow: remaining steps to finish the public demo](../../PROJECT-COMPLETION-REMAINING.md).
+
 | Phase | Specification |
 | --- | --- |
 | 0 | [Baseline and product contract](phase-00-baseline-and-product-contract.md) |

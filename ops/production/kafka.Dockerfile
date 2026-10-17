@@ -13,3 +13,4 @@ RUN apk upgrade --no-cache \
     && rm /opt/kafka/libs/jackson-core-2.21.6.jar /opt/kafka/libs/jackson-databind-2.21.6.jar /opt/kafka/libs/lz4-java-1.11.2.jar
 COPY --from=security-libraries /patched/ /opt/kafka/libs/
 USER appuser
+HEALTHCHECK --interval=20s --timeout=15s --retries=12 --start-period=20s CMD ["sh", "-ec", "KAFKA_HEAP_OPTS='-Xms16m -Xmx64m' /opt/kafka/bin/kafka-broker-api-versions.sh --bootstrap-server localhost:9092"]

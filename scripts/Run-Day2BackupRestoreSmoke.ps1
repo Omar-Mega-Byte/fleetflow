@@ -1,4 +1,4 @@
-param()
+param([string]$EvidenceDirectory)
 
 $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
@@ -10,7 +10,8 @@ $suffix = [guid]::NewGuid().ToString('N').Substring(0, 10)
 $sourceProject = "fleetflow-day2-backup-$suffix"
 $targetProject = "fleetflow-day2-restore-$suffix"
 $scratch = Join-Path $scratchRoot "fleetflow-day2-backup-$suffix"
-$evidenceRoot = Join-Path $env:LOCALAPPDATA ("FleetFlowDay2Audit\" + [DateTime]::UtcNow.ToString('yyyy-MM-dd') + '\backup-restore')
+$evidenceRoot = if ($EvidenceDirectory) { [IO.Path]::GetFullPath($EvidenceDirectory) }
+    else { Join-Path $env:LOCALAPPDATA ("FleetFlowDay2Audit\" + [DateTime]::UtcNow.ToString('yyyy-MM-dd') + '\backup-restore') }
 $archiveRoot = Join-Path $scratch 'archives'
 $keyPath = Join-Path $scratch 'backup.key'
 $sourceEnv = Join-Path $scratch 'source.env'

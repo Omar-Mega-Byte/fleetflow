@@ -89,6 +89,7 @@ describe("operator synthetic data actions", () => {
     );
 
     expect(await screen.findByRole("button", { name: "Applying…" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Close dialog" })).toBeDisabled();
     expect(
       screen.queryByText(/Synthetic demo prepared successfully/),
     ).not.toBeInTheDocument();
@@ -131,5 +132,76 @@ describe("operator synthetic data actions", () => {
     expect(
       screen.queryByText(/Synthetic demo reset successfully/),
     ).not.toBeInTheDocument();
+  });
+
+  it("retries an interrupted reset with the same request and idempotency key", async () => {
+    const resetDemo = {
+      generation: 2,
+      result: "RESET",
+      orderIds: [],
+    };
+    api.post
+      .mockRejectedValueOnce(new ApiProblem("timeout"))
+      .mockResolvedValueOnce(resetDemo);
+    const user = userEvent.setup();
+    renderPage();
+
+    await user.click(
+      await screen.findByRole("button", { name: "Reset demo generation" }),
+    );
+    await user.type(
+      screen.getByLabelText("Audit reason"),
+      "Recover an interrupted demo reset",
+    );
+    await user.type(
+      screen.getByLabelText("Type RESET FLEETFLOW DEMO"),
+      "RESET FLEETFLOW DEMO",
+    );
+    await user.click(
+      screen.getByRole("button", { name: "Reset synthetic demo" }),
+    );
+
+    expect(await screen.findByRole("heading", { name: "Request timed out" })).toBeVisible();
+    expect(
+      screen.getByText(/The result is unknown\. Retry this same request/),
+    ).toBeVisible();
+    expect(screen.getByLabelText("Audit reason")).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Close dialog" })).toBeDisabled();
+    expect(screen.queryByText(/Synthetic demo reset successfully/)).not.toBeInTheDocument();
+
+    const firstCall = api.post.mock.calls[0]!;
+    const firstOptions = firstCall[3] as { idempotencyKey: string };
+    await user.click(screen.getByRole("button", { name: "Try again" }));
+
+    expect(await screen.findByText("Synthetic demo reset successfully.")).toBeVisible();
+    const secondCall = api.post.mock.calls[1]!;
+    const secondOptions = secondCall[3] as { idempotencyKey: string };
+    expect(secondCall[1]).toEqual(firstCall[1]);
+    expect(secondOptions.idempotencyKey).toBe(firstOptions.idempotencyKey);
+  });
+
+  it.each([
+    ["rate-limited", 429, "Please wait a moment"],
+    ["unavailable", 503, "Temporarily unavailable"],
+  ] as const)("reports reset %s HTTP %i without claiming success", async (kind, status, title) => {
+    api.post.mockRejectedValue(new ApiProblem(kind, status));
+    const user = userEvent.setup();
+    renderPage();
+
+    await user.click(
+      await screen.findByRole("button", { name: "Reset demo generation" }),
+    );
+    await user.type(screen.getByLabelText("Audit reason"), "Retry a safe reset");
+    await user.type(
+      screen.getByLabelText("Type RESET FLEETFLOW DEMO"),
+      "RESET FLEETFLOW DEMO",
+    );
+    await user.click(
+      screen.getByRole("button", { name: "Reset synthetic demo" }),
+    );
+
+    expect(await screen.findByRole("heading", { name: title })).toBeVisible();
+    expect(screen.getByRole("alert")).toHaveTextContent(status === 429 ? "Wait a moment" : "temporarily unavailable");
+    expect(screen.queryByText(/Synthetic demo reset successfully/)).not.toBeInTheDocument();
   });
 });

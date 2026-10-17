@@ -257,7 +257,7 @@ Run tests with `.\mvnw.cmd clean verify`. The [monitoring runbook](docs/operatio
 
 ## Deployment and verified status
 
-The local demo and its evidence do not establish public deployment readiness. The [production-readiness roadmap](docs/PRODUCTION-ROADMAP.md) is authoritative for remaining work and release gates.
+The local demo and its evidence do not establish public deployment readiness. The [production-readiness roadmap](docs/PRODUCTION-ROADMAP.md) is authoritative for release gates; the [ordered completion handoff](docs/PROJECT-COMPLETION-REMAINING.md) states what remains and how to finish it.
 
 The Compose topology is a loopback learning and operations exercise: Keycloak uses development mode, service ports are local, and the optional monitoring scrape stays private. Dated records document signed local workflows, dashboard and load exercises, and restore from an independently retrieved remote archive. These observations do not prove multi-host recovery or public deployment readiness.
 

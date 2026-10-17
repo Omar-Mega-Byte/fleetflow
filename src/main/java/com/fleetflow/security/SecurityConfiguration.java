@@ -53,6 +53,7 @@ public class SecurityConfiguration {
                             .hasRole("ADMIN");
                     auth.requestMatchers(HttpMethod.POST, "/api/v1/operations/outbox/*/replay")
                             .hasRole("ADMIN");
+                    auth.requestMatchers(HttpMethod.GET, "/api/v1/demo/driver-route").hasRole("DRIVER");
                     auth.requestMatchers("/api/v1/demo", "/api/v1/demo/**").hasRole("ADMIN");
                     auth.requestMatchers(HttpMethod.GET, "/api/v1/orders/*/tracking",
                             "/api/v1/orders/*/tracking/stream").hasRole("CUSTOMER");

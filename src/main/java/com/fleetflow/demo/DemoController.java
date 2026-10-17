@@ -45,6 +45,15 @@ class DemoController {
         return seed.state();
     }
 
+    @GetMapping("/driver-route")
+    @Operation(summary = "Read fixture positions for the seeded synthetic driver",
+            description = "Demo-enabled environments only. Five straight-line fixture points from the "
+                    + "current synthetic order; no road route, speed or ETA is generated. "
+                    + "Location updates still use the authenticated driver location endpoint.")
+    DemoSeedService.DriverRoute driverRoute() {
+        return seed.driverRoute(access.require(Role.DRIVER).id());
+    }
+
     @PostMapping(value = "/seed", consumes = MediaType.APPLICATION_JSON_VALUE)
     @Operation(summary = "Create the deterministic synthetic demo baseline once")
     @ApiResponse(responseCode = "200", description = "Baseline created or existing generation returned.")

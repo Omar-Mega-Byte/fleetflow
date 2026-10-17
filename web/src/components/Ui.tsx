@@ -231,11 +231,13 @@ export function Overlay({
   children,
   onClose,
   drawer = false,
+  closeDisabled = false,
 }: {
   title: string;
   children: ReactNode;
   onClose: () => void;
   drawer?: boolean;
+  closeDisabled?: boolean;
 }) {
   const ref = useRef<HTMLDialogElement>(null);
   useEffect(() => {
@@ -252,9 +254,12 @@ export function Overlay({
       ref={ref}
       className={drawer ? "overlay drawer" : "overlay"}
       aria-labelledby="overlay-title"
-      onCancel={onClose}
+      onCancel={(event) => {
+        if (closeDisabled) event.preventDefault();
+        else onClose();
+      }}
       onClick={(e) => {
-        if (e.target === e.currentTarget) {
+        if (!closeDisabled && e.target === e.currentTarget) {
           const r = e.currentTarget.getBoundingClientRect();
           if (
             e.clientX < r.left ||
@@ -271,6 +276,7 @@ export function Overlay({
         <button
           className="icon-button"
           aria-label="Close dialog"
+          disabled={closeDisabled}
           onClick={onClose}
         >
           <Icon name="close" />

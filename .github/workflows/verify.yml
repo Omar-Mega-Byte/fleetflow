@@ -2,7 +2,7 @@ name: verify
 
 on:
   push:
-    branches: [main]
+    branches: [main, "codex/**"]
   pull_request:
 
 permissions:
@@ -33,6 +33,14 @@ jobs:
         run: python3 -m unittest discover -s scripts -p test_day2_trace_sanitizer.py -v
       - name: Verify Trivy SARIF policy and redaction
         run: python3 -m unittest discover -s scripts -p test_trivy_sarif_gate.py -v
+      - name: Verify release evidence identity and completeness rules
+        run: python3 -m unittest discover -s scripts -p test_release_evidence.py -v
+      - name: Verify approved candidate preflight rejects altered evidence
+        run: python3 -m unittest discover -s scripts -p test_candidate_preflight.py -v
+      - name: Verify actual owner delivery evidence rules
+        run: python3 -m unittest discover -s scripts -p test_owner_alert_evidence.py -v
+      - name: Verify source SBOM dependency coverage rules
+        run: python3 -m unittest discover -s scripts -p test_source_sbom.py -v
       - name: Validate local Compose
         run: docker compose --env-file .env.example -f compose.yaml config --quiet
       - name: Validate production Compose isolation
@@ -83,6 +91,8 @@ jobs:
         run: npx playwright install --with-deps chromium
       - name: Signed PKCE browser smoke
         run: npm run test:e2e
+      - name: Production fixture performance and reduced motion
+        run: npm run test:performance
       - name: Preserve browser traces on failure
         if: always()
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
@@ -132,6 +142,46 @@ jobs:
           if-no-files-found: ignore
           retention-days: 30
 
+  release-evidence:
+    name: Verify exact-run release evidence
+    needs: [backend, frontend, source-security, source-sbom, container-images, codeql]
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      actions: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Download this run's sanitized evidence
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: >-
+          gh run download "$GITHUB_RUN_ID" --dir "$RUNNER_TEMP/release-evidence"
+          --pattern 'fleetflow-*.cdx.json' --pattern 'image-builds-*'
+          --pattern 'trivy-*' --pattern 'codeql-*'
+          --pattern 'live-browser-*' --pattern 'day2-real-browser-*'
+          --pattern 'source-sbom-coverage-*' --pattern 'runtime-images-*'
+      - name: Verify identities, scans, SBOMs and browser/database results
+        env:
+          FLEETFLOW_HEAD_COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
+          FLEETFLOW_OWNER_REQUIRED: ${{ github.event_name == 'push' && github.repository == 'Omar-Mega-Byte/fleetflow' && 'true' || 'false' }}
+        run: |
+          owner_args=()
+          if [[ "$FLEETFLOW_OWNER_REQUIRED" == true ]]; then owner_args+=(--owner-alert-required); fi
+          python3 scripts/record_release_evidence.py --root "$RUNNER_TEMP/release-evidence" \
+            --source-commit "$GITHUB_SHA" --head-commit "$FLEETFLOW_HEAD_COMMIT" \
+            --ci-run "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID" \
+            "${owner_args[@]}" --output release-evidence.json
+      - name: Preserve verified build evidence
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        with:
+          name: release-evidence-${{ github.sha }}
+          path: release-evidence.json
+          if-no-files-found: error
+          retention-days: 30
+
   source-sbom:
     name: Source dependency SBOM
     runs-on: ubuntu-24.04
@@ -139,6 +189,18 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+      - uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+      - name: Inventory Maven's selected dependencies with authoritative coordinates
+        run: >-
+          ./mvnw org.cyclonedx:cyclonedx-maven-plugin:2.9.3:makeAggregateBom dependency:tree
+          -DincludeTestScope=true -DincludeProvidedScope=true -DoutputFormat=json
+          -DoutputDirectory=target/source-sbom-input -DoutputName=source-java.bom
+          -DoutputType=json -DoutputFile=target/source-maven-tree.json
+          --batch-mode --no-transfer-progress
       - name: Prepare source SBOM identity
         run: |
           python3 - <<'PY'
@@ -153,11 +215,13 @@ jobs:
           if not version:
               raise SystemExit("FleetFlow Maven project version is missing")
           config = "source:\n  name: FleetFlow\n  version: " + json.dumps(version) + "\n"
+          # Maven supplies resolved coordinates; do not guess them from POM declarations/JAR names.
+          config += "select-catalogers:\n  - '-java'\n  - '+sbom-cataloger'\njavascript:\n  include-dev-dependencies: true\n"
           Path(os.environ["RUNNER_TEMP"], "syft-source-config.yaml").write_text(config, encoding="utf-8")
           print(f"Source SBOM identity: FleetFlow {version}")
           PY
       - name: Generate CycloneDX source SBOM
-        uses: anchore/sbom-action@f8bdd1d8ac5e901a77a92f111440fdb1b593736b # v0.20.6
+        uses: anchore/sbom-action@66cbf4bc1f1c0d2edc94016e65bc221b6bb0ad6c # v0.24.3
         with:
           path: .
           config: ${{ runner.temp }}/syft-source-config.yaml
@@ -167,6 +231,21 @@ jobs:
           artifact-name: fleetflow-source-sbom-${{ github.sha }}.cdx.json
           upload-artifact: true
           upload-release-assets: false
+      - name: Verify complete source dependency coverage
+        run: >-
+          python3 scripts/verify_source_sbom.py --sbom fleetflow-source-sbom.cdx.json
+          --npm-lock web/package-lock.json --maven-tree target/source-maven-tree.json
+          --source-commit "$GITHUB_SHA" --output source-sbom-coverage.json
+      - name: Preserve source SBOM coverage and native Maven evidence
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        with:
+          name: source-sbom-coverage-${{ github.sha }}
+          path: |
+            source-sbom-coverage.json
+            target/source-maven-tree.json
+            target/source-sbom-input/source-java.bom.json
+          if-no-files-found: error
+          retention-days: 30
 
   container-images:
     name: Build and scan runtime images
@@ -191,8 +270,7 @@ jobs:
           docker build --tag fleetflow-keycloak-runtime:ci --file ops/production/keycloak.Dockerfile .
           docker build --tag fleetflow-edge:ci --file web/Dockerfile.release \
             --build-arg "NODE_BUILD_IMAGE=$FLEETFLOW_NODE_BUILD_IMAGE" \
-            --build-arg "NGINX_RUNTIME_IMAGE=$FLEETFLOW_NGINX_RUNTIME_IMAGE" \
-            --build-arg VITE_OIDC_AUTHORITY=https://identity.fleetflow.localhost/realms/fleetflow web
+            --build-arg "NGINX_RUNTIME_IMAGE=$FLEETFLOW_NGINX_RUNTIME_IMAGE" web
           docker build --tag fleetflow-postgis:ci --file ops/production/postgis.Dockerfile .
           docker build --tag fleetflow-redis:ci --file ops/production/redis.Dockerfile .
           docker build --tag fleetflow-kafka:ci --file ops/production/kafka.Dockerfile .
@@ -232,6 +310,7 @@ jobs:
           npx playwright install --with-deps chromium
       - name: Production topology and real signed browser slice
         id: day1_browser
+        shell: bash
         env:
           FLEETFLOW_TEST_IMAGE_APP: fleetflow-app:ci
           FLEETFLOW_TEST_IMAGE_KEYCLOAK: fleetflow-keycloak-runtime:ci
@@ -240,7 +319,18 @@ jobs:
           FLEETFLOW_TEST_IMAGE_REDIS: fleetflow-redis:ci
           FLEETFLOW_TEST_IMAGE_KAFKA: fleetflow-kafka:ci
           FLEETFLOW_AUDIT_DIR: ${{ runner.temp }}/fleetflow-audit
-        run: python3 scripts/Run-Day1BrowserSmoke.py
+          FLEETFLOW_OWNER_ALERT_WEBHOOK: ${{ github.event_name == 'push' && secrets.FLEETFLOW_DISCORD_WEBHOOK || '' }}
+          FLEETFLOW_REQUIRE_OWNER_ALERT_DELIVERY: ${{ github.event_name == 'push' && github.repository == 'Omar-Mega-Byte/fleetflow' && 'true' || 'false' }}
+        run: |
+          webhook_file="$RUNNER_TEMP/fleetflow-discord-webhook"
+          trap 'rm -f "$webhook_file"' EXIT
+          if [[ -n "$FLEETFLOW_OWNER_ALERT_WEBHOOK" ]]; then
+            umask 077
+            printf '%s' "$FLEETFLOW_OWNER_ALERT_WEBHOOK" > "$webhook_file"
+            export FLEETFLOW_DISCORD_WEBHOOK_FILE="$webhook_file"
+          fi
+          unset FLEETFLOW_OWNER_ALERT_WEBHOOK
+          python3 scripts/Run-Day1BrowserSmoke.py
       - name: Prepare Day 2 browser application
         uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
         with:
@@ -266,17 +356,28 @@ jobs:
           path: |
             ${{ runner.temp }}/fleetflow-day2-vertical/vertical-result.json
             ${{ runner.temp }}/fleetflow-day2-vertical/database-postcondition.json
-            web/test-results/day2-live/**/*.zip
+            ${{ runner.temp }}/fleetflow-day2-vertical/zone-result.json
+            ${{ runner.temp }}/fleetflow-day2-vertical/recovery-result.json
+            ${{ runner.temp }}/fleetflow-day2-vertical/extended-database-postcondition.json
+            ${{ runner.temp }}/fleetflow-day2-vertical/identity-preflight.json
+            ${{ runner.temp }}/fleetflow-day2-vertical/playwright-output/**/*.zip
           if-no-files-found: ignore
           retention-days: 14
       - name: Preserve private-stack smoke evidence
-        if: always() && steps.day1_browser.outputs.trace_scrubbed == 'true'
+        if: always() && steps.day1_browser.outputs.diagnostics_sanitized == 'true'
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
         with:
           name: live-browser-${{ github.sha }}
           path: |
             ${{ runner.temp }}/fleetflow-audit/browser/result.json
-            web/test-results/live/**/*.zip
+            ${{ runner.temp }}/fleetflow-audit/browser/basemap-result.json
+            ${{ runner.temp }}/fleetflow-audit/browser/owner-notification-successes.json
+            ${{ runner.temp }}/fleetflow-audit/browser/database-owner-notification-successes.json
+            ${{ runner.temp }}/fleetflow-audit/browser/start.log
+            ${{ runner.temp }}/fleetflow-audit/browser/containers.log
+            ${{ runner.temp }}/fleetflow-audit/browser/health-*.json
+            ${{ runner.temp }}/fleetflow-audit/browser/cleanup.log
+            ${{ runner.temp }}/fleetflow-audit/browser/playwright-output/**/*.zip
           if-no-files-found: ignore
           retention-days: 14
       - name: Prepare private image scan report directory
@@ -378,7 +479,7 @@ jobs:
           --report trivy-raw/kafka.sarif=trivy-kafka.sarif
       - name: Generate app image CycloneDX SBOM
         if: always() && steps.build_images.outcome == 'success'
-        uses: anchore/sbom-action@f8bdd1d8ac5e901a77a92f111440fdb1b593736b # v0.20.6
+        uses: anchore/sbom-action@66cbf4bc1f1c0d2edc94016e65bc221b6bb0ad6c # v0.24.3
         with:
           image: fleetflow-app:ci
           syft-version: v1.54.1
@@ -387,7 +488,7 @@ jobs:
           artifact-name: fleetflow-app-${{ github.sha }}.cdx.json
       - name: Generate Keycloak runtime CycloneDX SBOM
         if: always() && steps.build_images.outcome == 'success'
-        uses: anchore/sbom-action@f8bdd1d8ac5e901a77a92f111440fdb1b593736b # v0.20.6
+        uses: anchore/sbom-action@66cbf4bc1f1c0d2edc94016e65bc221b6bb0ad6c # v0.24.3
         with:
           image: fleetflow-keycloak-runtime:ci
           syft-version: v1.54.1
@@ -396,7 +497,7 @@ jobs:
           artifact-name: fleetflow-keycloak-${{ github.sha }}.cdx.json
       - name: Generate edge CycloneDX SBOM
         if: always() && steps.build_images.outcome == 'success'
-        uses: anchore/sbom-action@f8bdd1d8ac5e901a77a92f111440fdb1b593736b # v0.20.6
+        uses: anchore/sbom-action@66cbf4bc1f1c0d2edc94016e65bc221b6bb0ad6c # v0.24.3
         with:
           image: fleetflow-edge:ci
           syft-version: v1.54.1
@@ -405,7 +506,7 @@ jobs:
           artifact-name: fleetflow-edge-${{ github.sha }}.cdx.json
       - name: Generate PostGIS CycloneDX SBOM
         if: always() && steps.build_images.outcome == 'success'
-        uses: anchore/sbom-action@f8bdd1d8ac5e901a77a92f111440fdb1b593736b # v0.20.6
+        uses: anchore/sbom-action@66cbf4bc1f1c0d2edc94016e65bc221b6bb0ad6c # v0.24.3
         with:
           image: fleetflow-postgis:ci
           syft-version: v1.54.1
@@ -414,7 +515,7 @@ jobs:
           artifact-name: fleetflow-postgis-${{ github.sha }}.cdx.json
       - name: Generate Redis CycloneDX SBOM
         if: always() && steps.build_images.outcome == 'success'
-        uses: anchore/sbom-action@f8bdd1d8ac5e901a77a92f111440fdb1b593736b # v0.20.6
+        uses: anchore/sbom-action@66cbf4bc1f1c0d2edc94016e65bc221b6bb0ad6c # v0.24.3
         with:
           image: fleetflow-redis:ci
           syft-version: v1.54.1
@@ -423,13 +524,42 @@ jobs:
           artifact-name: fleetflow-redis-${{ github.sha }}.cdx.json
       - name: Generate Kafka CycloneDX SBOM
         if: always() && steps.build_images.outcome == 'success'
-        uses: anchore/sbom-action@f8bdd1d8ac5e901a77a92f111440fdb1b593736b # v0.20.6
+        uses: anchore/sbom-action@66cbf4bc1f1c0d2edc94016e65bc221b6bb0ad6c # v0.24.3
         with:
           image: fleetflow-kafka:ci
           syft-version: v1.54.1
           format: cyclonedx-json
           output-file: fleetflow-kafka-sbom.cdx.json
           artifact-name: fleetflow-kafka-${{ github.sha }}.cdx.json
+      - name: Archive the exact scanned runtime images for later promotion
+        if: success() && github.event_name == 'push' && github.repository == 'Omar-Mega-Byte/fleetflow'
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker save fleetflow-app:ci fleetflow-keycloak-runtime:ci fleetflow-edge:ci \
+            fleetflow-postgis:ci fleetflow-redis:ci fleetflow-kafka:ci | gzip -1 > fleetflow-runtime-images.tar.gz
+          python3 - <<'PY'
+          import hashlib, json, os
+          from pathlib import Path
+          archive = Path("fleetflow-runtime-images.tar.gz")
+          digest = hashlib.file_digest(archive.open("rb"), "sha256").hexdigest()
+          build = json.loads(Path("image-builds.json").read_text(encoding="utf-8"))
+          record = {"sourceCommit": os.environ["GITHUB_SHA"], "ciRun": build["ciRun"],
+                    "imageIds": {name: image["imageId"] for name, image in build["images"].items()},
+                    "archiveSha256": digest, "archiveBytes": archive.stat().st_size}
+          Path("runtime-images.json").write_text(json.dumps(record, indent=2) + "\n", encoding="utf-8")
+          PY
+      - name: Preserve exact scanned runtime images
+        if: success() && github.event_name == 'push' && github.repository == 'Omar-Mega-Byte/fleetflow'
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        with:
+          name: runtime-images-${{ github.sha }}
+          path: |
+            fleetflow-runtime-images.tar.gz
+            runtime-images.json
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 14
       - name: Preserve container scan reports
         if: always()
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0

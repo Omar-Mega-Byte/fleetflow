@@ -1,17 +1,13 @@
-import { useRef, useState } from "react";
+import { useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { apiClient } from "../auth/AuthContext";
 import { useCommand, useResource } from "../api/useResource";
-import {
-  decodeGeometry,
-  decodePolicy,
-  decodeZone,
-  decodeZones,
-  type Zone,
-} from "../features/contracts";
+import { decodePolicy, decodeZones, type Zone } from "../features/contracts";
 import { ContextForm } from "../components/ContextForm";
 import { useWorkspace } from "../features/WorkspaceContext";
 import { MapSurface } from "../components/MapSurface";
+import { ZoneEditor } from "../features/zones/ZoneEditor";
+import { ServiceabilityCheck } from "../features/zones/ServiceabilityCheck";
 import { EmptyState, ErrorState } from "../components/States";
 import {
   DetailList,
@@ -25,179 +21,6 @@ import {
   dateTime,
 } from "../components/Ui";
 
-function ZoneEditor({
-  branch,
-  zone,
-  onSaved,
-}: {
-  branch: string;
-  zone: Zone | null;
-  onSaved: () => void;
-}) {
-  const [name, setName] = useState(zone?.name ?? "");
-  const [active, setActive] = useState(zone?.active ?? true);
-  const [source, setSource] = useState(
-    zone ? JSON.stringify(zone.geometry, null, 2) : "",
-  );
-  const [drawing, setDrawing] = useState(false);
-  const [points, setPoints] = useState<Array<[number, number]>>([]);
-  const [validation, setValidation] = useState("");
-  const key = useRef(crypto.randomUUID());
-  const command = useCommand();
-  const update = (value: string) => {
-    setSource(value);
-    key.current = crypto.randomUUID();
-    setValidation("");
-  };
-  const applyPoints = (next: Array<[number, number]>) => {
-    setPoints(next);
-    if (next.length >= 3)
-      update(
-        JSON.stringify(
-          { type: "Polygon", coordinates: [[...next, next[0]]] },
-          null,
-          2,
-        ),
-      );
-  };
-  const save = () => {
-    try {
-      const geometry = decodeGeometry(JSON.parse(source));
-      const polygons =
-        geometry.type === "Polygon"
-          ? [geometry.coordinates]
-          : geometry.coordinates;
-      for (const polygon of polygons) {
-        if (!polygon.length) throw new Error();
-        for (const ring of polygon) {
-          if (
-            ring.length < 4 ||
-            ring[0]![0] !== ring.at(-1)![0] ||
-            ring[0]![1] !== ring.at(-1)![1]
-          )
-            throw new Error();
-        }
-      }
-      if (!name.trim()) throw new Error();
-      const body = { name: name.trim(), geometry, active };
-      void command.execute(
-        (signal) =>
-          zone
-            ? apiClient.put(
-                `/v1/merchant-branches/${branch}/zones/${zone.id}`,
-                { ...body, expectedVersion: zone.version },
-                decodeZone,
-                signal,
-              )
-            : apiClient.post(
-                `/v1/merchant-branches/${branch}/zones`,
-                body,
-                decodeZone,
-                { idempotencyKey: key.current, signal },
-              ),
-        onSaved,
-        "Zone saved.",
-      );
-    } catch {
-      setValidation(
-        "Enter a name and a closed Polygon or MultiPolygon boundary with at least three distinct vertices.",
-      );
-    }
-  };
-  return (
-    <form
-      className="form-stack"
-      onSubmit={(e) => {
-        e.preventDefault();
-        save();
-      }}
-      onChange={() => {
-        key.current = crypto.randomUUID();
-      }}
-    >
-      <label className="field">
-        Zone name
-        <input
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          required
-          maxLength={120}
-        />
-      </label>
-      <label>
-        <input
-          type="checkbox"
-          checked={active}
-          onChange={(e) => setActive(e.target.checked)}
-        />{" "}
-        Active delivery zone
-      </label>
-      <div className="button-row">
-        <button
-          type="button"
-          className="button button-small"
-          onClick={() => {
-            setDrawing((v) => !v);
-            setPoints([]);
-          }}
-        >
-          {drawing ? "Stop drawing" : "Draw new boundary"}
-        </button>
-        <button
-          type="button"
-          className="button button-small"
-          disabled={!points.length}
-          onClick={() => applyPoints(points.slice(0, -1))}
-        >
-          Undo vertex
-        </button>
-      </div>
-      {drawing && (
-        <>
-          <Notice>
-            Click the map to add boundary vertices. Saving replaces the full
-            boundary. You can also edit the coordinates below using the
-            keyboard.
-          </Notice>
-          <MapSurface
-            label={`New boundary · ${points.length} vertices`}
-            geometries={zone ? [zone] : []}
-            draft={points}
-            onPoint={(point) => applyPoints([...points, point])}
-          />
-        </>
-      )}
-      <label className="field">
-        Boundary GeoJSON
-        <textarea
-          className="mono"
-          value={source}
-          onChange={(e) => update(e.target.value)}
-          rows={9}
-          maxLength={40000}
-          placeholder={
-            '{"type":"Polygon","coordinates":[[[longitude,latitude],…]]]}'
-          }
-        />
-      </label>
-      {zone && (
-        <p className="muted small">
-          Replacing version {zone.version}. If it changed, close this editor,
-          refresh zones and reopen the latest version.
-        </p>
-      )}
-      {validation && <Notice tone="danger">{validation}</Notice>}
-      {command.problem && <ErrorState problem={command.problem} />}
-      <button className="button button-primary" disabled={command.pending}>
-        {command.pending
-          ? "Saving…"
-          : zone
-            ? "Save replacement"
-            : "Create zone"}
-      </button>
-    </form>
-  );
-}
 function BranchZones({ branch }: { branch: string }) {
   const zones = useResource(
     `/v1/merchant-branches/${branch}/zones`,
@@ -211,6 +34,7 @@ function BranchZones({ branch }: { branch: string }) {
   const [selected, setSelected] = useState("");
   const [edit, setEdit] = useState<{ zone: Zone | null } | null>(null);
   const [changeMode, setChangeMode] = useState(false);
+  const [editCloseBlocked, setEditCloseBlocked] = useState(false);
   const [mode, setMode] = useState("UNRESTRICTED");
   const zone = zones.data?.find((z) => z.id === selected) ?? zones.data?.[0];
   const refresh = () => {
@@ -222,7 +46,10 @@ function BranchZones({ branch }: { branch: string }) {
       <div className="button-row work-actions">
         <button
           className="button button-primary"
-          onClick={() => setEdit({ zone: null })}
+          onClick={() => {
+            setEditCloseBlocked(false);
+            setEdit({ zone: null });
+          }}
         >
           <Icon name="plus" />
           Create zone
@@ -271,6 +98,10 @@ function BranchZones({ branch }: { branch: string }) {
             )}
             {command.problem && <ErrorState problem={command.problem} />}
           </Panel>
+          <ServiceabilityCheck
+            branch={branch}
+            policyVersion={policy.data?.version}
+          />
         </div>
         <aside className="stack">
           <Panel title="Delivery zones">
@@ -305,7 +136,10 @@ function BranchZones({ branch }: { branch: string }) {
               />
               <button
                 className="button button-primary"
-                onClick={() => setEdit({ zone })}
+                onClick={() => {
+                  setEditCloseBlocked(false);
+                  setEdit({ zone });
+                }}
               >
                 Edit zone
               </button>
@@ -317,9 +151,12 @@ function BranchZones({ branch }: { branch: string }) {
         <Overlay
           title={edit.zone ? "Edit delivery zone" : "Create delivery zone"}
           drawer
+          closeDisabled={editCloseBlocked}
           onClose={() => setEdit(null)}
         >
           <ZoneEditor
+            backgrounds={zones.data ?? []}
+            onCloseBlocked={setEditCloseBlocked}
             branch={branch}
             zone={edit.zone}
             onSaved={() => {
@@ -332,6 +169,7 @@ function BranchZones({ branch }: { branch: string }) {
       {changeMode && policy.data && (
         <Overlay
           title="Change branch serviceability"
+          closeDisabled={command.pending}
           onClose={() => setChangeMode(false)}
         >
           <form
@@ -356,7 +194,11 @@ function BranchZones({ branch }: { branch: string }) {
           >
             <label className="field">
               Delivery coverage mode
-              <select value={mode} onChange={(e) => setMode(e.target.value)}>
+              <select
+                disabled={command.pending}
+                value={mode}
+                onChange={(e) => setMode(e.target.value)}
+              >
                 <option value="UNRESTRICTED">
                   Unrestricted destination coverage
                 </option>
@@ -408,7 +250,7 @@ export function ZonesPage() {
       ) : (
         <EmptyState title="Select your branch’s delivery area">
           <p>
-            Enter an authorized branch ID to load its actual PostGIS boundaries.
+            Enter an authorized branch ID to load its delivery boundaries.
           </p>
         </EmptyState>
       )}

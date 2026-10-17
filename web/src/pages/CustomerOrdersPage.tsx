@@ -17,6 +17,7 @@ export function CustomerOrdersPage() {
   const [sort, setSort] = useState("createdAt,desc");
   const [search, setSearch] = useState("");
   const [create, setCreate] = useState(false);
+  const [createCloseBlocked, setCreateCloseBlocked] = useState(false);
   const query = new URLSearchParams({ page: String(page), size: "20", sort });
   if (status) query.set("status", status);
   const resource = useResource(`/v1/orders?${query}`, decodeOrderPage);
@@ -46,7 +47,10 @@ export function CustomerOrdersPage() {
             {localCreation && (
               <button
                 className="button button-primary"
-                onClick={() => setCreate(true)}
+                onClick={() => {
+                  setCreateCloseBlocked(false);
+                  setCreate(true);
+                }}
               >
                 <Icon name="plus" />
                 Create order
@@ -199,9 +203,11 @@ export function CustomerOrdersPage() {
       {create && (
         <Overlay
           title="Create a local test order"
+          closeDisabled={createCloseBlocked}
           onClose={() => setCreate(false)}
         >
           <CreateOrderForm
+            onCloseBlocked={setCreateCloseBlocked}
             onCreated={(id) => navigate(`/customer/orders/${id}`)}
           />
         </Overlay>
