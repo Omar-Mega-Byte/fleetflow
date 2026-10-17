@@ -84,6 +84,12 @@ class CandidatePreflightTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "archive manifest differs"):
             validate(self.env, self.root)
 
+    def test_approval_timestamp_must_be_utc(self):
+        self.candidate["approval"]["atUtc"] = "2026-10-17T15:00:00+03:00"
+        self.save()
+        with self.assertRaisesRegex(ValueError, "approval time must be in UTC"):
+            validate(self.env, self.root)
+
     def test_published_image_must_match_scanned_image_id(self):
         with patch("validate_release_candidate.subprocess.check_output", return_value=self.ids["app"]):
             with self.assertRaisesRegex(ValueError, "published .* image differs"):

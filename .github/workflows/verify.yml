@@ -35,6 +35,8 @@ jobs:
         run: python3 -m unittest discover -s scripts -p test_trivy_sarif_gate.py -v
       - name: Verify release evidence identity and completeness rules
         run: python3 -m unittest discover -s scripts -p test_release_evidence.py -v
+      - name: Verify approved candidate preflight rejects altered evidence
+        run: python3 -m unittest discover -s scripts -p test_candidate_preflight.py -v
       - name: Verify actual owner delivery evidence rules
         run: python3 -m unittest discover -s scripts -p test_owner_alert_evidence.py -v
       - name: Verify source SBOM dependency coverage rules
