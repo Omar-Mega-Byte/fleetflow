@@ -2,7 +2,7 @@
 
 [PROJECT_CONTEXT.md](../PROJECT_CONTEXT.md) is the living project context. This page records the original implementation history and phase status. The [Production Readiness Audit and Roadmap](PRODUCTION-ROADMAP.md) and its [production phase specifications](phases/production/README.md) are authoritative for the remaining synthetic public-demo work and release gates; they supersede this historical phase list for launch readiness. Production phases are numbered separately so the completed implementation phases below remain intact.
 
-Status vocabulary: <code>NOT_STARTED</code> means planned only, <code>IN_PROGRESS</code> means implementation under way, <code>BLOCKED</code> means an identified prerequisite prevents completion, <code>CLOSED_PARTIAL</code> means work stopped with some acceptance gates unmet, and <code>COMPLETE</code> means the explicitly declared phase scope passed with recorded evidence. Phase 11 is complete only for the local synthetic-demo scope in the closeout working tree. Its earlier merged <code>CLOSED_PARTIAL</code> record remains a historical snapshot until the working-tree changes are delivered. The operational, security, UI, and public-hosting work in the production roadmap is active again for the newly requested public showcase; none of it is implied complete by Phase 11. The [Phase 11 baseline](operations/PHASE11_BASELINE.md) records the earlier assessment.
+Status vocabulary: <code>NOT_STARTED</code> means planned only, <code>IN_PROGRESS</code> means implementation under way, <code>BLOCKED</code> means an identified prerequisite prevents completion, <code>CLOSED_PARTIAL</code> means work stopped with some acceptance gates unmet, and <code>COMPLETE</code> means the explicitly declared phase scope passed with recorded evidence. Phase 11 remains <code>CLOSED_PARTIAL</code>; local synthetic-demo evidence does not close its outstanding recovery, object-scope, and service-image advisory gates. The operational, security, UI, and public-hosting work in the production roadmap remains active; none of it is implied complete by Phase 11. The [Phase 11 baseline](operations/PHASE11_BASELINE.md) records the earlier assessment.
 
 | Phase | Status | Purpose |
 | --- | --- | --- |
@@ -17,7 +17,7 @@ Status vocabulary: <code>NOT_STARTED</code> means planned only, <code>IN_PROGRES
 | [8](phases/PHASE_8.md) Async events | COMPLETE | Kafka, transactional outbox, idempotent notification and analytics; local and PR CI evidence recorded |
 | [9](phases/Phase9.md) Live tracking | COMPLETE | Authorized SSE snapshot/stream and local driver simulator; merged to `main` in PR #11 |
 | 10 Zones | COMPLETE | PostGIS serviceability and geofencing; PR #12 merged into Phase 9, then PR #11 brought both to `main` |
-| [11](phases/phase11.md) Hardening | COMPLETE for local demo | Completed for the local synthetic-demo scope on the closeout working tree: 125 passing tests, signed local restore, and documented limits. Sustained RPO, replacement-host recovery, exhaustive object-scope review, and full service-image advisory disposition were not passed; they are active remaining tasks in the production roadmap. This status is not public-production acceptance. |
+| [11](phases/phase11.md) Hardening | CLOSED_PARTIAL | Local synthetic-demo checks and the Day 3 private closeout have evidence, while sustained RPO, replacement-host recovery, exhaustive object-scope review, and complete service-image advisory disposition remain open. This status is not public-production acceptance. |
 
 ## Why this order differs from the source outline
 
