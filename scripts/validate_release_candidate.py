@@ -67,7 +67,7 @@ def parse_utc(value):
             "approval time must be in UTC")
 
 
-def validate(env_path, metadata_dir, check_local_images=False):
+def validate(env_path, metadata_dir, check_local_images=False, check_registry_manifests=False):
     values = env_values(env_path)
     if metadata_dir is None:
         location = values.get("FLEETFLOW_RELEASE_METADATA_DIR", "")
@@ -166,8 +166,21 @@ def validate(env_path, metadata_dir, check_local_images=False):
     if check_local_images:
         for name, ref in image_refs.items():
             inspected = subprocess.check_output(["docker", "image", "inspect", "--format", "{{.Id}}", ref], text=True).strip()
-            require(inspected == scanned_images[name].get("imageId"),
-                    f"published {name} image differs from the image scanned by CI")
+            # The classic Docker store reports the config digest as .Id. The containerd
+            # store reports the pulled manifest digest instead. The approved reference
+            # is single-platform and digest-pinned, so either identity is valid here.
+            approved_manifest = "sha256:" + DIGEST.fullmatch(ref).group(1)
+            require(inspected in {scanned_images[name].get("imageId"), approved_manifest},
+                    f"published {name} image differs from the scanned config or approved manifest")
+    if check_registry_manifests:
+        for name, ref in image_refs.items():
+            raw = subprocess.check_output(["docker", "buildx", "imagetools", "inspect", "--raw", ref], text=True)
+            manifest = json.loads(raw)
+            require(isinstance(manifest, dict) and manifest.get("schemaVersion") == 2 and
+                    isinstance(manifest.get("config"), dict) and not manifest.get("manifests"),
+                    f"published {name} must be a single-platform image manifest")
+            require(manifest["config"].get("digest") == scanned_images[name].get("imageId"),
+                    f"published {name} manifest config differs from the image scanned by CI")
     return source
 
 
@@ -176,9 +189,11 @@ def main():
     parser.add_argument("--env-file", required=True, type=Path)
     parser.add_argument("--metadata-dir", type=Path)
     parser.add_argument("--check-local-images", action="store_true")
+    parser.add_argument("--check-registry-manifests", action="store_true",
+                        help="verify each registry manifest has the exact config digest scanned by CI")
     args = parser.parse_args()
     try:
-        source = validate(args.env_file, args.metadata_dir, args.check_local_images)
+        source = validate(args.env_file, args.metadata_dir, args.check_local_images, args.check_registry_manifests)
     except (ValueError, OSError, KeyError, TypeError, json.JSONDecodeError, subprocess.CalledProcessError) as error:
         parser.exit(1, f"Release preflight failed: {error}\n")
     print(f"Approved candidate preflight passed for {source}")

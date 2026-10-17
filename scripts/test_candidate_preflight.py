@@ -23,7 +23,7 @@ class CandidatePreflightTests(unittest.TestCase):
         self.ci_run = "https://github.com/Omar-Mega-Byte/fleetflow/actions/runs/12345"
         self.refs = {name: "ghcr.io/example/" + name + "@sha256:" + str(index + 1) * 64
                      for index, name in enumerate(IMAGE_ENV)}
-        self.ids = {name: "sha256:" + str(index + 1) * 64 for index, name in enumerate(IMAGE_ENV)}
+        self.ids = {name: "sha256:" + "abcdef"[index] * 64 for index, name in enumerate(IMAGE_ENV)}
         self.env = self.root / "environment"
         self.env.write_text("\n".join(["FLEETFLOW_SOURCE_COMMIT=" + self.source,
             "FLEETFLOW_RELEASE_METADATA_DIR=" + str(self.root)] +
@@ -92,8 +92,32 @@ class CandidatePreflightTests(unittest.TestCase):
 
     def test_published_image_must_match_scanned_image_id(self):
         with patch("validate_release_candidate.subprocess.check_output", return_value=self.ids["app"]):
-            with self.assertRaisesRegex(ValueError, "published .* image differs"):
+            with self.assertRaisesRegex(ValueError, "scanned config or approved manifest"):
                 validate(self.env, self.root, check_local_images=True)
+
+    def test_classic_and_containerd_image_store_ids_both_match(self):
+        classic = [self.ids[name] for name in IMAGE_ENV]
+        containerd = ["sha256:" + self.refs[name].rsplit("@sha256:", 1)[1] for name in IMAGE_ENV]
+        for ids in (classic, containerd):
+            with self.subTest(ids=ids[0]):
+                with patch("validate_release_candidate.subprocess.check_output", side_effect=ids):
+                    self.assertEqual(self.source, validate(self.env, self.root, check_local_images=True))
+
+    def test_registry_manifest_must_reference_scanned_config_and_one_platform(self):
+        manifests = [json.dumps({"schemaVersion": 2, "config": {"digest": self.ids[name]}})
+                     for name in IMAGE_ENV]
+        with patch("validate_release_candidate.subprocess.check_output", side_effect=manifests):
+            self.assertEqual(self.source, validate(self.env, self.root, check_registry_manifests=True))
+        wrong = manifests.copy()
+        wrong[0] = json.dumps({"schemaVersion": 2, "config": {"digest": "sha256:" + "f" * 64}})
+        with patch("validate_release_candidate.subprocess.check_output", side_effect=wrong):
+            with self.assertRaisesRegex(ValueError, "manifest config differs"):
+                validate(self.env, self.root, check_registry_manifests=True)
+        index = manifests.copy()
+        index[0] = json.dumps({"schemaVersion": 2, "manifests": []})
+        with patch("validate_release_candidate.subprocess.check_output", side_effect=index):
+            with self.assertRaisesRegex(ValueError, "single-platform image manifest"):
+                validate(self.env, self.root, check_registry_manifests=True)
 
     def test_open_finding_needs_completed_disposition(self):
         self.evidence["trivy"]["keycloak"] = {**self.artifact("trivy-keycloak.sarif",
