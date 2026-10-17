@@ -45,18 +45,7 @@ done
 [[ "$remote" =~ ^[A-Za-z0-9._-]+:[A-Za-z0-9._/-]+$ && "$remote" != *..* ]] || fail "BACKUP_REMOTE_DESTINATION must be a dedicated rclone remote path"
 [[ -n "$demo_host" && -n "$identity_host" ]] || fail "Stable demo and identity hosts are required"
 [[ -n "$metadata_dir" && -d "$metadata_dir" ]] || fail "Release metadata directory is missing"
-[[ -r "$metadata_dir/candidate.json" ]] || fail "Release metadata must include candidate.json"
-compgen -G "$metadata_dir/*sbom*.json" >/dev/null || fail "Release metadata must include a CycloneDX or SPDX SBOM"
-python3 - "$metadata_dir/candidate.json" "$source_commit" "$app_image" "$edge_image" "$identity_image" "$postgres_image" "$redis_image" "$kafka_image" <<'PY'
-import json, sys
-with open(sys.argv[1], encoding="utf-8") as source:
-    candidate = json.load(source)
-if candidate.get("sourceCommit") != sys.argv[2] or any(candidate.get("images", {}).get(key) != value
-        for key, value in zip(("app", "edge", "keycloakRuntime", "postgres", "redis", "kafka"), sys.argv[3:])):
-    raise SystemExit("Candidate metadata does not match the deployed release")
-if not candidate.get("ciRun") or not candidate.get("scanReports") or not candidate.get("sbom"):
-    raise SystemExit("Candidate metadata is missing CI, scanner or SBOM provenance")
-PY
+python3 "$ROOT/scripts/validate_release_candidate.py" --env-file "$ENV_FILE" --metadata-dir "$metadata_dir"
 
 root_real="$(realpath -m "$ROOT")"
 backup_real="$(realpath -m "$BACKUP_DIR")"

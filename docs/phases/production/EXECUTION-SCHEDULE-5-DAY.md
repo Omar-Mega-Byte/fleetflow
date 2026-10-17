@@ -138,6 +138,8 @@ No P0 item moves to post-launch. A failed P0 gate means the candidate is not app
 
 ### Day 4 — Deploy the exact candidate behind the public edge
 
+**Current-state plan:** see [Day4.md](Day4.md) for the Day 3 baseline, candidate/Azure readiness gates, safe blocked-deployment path and exact Day 4 deliverables.
+
 **Primary goal:** promote only the green immutable candidate into the Azure target and prove public TLS/OIDC and network isolation.
 
 **Active phases:** 8–10, with 11 target smoke beginning after deployment.

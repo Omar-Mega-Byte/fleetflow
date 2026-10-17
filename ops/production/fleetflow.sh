@@ -15,6 +15,15 @@ compose() {
     --file "$COMPOSE_FILE" "$@"
 }
 
+validate_configuration() {
+  command -v python3 >/dev/null || { echo "Python 3 is required for the production boundary check" >&2; return 1; }
+  (cd "$ROOT" && compose config --format json | python3 scripts/Validate-ProductionCompose.py)
+}
+
+validate_candidate() {
+  python3 "$ROOT/scripts/validate_release_candidate.py" --env-file "$ENV_FILE" "$@"
+}
+
 check_health() {
   local service="$1" container state deadline
   container="$(compose ps --all --quiet "$service")"
@@ -40,10 +49,13 @@ check_health() {
 
 case "${1:-}" in
   config)
-    compose config --quiet
+    validate_configuration
     ;;
   up)
-    compose config --quiet
+    validate_configuration
+    validate_candidate
+    compose pull
+    validate_candidate --check-local-images
     compose up --detach --no-build
     readiness_deadline=$((SECONDS + 900))
     for service in postgres keycloak-db redis kafka keycloak app edge; do

@@ -6,13 +6,15 @@
 
 > Current evidence: [Days 1-3 full audit](phases/production/DAYS-1-3-FULL-AUDIT-2026-10-17.md). Earlier merged-main checkpoints are historical and do not validate the updated branch. Day 3 remains PARTIAL / NOT COMPLETE; legacy Phase 11 remains CLOSED_PARTIAL.
 
+The current ordered handoff for unfinished public-demo work is [PROJECT-COMPLETION-REMAINING.md](PROJECT-COMPLETION-REMAINING.md).
+
 ## Executive decision
 
 FleetFlow is a substantial local delivery-orchestration demonstration. The backend implements guarded order and driver lifecycles, Redis-backed location and matching, PostgreSQL/PostGIS serviceability and atomic assignment, durable dispatch recovery, a transactional outbox, Kafka projections, role/object-scoped APIs, bounded SSE tracking, rate controls, and local operations tooling. The React/TypeScript client has PKCE auth, protected customer, merchant, dispatcher, driver and operator workspaces, typed API/SSE clients, and three signed live journeys across all five personas, zone/serviceability editing and dispatch recovery, proven against disposable services.
 
 It is **not a finished product or a public-production deployment**. The current private browser gate verifies all five personas and documented negative/recovery cases. Exact updated-commit CI, current advisory disposition and immutable candidate controls remain required. Fixture Playwright checks remain separate from that live signed path. The local Compose stack remains loopback-bound, Keycloak remains in development mode and Kafka is single-node plaintext. The separate production proxy/Compose overlay has been rendered and statically validated, with only edge TCP 80/443 host ports; it has not been started or externally checked. Consolidation CI passed on exact merged `main` commit `0e0a21e` in [run 38918855000](https://github.com/Omar-Mega-Byte/fleetflow/actions/runs/38918855000).
 
-**Recommendation:** keep the modular monolith and verified core workflows; complete the role-aware web client and review the separate public-safe deployment profile; harden public identity, edge, secrets, rate limits, dependency supply chain, operator recovery, and disaster recovery; then prove the complete web-to-database flows on the actual hosting target. Do not call the result production-ready until the gates in this document pass.
+**Recommendation:** keep the modular monolith and verified core workflows; finish exact-candidate supply-chain review and then prove identity, edge, secrets, operator recovery, disaster recovery and complete browser-to-database flows on the actual hosting target. Do not call the result production-ready until the gates in this document pass.
 
 The first public release is scoped as a **synthetic portfolio showcase**. It does not accept real customer orders or prices, payments, real driver/customer location data, merchant contracts, or commercial service guarantees. A single manually started Azure VM can host an on-demand portfolio demo; it is a single point of failure and does not establish a production availability SLA. A commercial logistics service needs a separate product and deployment decision.
 
@@ -414,4 +416,4 @@ Do not add these to the current implementation plan without a new scope decision
 
 ## Audit outcome
 
-Current status: **DEMO READY locally; NOT PUBLIC-LAUNCH READY; NOT PRODUCTION READY.** Day 2 verifies one real signed workflow across four operational personas and a disposable local restore. Merged-main CI passed on `0e0a21e` in run `38918855000`. Remaining gates include MEDIUM/LOW scanner disposition, target identity/network checks, off-host recovery and measured target capacity. See the [Day 2 consolidation audit](phases/production/DAY-2-CONSOLIDATION-AUDIT.md) for exact commands and evidence.
+Current status: **DEMO READY locally; NOT PUBLIC-LAUNCH READY; NOT PRODUCTION READY.** The [Days 1–3 audit](phases/production/DAYS-1-3-FULL-AUDIT-2026-10-17.md) records the signed five-persona private journeys and prior exact-commit CI. [Day 4](phases/production/Day4.md) adds a passing working-tree private rehearsal and local release guardrails, while the 50 Keycloak findings, changed-source CI, immutable candidate, Azure boundary, target recovery and measured capacity remain open. The [remaining-steps handoff](PROJECT-COMPLETION-REMAINING.md) gives the dependency order and exit evidence.

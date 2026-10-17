@@ -5,11 +5,7 @@ WORKDIR /web
 COPY package.json package-lock.json ./
 RUN npm ci
 COPY . .
-ARG VITE_OIDC_AUTHORITY
-ENV VITE_OIDC_AUTHORITY=${VITE_OIDC_AUTHORITY}
-RUN test -n "$VITE_OIDC_AUTHORITY" \
-    && case "$VITE_OIDC_AUTHORITY" in https://*/realms/fleetflow) ;; *) echo 'VITE_OIDC_AUTHORITY must be the stable HTTPS FleetFlow issuer' >&2; exit 1 ;; esac \
-    && npm run build
+RUN npm run build
 
 FROM ${NGINX_RUNTIME_IMAGE}
 RUN apk upgrade --no-cache \

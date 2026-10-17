@@ -3,7 +3,9 @@ import hashlib
 from pathlib import Path
 import tempfile
 import unittest
+import sys
 
+sys.path.insert(0, str(Path(__file__).parent))
 from record_release_evidence import IMAGES, record
 
 SHA = "a" * 40
@@ -21,6 +23,12 @@ class ReleaseEvidenceTests(unittest.TestCase):
         self.write("image-builds.json", {"kind": "BUILD_METADATA_ONLY", "candidateApproved": False,
                    "application": "FleetFlow", "applicationVersion": "0.0.1-SNAPSHOT",
                    "sourceCommit": SHA, "ciRun": RUN, "images": self.images})
+        archive = self.root / "fleetflow-runtime-images.tar.gz"
+        archive.write_bytes(b"small exact-image archive fixture")
+        self.write("runtime-images.json", {"sourceCommit": SHA, "ciRun": RUN,
+                   "imageIds": {name: image["imageId"] for name, image in self.images.items()},
+                   "archiveSha256": hashlib.sha256(archive.read_bytes()).hexdigest(),
+                   "archiveBytes": archive.stat().st_size})
         for name in (*IMAGES, "source-sbom"):
             self.write(f"fleetflow-{name}-{SHA}.cdx.json", {"bomFormat": "CycloneDX", "specVersion": "1.7",
                        "metadata": {"component": {"name": "FleetFlow" if name == "source-sbom" else "fleetflow-" + ("keycloak-runtime" if name == "keycloak" else name),
@@ -78,7 +86,14 @@ class ReleaseEvidenceTests(unittest.TestCase):
         self.assertEqual(result["legacyPhase11"], "CLOSED_PARTIAL")
         self.assertEqual(result["ownerNotificationEvidence"]["completedGroupNotifications"], 2)
         self.assertEqual(result["sourceCommit"], SHA)
+        self.assertEqual(result["runtimeImageArchive"]["archive"]["sha256"],
+                         hashlib.sha256((self.root / "fleetflow-runtime-images.tar.gz").read_bytes()).hexdigest())
         self.assertTrue(all(len(item["sha256"]) == 64 for item in result["sboms"].values()))
+
+    def test_rejects_changed_exact_image_archive(self):
+        (self.root / "fleetflow-runtime-images.tar.gz").write_bytes(b"altered")
+        with self.assertRaisesRegex(ValueError, "runtime image archive"):
+            record(self.root, SHA, SHA, RUN, True)
 
     def test_refuses_old_commit_metadata_and_missing_sbom(self):
         with self.assertRaisesRegex(ValueError, "does not match"):

@@ -31,6 +31,11 @@ def identity(root: Path, path: Path) -> dict:
     return {"path": path.relative_to(root).as_posix(), "sha256": hashlib.sha256(path.read_bytes()).hexdigest()}
 
 
+def streamed_sha256(path: Path) -> str:
+    with path.open("rb") as stream:
+        return hashlib.file_digest(stream, "sha256").hexdigest()
+
+
 def notification_evidence(root: Path, filename: str, alert_name: str) -> dict:
     path = one(root, filename)
     events = json.loads(path.read_text(encoding="utf-8"))
@@ -59,6 +64,19 @@ def record(root: Path, source: str, head: str, ci_run: str, owner_required: bool
     for image in build["images"].values():
         if not re.fullmatch(r"sha256:[0-9a-f]{64}", image.get("imageId", "")):
             raise ValueError("Invalid immutable Docker image ID")
+    runtime_archive = None
+    if owner_required:
+        archive_path = one(root, "fleetflow-runtime-images.tar.gz")
+        manifest_path = one(root, "runtime-images.json")
+        manifest = read(manifest_path)
+        if (manifest.get("sourceCommit") != source or manifest.get("ciRun") != ci_run
+                or manifest.get("imageIds") != {name: value["imageId"] for name, value in build["images"].items()}
+                or manifest.get("archiveBytes") != archive_path.stat().st_size
+                or manifest.get("archiveSha256") != streamed_sha256(archive_path)):
+            raise ValueError("Exact scanned runtime image archive differs from CI build identities")
+        runtime_archive = {**identity(root, manifest_path),
+                           "archive": {"path": archive_path.relative_to(root).as_posix(),
+                                       "sha256": manifest["archiveSha256"], "bytes": manifest["archiveBytes"]}}
     sboms = {}
     for name in (*IMAGES, "source-sbom"):
         path = one(root, f"fleetflow-{name}-{source}.cdx.json")
@@ -166,6 +184,7 @@ def record(root: Path, source: str, head: str, ci_run: str, owner_required: bool
             "acceptanceDecision": "PARTIAL_NOT_COMPLETE", "legacyPhase11": "CLOSED_PARTIAL",
             "acceptanceScope": "Days 1-3 private workflow/build verification; public and candidate gates remain separate",
             "sourceCommit": source, "headCommit": head, "ciRun": ci_run, "imageMetadata": identity(root, build_path),
+            "runtimeImageArchive": runtime_archive,
             "images": build["images"], "sboms": sboms, "trivy": scans, "codeql": codeql,
             "sourceCoverage": {**identity(root, coverage_path), "mavenTree": identity(root, tree_path),
                                "selectedMavenComponents": coverage["selectedMavenComponents"],

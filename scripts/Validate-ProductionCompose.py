@@ -96,6 +96,13 @@ identity_host = edge_environment.get("IDENTITY_HOST", "")
 demo_host = edge_environment.get("DEMO_HOST", "")
 if issuer != f"https://{identity_host}/realms/fleetflow" or not identity_host or not demo_host:
     fail("API issuer and production identity hostname do not match the public realm")
+for host_name, host_value in (("DEMO_HOST", demo_host), ("IDENTITY_HOST", identity_host)):
+    labels = host_value.split(".")
+    if (len(host_value) > 253 or len(labels) < 2 or any(not re.fullmatch(
+            r"[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?", label) for label in labels)):
+        fail(f"{host_name} must be a DNS hostname")
+if demo_host.lower() == identity_host.lower():
+    fail("demo and identity hosts must be different")
 if app_environment.get("DEMO_OIDC_ISSUER") != issuer:
     fail("demo identity issuer differs from the API issuer")
 if app_environment.get("OIDC_AUDIENCE") != "fleetflow-api":
@@ -141,6 +148,8 @@ required_proxy_rules = (
     "limit_req_zone $binary_remote_addr",
     "log_format fleetflow",
     'add_header Content-Security-Policy "default-src',
+    'location = /runtime-config.js',
+    'oidcAuthority: "https://${IDENTITY_HOST}/realms/fleetflow"',
     "connect-src 'self' https://${IDENTITY_HOST}",
     "proxy_set_header Host $host",
 )

@@ -160,7 +160,7 @@ jobs:
           --pattern 'fleetflow-*.cdx.json' --pattern 'image-builds-*'
           --pattern 'trivy-*' --pattern 'codeql-*'
           --pattern 'live-browser-*' --pattern 'day2-real-browser-*'
-          --pattern 'source-sbom-coverage-*'
+          --pattern 'source-sbom-coverage-*' --pattern 'runtime-images-*'
       - name: Verify identities, scans, SBOMs and browser/database results
         env:
           FLEETFLOW_HEAD_COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
@@ -268,8 +268,7 @@ jobs:
           docker build --tag fleetflow-keycloak-runtime:ci --file ops/production/keycloak.Dockerfile .
           docker build --tag fleetflow-edge:ci --file web/Dockerfile.release \
             --build-arg "NODE_BUILD_IMAGE=$FLEETFLOW_NODE_BUILD_IMAGE" \
-            --build-arg "NGINX_RUNTIME_IMAGE=$FLEETFLOW_NGINX_RUNTIME_IMAGE" \
-            --build-arg VITE_OIDC_AUTHORITY=https://identity.fleetflow.localhost/realms/fleetflow web
+            --build-arg "NGINX_RUNTIME_IMAGE=$FLEETFLOW_NGINX_RUNTIME_IMAGE" web
           docker build --tag fleetflow-postgis:ci --file ops/production/postgis.Dockerfile .
           docker build --tag fleetflow-redis:ci --file ops/production/redis.Dockerfile .
           docker build --tag fleetflow-kafka:ci --file ops/production/kafka.Dockerfile .
@@ -530,6 +529,35 @@ jobs:
           format: cyclonedx-json
           output-file: fleetflow-kafka-sbom.cdx.json
           artifact-name: fleetflow-kafka-${{ github.sha }}.cdx.json
+      - name: Archive the exact scanned runtime images for later promotion
+        if: success() && github.event_name == 'push' && github.repository == 'Omar-Mega-Byte/fleetflow'
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker save fleetflow-app:ci fleetflow-keycloak-runtime:ci fleetflow-edge:ci \
+            fleetflow-postgis:ci fleetflow-redis:ci fleetflow-kafka:ci | gzip -1 > fleetflow-runtime-images.tar.gz
+          python3 - <<'PY'
+          import hashlib, json, os
+          from pathlib import Path
+          archive = Path("fleetflow-runtime-images.tar.gz")
+          digest = hashlib.file_digest(archive.open("rb"), "sha256").hexdigest()
+          build = json.loads(Path("image-builds.json").read_text(encoding="utf-8"))
+          record = {"sourceCommit": os.environ["GITHUB_SHA"], "ciRun": build["ciRun"],
+                    "imageIds": {name: image["imageId"] for name, image in build["images"].items()},
+                    "archiveSha256": digest, "archiveBytes": archive.stat().st_size}
+          Path("runtime-images.json").write_text(json.dumps(record, indent=2) + "\n", encoding="utf-8")
+          PY
+      - name: Preserve exact scanned runtime images
+        if: success() && github.event_name == 'push' && github.repository == 'Omar-Mega-Byte/fleetflow'
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        with:
+          name: runtime-images-${{ github.sha }}
+          path: |
+            fleetflow-runtime-images.tar.gz
+            runtime-images.json
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 14
       - name: Preserve container scan reports
         if: always()
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
