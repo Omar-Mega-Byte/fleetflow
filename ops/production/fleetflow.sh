@@ -55,7 +55,7 @@ case "${1:-}" in
     validate_configuration
     validate_candidate
     compose pull
-    validate_candidate --check-local-images
+    validate_candidate --check-local-images --check-registry-manifests
     compose up --detach --no-build
     readiness_deadline=$((SECONDS + 900))
     for service in postgres keycloak-db redis kafka keycloak app edge; do
