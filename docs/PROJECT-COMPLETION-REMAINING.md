@@ -6,7 +6,7 @@
 
 - The backend, five persona workspaces, signed private browser journeys, authorization boundaries, synthetic seed/reset, dispatch recovery, CI scans/SBOMs, and local encrypted restore have dated evidence in the [Days 1–3 audit](phases/production/DAYS-1-3-FULL-AUDIT-2026-10-17.md). Phase 4 and 5 private MUST slices are verified; their target acceptance remains open.
 - Day 4 local preflight and the 27-CVE Keycloak vendor review are in [Day4.md](phases/production/Day4.md) and its [review CSV](phases/production/DAY-4-SUPPLY-CHAIN-REVIEW-2026-10-17.csv). All 50 Keycloak scan matches remain open.
-- The web edge now supplies the public OIDC issuer at runtime, so the same scanned edge image can be deployed by digest. Production `up` now checks Compose structure, approved candidate metadata, the six pulled image IDs and exact CI evidence before starting services. A disposable signed browser rehearsal passed for the changed working tree, including failure/recovery checks; it was partial because owner alert delivery was not configured. These changes still require a fresh exact-commit CI run before release use.
+- The web edge now supplies the public OIDC issuer at runtime, so the same scanned edge image can be deployed by digest. Production `up` now checks Compose structure, approved candidate metadata, the six pulled image IDs and exact CI evidence before starting services. A disposable signed browser rehearsal passed for the changed working tree, including failure/recovery checks; it was partial because owner alert delivery was not configured. The Day 4 source checkpoint `65b0c9d` passed [trusted push CI](https://github.com/Omar-Mega-Byte/fleetflow/actions/runs/39044563681) and [PR CI](https://github.com/Omar-Mega-Byte/fleetflow/actions/runs/39044567166), both 8/8 jobs; its trusted-push evidence verifies owner alert delivery and records the image archive, but `candidateApproved` is false. Any later commit must pass CI at its own full SHA before release use.
 
 ## Required sequence
 
@@ -14,7 +14,7 @@ Do these steps in order. A failed gate keeps the candidate private and returns t
 
 ### 1. Close the changed-source CI gate — repository owner (Phase 8)
 
-1. Commit the Day 4 changes and record the full source SHA. Run the required push and PR checks on that exact SHA; inspect the final `release-evidence-<SHA>` artifact, including its six build IDs, seven SBOM hashes, seven Trivy reports, two CodeQL reports, signed browser/database results and owner alert result.
+1. Freeze the final reviewed source SHA. Confirm the required push and PR checks on that exact SHA; inspect its `release-evidence-<SHA>` artifact, including six build IDs, seven SBOM hashes, seven Trivy reports, two CodeQL reports, signed browser/database results and owner alert result. The `65b0c9d` source checkpoint passed, but a later commit requires fresh exact-head checks.
 2. Run the production Compose render and confirm the edge serves `/runtime-config.js` with the runtime issuer in the exact-candidate private signed browser rehearsal. Re-run any failed gate after a fix. Do not use the earlier `b197528` CI run or the working-tree rehearsal as exact-commit evidence.
 3. **Exit:** green exact-commit CI and private runtime-config/login evidence, with no secret, unknown or high/critical scanner blocker. Retain the CI URL, artifact and SHA together.
 
@@ -62,7 +62,7 @@ Do these steps in order. A failed gate keeps the candidate private and returns t
 
 ## Inputs still needed from the project owner
 
-- Approved image registry/publishing identity and named release/security owner for the Keycloak decisions and final candidate approval.
+- Approved image registry/publishing identity. The project owner has taken responsibility for the Keycloak review and final candidate decision, but no finding disposition or candidate approval has been made.
 - Azure subscription access, resource group, chosen region/SKU, current budget/credit and authority to create budget alerts and the single VM/data disk/IP.
 - Demo and identity DNS names, certificate/DNS control, production OIDC realm/client owner, secret delivery and backup/alert destinations.
 - Planned public test window and the maintainer's SSH source IP; target recovery and load drills may interrupt the demo.
