@@ -52,6 +52,9 @@ jobs:
             printf 'ci-placeholder-only' > "$secret_dir/$file"
           done
           chmod 0600 "$secret_dir"/*
+          for role in CUSTOMER MERCHANT DRIVER DISPATCHER OPERATOR; do
+            export "DEMO_${role}_SUBJECT=$(python3 -c 'import uuid; print(uuid.uuid4())')"
+          done
           FLEETFLOW_SECRET_DIR="$secret_dir" docker compose --env-file .env.production.example \
             --profile public --file ops/production/compose.production.yaml config --format json \
             | python3 scripts/Validate-ProductionCompose.py

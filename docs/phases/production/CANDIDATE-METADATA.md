@@ -4,7 +4,7 @@
 
 Package one private release metadata directory with `candidate.json`, the exact CI `release-evidence.json`, `runtime-images.json`, and every source/image SBOM, Trivy SARIF and CodeQL SARIF at the relative paths named by the evidence file. Keep the original artifact paths when downloading them. The evidence file lists all seven SBOMs, seven Trivy reports, two CodeQL reports, six build image IDs and the source/CI identity.
 
-For trusted pushes, CI also retains `runtime-images-<SHA>` for 14 days. Its `runtime-images.json` binds the compressed Docker archive hash and six image IDs to that exact CI run. Promote only after the full run is green: verify the archive hash, load the images on the trusted release host, compare loaded IDs with the manifest, then tag/push without rebuilding. This artifact is build evidence; its existence alone does not approve a candidate.
+For trusted pushes, CI also retains `runtime-images-<SHA>` for 14 days. Its `runtime-images.json` binds the compressed Docker archive hash and six scanned image config digests to that exact CI run. Promote only after the full run is green: verify the archive hash, load the images on the trusted release host, verify each archive image config blob against the corresponding scanned digest, then tag/push without rebuilding. Do not compare raw `docker image inspect .Id` values before publication: a containerd image store can report the OCI manifest digest instead. The later registry-manifest check requires each published image's `config.digest` to equal the scanned config digest. This artifact is build evidence; its existence alone does not approve a candidate.
 
 After the registry images have been published and reviewed, the release owner may create `candidate.json` in this form:
 

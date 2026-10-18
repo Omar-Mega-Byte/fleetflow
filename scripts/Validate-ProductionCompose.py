@@ -3,6 +3,7 @@
 import json
 import re
 import sys
+import uuid
 from pathlib import Path
 
 
@@ -105,6 +106,24 @@ if demo_host.lower() == identity_host.lower():
     fail("demo and identity hosts must be different")
 if app_environment.get("DEMO_OIDC_ISSUER") != issuer:
     fail("demo identity issuer differs from the API issuer")
+subjects = []
+for role in ("CUSTOMER", "MERCHANT", "DRIVER", "DISPATCHER", "OPERATOR"):
+    key = f"DEMO_{role}_SUBJECT"
+    value = app_environment.get(key, "")
+    try:
+        parsed = uuid.UUID(value)
+    except (ValueError, AttributeError, TypeError):
+        fail(f"{key} must be the real Keycloak UUID subject")
+    if parsed.int == 0 or str(parsed) != value.lower() or str(parsed) in {
+            "11111111-1111-4111-8111-111111111111",
+            "22222222-2222-4222-8222-222222222222",
+            "33333333-3333-4333-8333-333333333333",
+            "44444444-4444-4444-8444-444444444444",
+            "55555555-5555-4555-8555-555555555555"}:
+        fail(f"{key} still uses an example or malformed subject")
+    subjects.append(str(parsed))
+if len(set(subjects)) != len(subjects):
+    fail("demo role subjects must identify five distinct Keycloak users")
 if app_environment.get("OIDC_AUDIENCE") != "fleetflow-api":
     fail("production API audience is not fleetflow-api")
 if identity_environment.get("KC_HOSTNAME") != f"https://{identity_host}":

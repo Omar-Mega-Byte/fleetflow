@@ -40,6 +40,8 @@ The first boot must not reuse the local development realm import. Configure a pr
 - API audience `fleetflow-api`; effective FleetFlow roles and active memberships are loaded from PostgreSQL on every request. JWT role claims do not grant application permissions;
 - five synthetic identities: customer, merchant, driver, dispatcher and operator. `DEMO_*_SUBJECT` values must equal the real Keycloak `sub`, not a username. Defaults are fixture values, not production identity provisioning. The seed API creates only FleetFlow records and never sets IdP passwords. Bootstrap one separately provisioned signed ADMIN actor through the private operator procedure. No real customer data.
 
+Set all five `DEMO_*_SUBJECT` values in the private `.env.production` from the UUID `sub` of the corresponding production Keycloak user. The production Compose file now requires these variables, and `fleetflow.sh config` rejects the checked-in example UUIDs, malformed values and duplicates. Provision the users first, record their `sub` values privately, then rerun `config` before `up`. This check verifies the shape and uniqueness of the subjects; the signed persona/browser test must still prove that they belong to the intended users.
+
 Render the production browser realm without users, passwords or direct-grant clients:
 
 ```bash
