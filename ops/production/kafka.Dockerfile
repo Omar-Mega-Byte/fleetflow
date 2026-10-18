@@ -6,7 +6,7 @@ RUN mvn --batch-mode --no-transfer-progress --strict-checksums org.apache.maven.
     && mvn --batch-mode --no-transfer-progress --strict-checksums org.apache.maven.plugins:maven-dependency-plugin:3.9.0:copy \
       -Dartifact=at.yawk.lz4:lz4-java:1.11.4 -DoutputDirectory=/patched
 
-FROM apache/kafka:4.2.2@sha256:1213eb3943d551e5ed1fca7a4e109001cee35770b66a02a0c37a8964efe09b69
+FROM apache/kafka:4.3.1@sha256:77e3df9054047a88b520d0cc46e16696d3b22022e1d580aeccd2632df6532837
 USER root
 # Maintenance-only library patches; broker version and protocol remain Apache Kafka 4.2.2.
 RUN apk upgrade --no-cache \
