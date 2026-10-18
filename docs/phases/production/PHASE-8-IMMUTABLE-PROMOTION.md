@@ -1,6 +1,6 @@
 # Phase 8 immutable promotion handoff — 2026-10-18
 
-**Technical review has no `OPEN` row; publication has not occurred.** The [exact-image security reconciliation](KEYCLOAK-SECURITY-RECONCILIATION-2026-10-18.md) and [reachability audit](KEYCLOAK-REACHABILITY-AUDIT-2026-10-18.md) account for all 28 CVEs. The following sequence is ready after the release owner independently reviews those decisions. Publication, candidate approval and Azure deployment are separate gates.
+**Technical review has no `OPEN` row, and the six images have been published privately.** The [publication record](PHASE-8-GHCR-PUBLICATION-2026-10-18.md) contains all six verified GHCR digest references, matching scanned config IDs and pull-back results. The [exact-image security reconciliation](KEYCLOAK-SECURITY-RECONCILIATION-2026-10-18.md) and [reachability audit](KEYCLOAK-REACHABILITY-AUDIT-2026-10-18.md) account for all 28 CVEs. Independent owner review, candidate approval and Azure deployment remain separate gates. The command sequence below is retained as a reproducible promotion procedure; do not push a second image set for this same checkpoint.
 
 ## Registry choice
 
@@ -10,7 +10,7 @@ The source of truth is trusted push [39131639694](https://github.com/Omar-Mega-B
 
 ## Trusted promotion host sequence
 
-Use a trusted Linux host with Docker Engine, Buildx, Python 3 and GitHub CLI. Authenticate `gh` to the private repository. GitHub [requires a classic personal access token for CLI package publication](https://docs.github.com/en/packages/working-with-a-github-packages-registry/working-with-the-container-registry); give this host only the needed `write:packages` permission and keep the token out of shell history and files. Run these commands from the FleetFlow repository after the security gate closes:
+The 2026-10-18 publication used Docker Desktop on the authenticated release workstation, GitHub CLI with `write:packages`, and Docker Engine/Buildx. No credential was placed in the repository. The following Linux commands remain a recovery procedure if publication must be repeated from the same trusted artifacts. GitHub [documents package authentication](https://docs.github.com/en/packages/working-with-a-github-packages-registry/working-with-the-container-registry); keep credentials out of shell history and files.
 
 ```bash
 set -euo pipefail
@@ -103,7 +103,7 @@ The first Python check verifies the archive SHA-256 because it is one of the evi
 
 ## Candidate assembly after publication
 
-1. Copy the **final** 28-row advisory CSV to the private metadata directory as `advisory-review.csv`. It must contain no `OPEN` row; the current reconciliation CSV does. Retain the original exact SARIF/SBOM reports at their CI relative paths. Keep the metadata directory private and immutable.
+1. The **final technical** 28-row advisory CSV has been copied to private metadata as `advisory-review.csv` with zero `OPEN` rows. The release owner must still independently review its applicability conclusions. Retain the original exact SARIF/SBOM reports at their CI relative paths. Keep the metadata directory private and immutable.
 2. Create `candidate.json` with the [contract's fields](CANDIDATE-METADATA.md): source commit and CI URL above, the six real references from `published-refs.json`, SHA-256 of the exact `release-evidence.json` and final `advisory-review.csv`, and a separate release-owner **candidate** approval record with its actual UTC timestamp. Do not copy the eight-CVE acceptance date into `approval.atUtc` as candidate approval. Do not alter CI's `candidateApproved: false`.
 3. Populate the private [production environment template](../../../.env.production.example): `FLEETFLOW_SOURCE_COMMIT` is the scanned source commit, `FLEETFLOW_RELEASE_METADATA_DIR` is the absolute private metadata path, and all six `FLEETFLOW_*_IMAGE` values are the corresponding `published-refs.json` digest references. Follow the [production operator guide](../../../ops/production/README.md) for hostnames, five actual Keycloak subject UUIDs and six secret files. Do not commit this environment file or secrets.
 4. On the trusted promotion host, run `python3 scripts/validate_release_candidate.py --env-file .env.production --check-registry-manifests --check-local-images`. Only a passing validator and the release owner's independent review make the immutable candidate approved. The Azure VM must repeat the digest checks before service start; Phase 9 then verifies public DNS/TLS, signed personas, recovery and budget separately.

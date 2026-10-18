@@ -1,5 +1,7 @@
 # Day 4 — Candidate and public-boundary plan
 
+> **Later 2026-10-18 checkpoint:** the [exact six-image GHCR publication](PHASE-8-GHCR-PUBLICATION-2026-10-18.md) and [completed technical Keycloak reconciliation](KEYCLOAK-SECURITY-RECONCILIATION-2026-10-18.md) supersede this day's earlier no-registry/open-finding baseline. Phase 8 still awaits independent owner review and candidate approval; Phase 9 has not begun.
+
 **Status:** PARTIAL — local preflight is complete; candidate promotion and Azure deployment are blocked by external prerequisites.
 **Plan baseline:** 2026-10-17. **Execution started:** 2026-10-17 (Africa/Cairo).
 **Purpose:** follow the [five-day execution schedule](EXECUTION-SCHEDULE-5-DAY.md) by preparing and, only after all gates pass, deploying the exact release candidate behind the public edge.
