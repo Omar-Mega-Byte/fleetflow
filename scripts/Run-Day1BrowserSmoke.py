@@ -223,6 +223,12 @@ def main():
                 log=evidence / "certificate.log")
         environment = os.environ.copy()
         environment.update({"FLEETFLOW_SECRET_DIR": private.as_posix(), "DEMO_HOST": DEMO_HOST, "IDENTITY_HOST": IDENTITY_HOST})
+        accounts = {}
+        for persona in ("customer", "merchant", "driver", "dispatcher", "operator", "bootstrap"):
+            accounts[persona] = {"id": str(uuid.uuid4()), "username": "fleetflow-demo-" + persona,
+                                 "password": secrets.token_urlsafe(24)}
+        for persona in ("customer", "merchant", "driver", "dispatcher", "operator"):
+            environment["DEMO_" + persona.upper() + "_SUBJECT"] = accounts[persona]["id"]
         images = {}
         for service, tag, variable in (("app", "fleetflow-app:day1-audit", "FLEETFLOW_APP_IMAGE"),
                 ("keycloak", "fleetflow-keycloak-runtime:day1-audit", "FLEETFLOW_KEYCLOAK_RUNTIME"),
@@ -269,10 +275,6 @@ def main():
         bootstrap["name"] = "DISPOSABLE TEST ONLY"
         realm["clients"].append(bootstrap)
         realm["registrationAllowed"] = False
-        accounts = {}
-        for persona in ("customer", "merchant", "driver", "dispatcher", "operator", "bootstrap"):
-            subject = "fleetflow-demo-" + persona
-            accounts[persona] = {"id": subject, "username": subject, "password": secrets.token_urlsafe(24)}
         realm["users"] = [{"id": value["id"], "username": value["username"], "enabled": True,
             "emailVerified": True, "email": value["username"] + "@example.invalid", "firstName": "Synthetic",
             "lastName": "Demo", "requiredActions": [],
