@@ -1,0 +1,238 @@
+{
+  "kind": "VERIFIED_BUILD_EVIDENCE",
+  "candidateApproved": false,
+  "verification": "PASS",
+  "sourceCommit": "da526e6f6e94e15d0a24643121aac4f58f165900",
+  "headCommit": "da526e6f6e94e15d0a24643121aac4f58f165900",
+  "ciRun": "https://github.com/Omar-Mega-Byte/fleetflow/actions/runs/39022493957",
+  "imageMetadata": {
+    "path": "image-builds-da526e6f6e94e15d0a24643121aac4f58f165900/image-builds.json",
+    "sha256": "018d9c7c4ffd72e70975211993c638bf0622fde343074e1e27c17cb304449b29"
+  },
+  "images": {
+    "app": {
+      "imageId": "sha256:69581912d3d7d65a9c0e49189320c861fcfe5e88df387c1276c680ed155b26b5",
+      "registryDigests": []
+    },
+    "keycloak-runtime": {
+      "imageId": "sha256:8908c0c683b105937cad7e76247e1b5e7c1504262b4e369d8d48593b526401fa",
+      "registryDigests": []
+    },
+    "edge": {
+      "imageId": "sha256:8c37e73a47fa1fff3facbe10b97b1da247f627a14d28356855ace74aef32d6cf",
+      "registryDigests": []
+    },
+    "postgis": {
+      "imageId": "sha256:1453a86e0c40d2ec712943527913ed9ae2073dd23cc089a914f1fcac1d1d880b",
+      "registryDigests": []
+    },
+    "redis": {
+      "imageId": "sha256:364223ee730e3be29523ee290c3f396bb7f9c6212de08c75063ebd0ddea874a4",
+      "registryDigests": []
+    },
+    "kafka": {
+      "imageId": "sha256:4b69b374484f0dec27f6964ece6a7b326326b7d65924622ceb1c09085dc9971d",
+      "registryDigests": []
+    }
+  },
+  "sboms": {
+    "app": {
+      "path": "fleetflow-app-da526e6f6e94e15d0a24643121aac4f58f165900.cdx.json/fleetflow-app-da526e6f6e94e15d0a24643121aac4f58f165900.cdx.json",
+      "sha256": "fac95951bbed8b03e930797db4070bf53a86a0fd5cc01390d8fc9f023a8cc7d5",
+      "specVersion": "1.7",
+      "components": 1443
+    },
+    "keycloak": {
+      "path": "fleetflow-keycloak-da526e6f6e94e15d0a24643121aac4f58f165900.cdx.json/fleetflow-keycloak-da526e6f6e94e15d0a24643121aac4f58f165900.cdx.json",
+      "sha256": "72e263938b5cfa2c984c3569d2fb48857639c4548fde45c9290bded0d59e1abb",
+      "specVersion": "1.7",
+      "components": 4605
+    },
+    "edge": {
+      "path": "fleetflow-edge-da526e6f6e94e15d0a24643121aac4f58f165900.cdx.json/fleetflow-edge-da526e6f6e94e15d0a24643121aac4f58f165900.cdx.json",
+      "sha256": "163cdebadb44728ea4ce05af392d73caa6b67bf04a57b4d609b6789aeccfd310",
+      "specVersion": "1.7",
+      "components": 1285
+    },
+    "postgis": {
+      "path": "fleetflow-postgis-da526e6f6e94e15d0a24643121aac4f58f165900.cdx.json/fleetflow-postgis-da526e6f6e94e15d0a24643121aac4f58f165900.cdx.json",
+      "sha256": "9aadec5a03c7adddb0098e363730940cdeca7f911f8ba5ef401db043ce0b1f1f",
+      "specVersion": "1.7",
+      "components": 1620
+    },
+    "redis": {
+      "path": "fleetflow-redis-da526e6f6e94e15d0a24643121aac4f58f165900.cdx.json/fleetflow-redis-da526e6f6e94e15d0a24643121aac4f58f165900.cdx.json",
+      "sha256": "ff6d3aa6112c230b5251f4dea5849ff827865cf6a600a7c8d303c18682dedc09",
+      "specVersion": "1.7",
+      "components": 710
+    },
+    "kafka": {
+      "path": "fleetflow-kafka-da526e6f6e94e15d0a24643121aac4f58f165900.cdx.json/fleetflow-kafka-da526e6f6e94e15d0a24643121aac4f58f165900.cdx.json",
+      "sha256": "1251941bdceba8d3be88cb94f3d72e599c3c006988ffa1a991cafa0092a272b6",
+      "specVersion": "1.7",
+      "components": 1593
+    },
+    "source-sbom": {
+      "path": "fleetflow-source-sbom-da526e6f6e94e15d0a24643121aac4f58f165900.cdx.json/fleetflow-source-sbom-da526e6f6e94e15d0a24643121aac4f58f165900.cdx.json",
+      "sha256": "1fa222261507e701f6e74dea9ea909cd68ab257ed3befe30f679c99274a7584c",
+      "specVersion": "1.7",
+      "components": 476
+    }
+  },
+  "trivy": {
+    "app": {
+      "path": "trivy-images-da526e6f6e94e15d0a24643121aac4f58f165900/trivy-app.sarif",
+      "sha256": "eb1592891ee0168117583f8556935f7f557d7d6d97e55f8aa5e48b43fb1b9d2a",
+      "findings": 0,
+      "critical": 0,
+      "high": 0,
+      "medium": 0,
+      "low": 0,
+      "unknown": 0,
+      "secrets": 0,
+      "unclassified": 0,
+      "blockers": 0
+    },
+    "keycloak": {
+      "path": "trivy-images-da526e6f6e94e15d0a24643121aac4f58f165900/trivy-keycloak.sarif",
+      "sha256": "eb882a5beeaf72a854810576acf68855bebd7f4f6e623c75dfc442dd51ac2829",
+      "findings": 50,
+      "critical": 0,
+      "high": 0,
+      "medium": 25,
+      "low": 25,
+      "unknown": 0,
+      "secrets": 0,
+      "unclassified": 0,
+      "blockers": 0
+    },
+    "edge": {
+      "path": "trivy-images-da526e6f6e94e15d0a24643121aac4f58f165900/trivy-edge.sarif",
+      "sha256": "a8031b361b303e7158953a93a8e5f1a1cb6ccb69d38b121eeb1e3a0e518e1bf8",
+      "findings": 0,
+      "critical": 0,
+      "high": 0,
+      "medium": 0,
+      "low": 0,
+      "unknown": 0,
+      "secrets": 0,
+      "unclassified": 0,
+      "blockers": 0
+    },
+    "postgis": {
+      "path": "trivy-images-da526e6f6e94e15d0a24643121aac4f58f165900/trivy-postgis.sarif",
+      "sha256": "c149f76f1f34dcd804fe3b98a7e86d696f2cafc5a3afa6c42186e3d23d04221d",
+      "findings": 0,
+      "critical": 0,
+      "high": 0,
+      "medium": 0,
+      "low": 0,
+      "unknown": 0,
+      "secrets": 0,
+      "unclassified": 0,
+      "blockers": 0
+    },
+    "redis": {
+      "path": "trivy-images-da526e6f6e94e15d0a24643121aac4f58f165900/trivy-redis.sarif",
+      "sha256": "6701672a9532339c9e9d9f0646261691ac71357584212d86695a2fd5ac46d7ef",
+      "findings": 0,
+      "critical": 0,
+      "high": 0,
+      "medium": 0,
+      "low": 0,
+      "unknown": 0,
+      "secrets": 0,
+      "unclassified": 0,
+      "blockers": 0
+    },
+    "kafka": {
+      "path": "trivy-images-da526e6f6e94e15d0a24643121aac4f58f165900/trivy-kafka.sarif",
+      "sha256": "d3ca0d5eeea705906786ba6af84947c0403c4b43976f1749637a16a08911d781",
+      "findings": 0,
+      "critical": 0,
+      "high": 0,
+      "medium": 0,
+      "low": 0,
+      "unknown": 0,
+      "secrets": 0,
+      "unclassified": 0,
+      "blockers": 0
+    },
+    "source": {
+      "path": "trivy-source-da526e6f6e94e15d0a24643121aac4f58f165900/trivy-results.sarif",
+      "sha256": "2838439cf71e7f3b8054a0cb95cde758051dd9774ba715d0b6a2d4631d2ea7c5",
+      "findings": 0,
+      "critical": 0,
+      "high": 0,
+      "medium": 0,
+      "low": 0,
+      "unknown": 0,
+      "secrets": 0,
+      "unclassified": 0,
+      "blockers": 0
+    }
+  },
+  "codeql": {
+    "java-kotlin": {
+      "path": "codeql-java-kotlin-da526e6f6e94e15d0a24643121aac4f58f165900/java.sarif",
+      "sha256": "dcf4e8a536e2d097b016aaba288657ddfb4b4dba135f145ddb0ebb6bf55c2242",
+      "findings": 0
+    },
+    "javascript-typescript": {
+      "path": "codeql-javascript-typescript-da526e6f6e94e15d0a24643121aac4f58f165900/javascript.sarif",
+      "sha256": "152d79fb3c9eeef608e6f954b49ed589929dc9ea091da137eb01a994e636d801",
+      "findings": 0
+    }
+  },
+  "sourceCoverage": {
+    "path": "source-sbom-coverage-da526e6f6e94e15d0a24643121aac4f58f165900/source-sbom-coverage.json",
+    "sha256": "d3028896fa7573f41235e839a828a6c640ee2edc0c6b2834b91c17c6548c06fc",
+    "mavenTree": {
+      "path": "source-sbom-coverage-da526e6f6e94e15d0a24643121aac4f58f165900/target/source-maven-tree.json",
+      "sha256": "3d21734d0280af64b36b1e3c40d6d66981fba063c6b082da7bfe9f8aa468f820"
+    },
+    "selectedMavenComponents": 193,
+    "lockedNpmComponents": 270,
+    "unknownVersions": 0
+  },
+  "ownerAlertDelivery": "VERIFIED",
+  "ownerAlertRequired": true,
+  "ownerNotificationEvidence": {
+    "path": "live-browser-da526e6f6e94e15d0a24643121aac4f58f165900/owner-notification-successes.json",
+    "sha256": "6add568b6c6645b03b79c46d75fc73c5fdcf423460d5d20672dc8abe3352dd85",
+    "completedGroupNotifications": 2
+  },
+  "browserEvidence": [
+    {
+      "path": "live-browser-da526e6f6e94e15d0a24643121aac4f58f165900/result.json",
+      "sha256": "5c15aa1336c3ecca4f3ba2e97ddbcc6064ee92e05b5a38d56bcfd90d1c1db646"
+    },
+    {
+      "path": "day2-real-browser-da526e6f6e94e15d0a24643121aac4f58f165900/vertical-result.json",
+      "sha256": "feb6c2fd0280ad63948bbdd5a78810ca160c7409501bb123e285634160c57d2d"
+    },
+    {
+      "path": "day2-real-browser-da526e6f6e94e15d0a24643121aac4f58f165900/zone-result.json",
+      "sha256": "e2471afdddbcdb679bb0882a1d9f5eb1b7b22fa2fe0a4f5235793b1bbf8209a8"
+    },
+    {
+      "path": "day2-real-browser-da526e6f6e94e15d0a24643121aac4f58f165900/recovery-result.json",
+      "sha256": "55bdc05b7214a2645c090dc8552ef6fc6ea44eb400000213e028dc926092b3b2"
+    },
+    {
+      "path": "day2-real-browser-da526e6f6e94e15d0a24643121aac4f58f165900/database-postcondition.json",
+      "sha256": "9b22530990ea0f2df9876132c9a6beb6304d19edfa2b9f7bcef8f6425fc2e450"
+    },
+    {
+      "path": "day2-real-browser-da526e6f6e94e15d0a24643121aac4f58f165900/extended-database-postcondition.json",
+      "sha256": "7d0422126fd75d9bc0f7233c636ac609d954ac968334fe69f1021a4d1fde893b"
+    }
+  ],
+  "remainingReleaseGates": [
+    "vendor-supported disposition of open image findings",
+    "published registry digests and candidate provenance",
+    "explicit candidate approval",
+    "external target acceptance"
+  ],
+  "notes": "Successful CI build evidence is not a published or approved release candidate. All medium/low scan findings remain visible."
+}

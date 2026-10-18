@@ -41,8 +41,8 @@ def _severity(rule: dict, result: dict) -> str | None:
 
 def sanitize_sarif(source: Path, destination: Path) -> dict[str, int]:
     report = json.loads(source.read_text(encoding="utf-8"))
-    if report.get("version") != "2.1.0" or not isinstance(report.get("runs"), list):
-        raise ValueError("expected a SARIF 2.1.0 report with runs")
+    if report.get("version") != "2.1.0" or not isinstance(report.get("runs"), list) or not report["runs"]:
+        raise ValueError("expected a SARIF 2.1.0 report with at least one scanner run")
 
     stats = {"findings": 0, "critical": 0, "high": 0, "medium": 0, "low": 0,
              "unknown": 0, "secrets": 0, "unclassified": 0, "blockers": 0}
@@ -54,7 +54,17 @@ def sanitize_sarif(source: Path, destination: Path) -> dict[str, int]:
         rules_by_id = {str(rule.get("id")): rule for rule in rules if isinstance(rule, dict) and rule.get("id")}
         secret_ids: set[str] = set()
         safe_results: list[dict] = []
-        safe_secret_summary: list[dict[str, str | int | None]] = []
+        prior_summary = (run.get("properties") or {}).get("fleetflowSecretFindingSummary", [])
+        if not isinstance(prior_summary, list) or any(not isinstance(item, dict) for item in prior_summary):
+            raise ValueError("invalid retained secret finding summary")
+        safe_secret_summary: list[dict[str, str | int | None]] = [
+            {key: item.get(key) for key in ("ruleId", "artifactUri", "startLine")}
+            for item in prior_summary
+        ]
+        # Reprocessing an already sanitized report must retain its blocking detections.
+        stats["findings"] += len(prior_summary)
+        stats["secrets"] += len(prior_summary)
+        stats["blockers"] += len(prior_summary)
         results = run.get("results") or []
         if not isinstance(results, list):
             raise ValueError("SARIF run results must be a list")
@@ -95,7 +105,7 @@ def sanitize_sarif(source: Path, destination: Path) -> dict[str, int]:
                 stats["blockers"] += 1
             else:
                 stats[severity.casefold()] += 1
-                if severity in {"HIGH", "CRITICAL"}:
+                if severity in {"HIGH", "CRITICAL", "UNKNOWN"}:
                     stats["blockers"] += 1
             safe_results.append(result)
 
@@ -107,7 +117,7 @@ def sanitize_sarif(source: Path, destination: Path) -> dict[str, int]:
             properties = {}
             run["properties"] = properties
         properties["fleetflowSecretFindingSummary"] = safe_secret_summary
-        properties["fleetflowSecurityPolicy"] = "block-high-critical-and-any-secret"
+        properties["fleetflowSecurityPolicy"] = "block-high-critical-unknown-unclassified-and-any-secret"
 
     destination.parent.mkdir(parents=True, exist_ok=True)
     with tempfile.NamedTemporaryFile(mode="w", encoding="utf-8", newline="\n", dir=destination.parent,
@@ -138,7 +148,7 @@ def main() -> int:
             f"{key}={totals[key]}" for key in ("findings", "critical", "high", "medium", "low", "unknown", "secrets", "unclassified")
         ) + f"; blockers={totals['blockers']}")
         if totals["blockers"]:
-            print("Trivy release policy failed: high/critical findings, secret detections, or unclassified results require review.", file=sys.stderr)
+            print("Trivy release policy failed: high/critical/unknown findings, secret detections, or unclassified results require review.", file=sys.stderr)
             return 1
         return 0
     except (OSError, json.JSONDecodeError, ValueError, TypeError) as error:

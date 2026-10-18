@@ -3,6 +3,7 @@
 import json
 import re
 import sys
+import uuid
 from pathlib import Path
 
 
@@ -96,8 +97,33 @@ identity_host = edge_environment.get("IDENTITY_HOST", "")
 demo_host = edge_environment.get("DEMO_HOST", "")
 if issuer != f"https://{identity_host}/realms/fleetflow" or not identity_host or not demo_host:
     fail("API issuer and production identity hostname do not match the public realm")
+for host_name, host_value in (("DEMO_HOST", demo_host), ("IDENTITY_HOST", identity_host)):
+    labels = host_value.split(".")
+    if (len(host_value) > 253 or len(labels) < 2 or any(not re.fullmatch(
+            r"[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?", label) for label in labels)):
+        fail(f"{host_name} must be a DNS hostname")
+if demo_host.lower() == identity_host.lower():
+    fail("demo and identity hosts must be different")
 if app_environment.get("DEMO_OIDC_ISSUER") != issuer:
     fail("demo identity issuer differs from the API issuer")
+subjects = []
+for role in ("CUSTOMER", "MERCHANT", "DRIVER", "DISPATCHER", "OPERATOR"):
+    key = f"DEMO_{role}_SUBJECT"
+    value = app_environment.get(key, "")
+    try:
+        parsed = uuid.UUID(value)
+    except (ValueError, AttributeError, TypeError):
+        fail(f"{key} must be the real Keycloak UUID subject")
+    if parsed.int == 0 or str(parsed) != value.lower() or str(parsed) in {
+            "11111111-1111-4111-8111-111111111111",
+            "22222222-2222-4222-8222-222222222222",
+            "33333333-3333-4333-8333-333333333333",
+            "44444444-4444-4444-8444-444444444444",
+            "55555555-5555-4555-8555-555555555555"}:
+        fail(f"{key} still uses an example or malformed subject")
+    subjects.append(str(parsed))
+if len(set(subjects)) != len(subjects):
+    fail("demo role subjects must identify five distinct Keycloak users")
 if app_environment.get("OIDC_AUDIENCE") != "fleetflow-api":
     fail("production API audience is not fleetflow-api")
 if identity_environment.get("KC_HOSTNAME") != f"https://{identity_host}":
@@ -141,6 +167,8 @@ required_proxy_rules = (
     "limit_req_zone $binary_remote_addr",
     "log_format fleetflow",
     'add_header Content-Security-Policy "default-src',
+    'location = /runtime-config.js',
+    'oidcAuthority: "https://${IDENTITY_HOST}/realms/fleetflow"',
     "connect-src 'self' https://${IDENTITY_HOST}",
     "proxy_set_header Host $host",
 )

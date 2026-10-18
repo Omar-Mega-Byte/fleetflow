@@ -70,6 +70,12 @@ server {
     location ^~ /v3/api-docs { return 404; }
     location ^~ /.git/ { return 404; }
 
+    location = /runtime-config.js {
+        default_type application/javascript;
+        add_header Cache-Control "no-store" always;
+        return 200 'window.__FLEETFLOW_CONFIG__ = Object.freeze({ oidcAuthority: "https://${IDENTITY_HOST}/realms/fleetflow" });';
+    }
+
     location ~ "^/api/v1/orders/[0-9a-fA-F-]{36}/tracking/stream$" {
         limit_req zone=api burst=40 nodelay;
         limit_conn connections 12;

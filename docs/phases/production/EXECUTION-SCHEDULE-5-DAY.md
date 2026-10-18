@@ -112,6 +112,8 @@ No P0 item moves to post-launch. A failed P0 gate means the candidate is not app
 
 **Primary goal:** make every required persona workflow usable and have the complete critical browser suite running in CI before the end of the day.
 
+**Prompt 3 acceptance record:** [Day 3 Prompt 3 — Release Acceptance](DAY-3-PROMPT-3-RELEASE-ACCEPTANCE.md) — private persona, recovery, metrics/redaction, owner-alert delivery, and exact-commit CI passed; open Keycloak findings and target release gates keep Day 3 partial.
+
 **Active phases:** 4–8 and completion of any still-open Phase 1–3/5 defects; 9–11 preparation.
 
 **Parallel workstreams:** frontend completes remaining persona pages and negative/failure states; backend stabilizes only API gaps found by the browser suite and validates recovery/observability; release engineering closes scanner/SBOM/migration and immutable artifact automation; ops finishes runbooks, backup schedule/alert and target load/failure scripts.
@@ -135,6 +137,8 @@ No P0 item moves to post-launch. A failed P0 gate means the candidate is not app
 **Risk / fallback:** if UI time grows, reduce screen count and visual flourishes by composing shared workflow views, but preserve each persona's required actions and failure feedback. If one required persona remains a placeholder or needs Swagger, Phase 7 is open and deployment cannot be approved.
 
 ### Day 4 — Deploy the exact candidate behind the public edge
+
+**Current-state plan:** see [Day4.md](Day4.md) for the Day 3 baseline, candidate/Azure readiness gates, safe blocked-deployment path and exact Day 4 deliverables.
 
 **Primary goal:** promote only the green immutable candidate into the Azure target and prove public TLS/OIDC and network isolation.
 

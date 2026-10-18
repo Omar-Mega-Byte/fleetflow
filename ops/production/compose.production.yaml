@@ -183,11 +183,11 @@ services:
       RECOVERY_SWEEP_INTERVAL_MS: "5000"
       DEMO_ENABLED: "true"
       DEMO_OIDC_ISSUER: https://${IDENTITY_HOST}/realms/fleetflow
-      DEMO_CUSTOMER_SUBJECT: fleetflow-demo-customer
-      DEMO_MERCHANT_SUBJECT: fleetflow-demo-merchant
-      DEMO_DRIVER_SUBJECT: fleetflow-demo-driver
-      DEMO_DISPATCHER_SUBJECT: fleetflow-demo-dispatcher
-      DEMO_OPERATOR_SUBJECT: fleetflow-demo-operator
+      DEMO_CUSTOMER_SUBJECT: ${DEMO_CUSTOMER_SUBJECT:?Set the real Keycloak customer sub}
+      DEMO_MERCHANT_SUBJECT: ${DEMO_MERCHANT_SUBJECT:?Set the real Keycloak merchant sub}
+      DEMO_DRIVER_SUBJECT: ${DEMO_DRIVER_SUBJECT:?Set the real Keycloak driver sub}
+      DEMO_DISPATCHER_SUBJECT: ${DEMO_DISPATCHER_SUBJECT:?Set the real Keycloak dispatcher sub}
+      DEMO_OPERATOR_SUBJECT: ${DEMO_OPERATOR_SUBJECT:?Set the real Keycloak operator sub}
     secrets:
       - app_db_password
     depends_on:

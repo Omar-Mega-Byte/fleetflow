@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { apiClient, useAuth } from "../auth/AuthContext";
 import { useCommand, useResource } from "../api/useResource";
@@ -17,35 +17,66 @@ import {
 function DemoAction({
   action,
   onSaved,
+  onCloseBlocked,
 }: {
   action: "seed" | "reset";
   onSaved: (state: DemoState) => void;
+  onCloseBlocked: (blocked: boolean) => void;
 }) {
   const command = useCommand();
   const [reason, setReason] = useState("");
   const [confirmation, setConfirmation] = useState("");
-  const key = useRef(crypto.randomUUID());
+  const submitted = useRef<{
+    body: { reason: string; confirmation?: string };
+    key: string;
+  } | null>(null);
+  const ambiguous =
+    command.problem !== null &&
+    ["timeout", "network", "unavailable", "unexpected"].includes(
+      command.problem.kind,
+    );
+  const retryable =
+    ambiguous || command.problem?.kind === "rate-limited";
+
+  const submit = () => {
+    const request =
+      submitted.current ??
+      {
+        body: {
+          reason: reason.trim(),
+          ...(action === "reset" ? { confirmation } : {}),
+        },
+        key: crypto.randomUUID(),
+      };
+    submitted.current = request;
+    onCloseBlocked(true);
+    void command.execute(
+      (signal) =>
+        apiClient.post(
+          `/v1/demo/${action}`,
+          request.body,
+          decodeDemo,
+          { idempotencyKey: request.key, signal },
+        ),
+      (state) => {
+        submitted.current = null;
+        onCloseBlocked(false);
+        onSaved(state);
+      },
+    );
+  };
+
+  useEffect(() => {
+    if (command.problem && !ambiguous) submitted.current = null;
+    onCloseBlocked(command.pending || ambiguous);
+  }, [ambiguous, command.pending, command.problem, onCloseBlocked]);
+
   return (
     <form
       className="form-stack"
-      onChange={() => {
-        key.current = crypto.randomUUID();
-      }}
       onSubmit={(e) => {
         e.preventDefault();
-        void command.execute(
-          (signal) =>
-            apiClient.post(
-              `/v1/demo/${action}`,
-              {
-                reason: reason.trim(),
-                ...(action === "reset" ? { confirmation } : {}),
-              },
-              decodeDemo,
-              { idempotencyKey: key.current, signal },
-            ),
-          onSaved,
-        );
+        submit();
       }}
     >
       <p>
@@ -60,6 +91,7 @@ function DemoAction({
           maxLength={500}
           value={reason}
           onChange={(e) => setReason(e.target.value)}
+          disabled={ambiguous}
         />
       </label>
       {action === "reset" && (
@@ -70,13 +102,14 @@ function DemoAction({
             value={confirmation}
             onChange={(e) => setConfirmation(e.target.value)}
             autoComplete="off"
+            disabled={ambiguous}
           />
         </label>
       )}
       <button
         className="button button-primary"
         disabled={
-          command.pending ||
+          command.pending || ambiguous || command.problem?.kind === "rate-limited" ||
           !reason.trim() ||
           (action === "reset" && confirmation !== "RESET FLEETFLOW DEMO")
         }
@@ -87,7 +120,18 @@ function DemoAction({
             ? "Reset synthetic demo"
             : "Prepare synthetic demo"}
       </button>
-      {command.problem && <ErrorState problem={command.problem} />}
+      {ambiguous && (
+        <p className="notice tone-danger" role="status">
+          The result is unknown. Retry this same request to confirm whether it
+          completed. Keep this dialog open until FleetFlow confirms the result.
+        </p>
+      )}
+      {command.problem && (
+        <ErrorState
+          problem={command.problem}
+          onRetry={retryable ? submit : undefined}
+        />
+      )}
     </form>
   );
 }
@@ -95,6 +139,7 @@ export function OperationsPage() {
   const { roles } = useAuth();
   const demo = useResource("/v1/demo", decodeDemo);
   const [action, setAction] = useState<"seed" | "reset" | null>(null);
+  const [actionCloseBlocked, setActionCloseBlocked] = useState(false);
   const [confirmed, setConfirmed] = useState<{
     action: "seed" | "reset";
     state: DemoState;
@@ -129,6 +174,7 @@ export function OperationsPage() {
                       className="button button-primary"
                       onClick={() => {
                         setConfirmed(null);
+                        setActionCloseBlocked(false);
                         setAction("seed");
                       }}
                     >
@@ -138,6 +184,7 @@ export function OperationsPage() {
                       className="button button-danger"
                       onClick={() => {
                         setConfirmed(null);
+                        setActionCloseBlocked(false);
                         setAction("reset");
                       }}
                     >
@@ -187,12 +234,17 @@ export function OperationsPage() {
               ? "Prepare synthetic demo"
               : "Reset synthetic demo"
           }
-          onClose={() => setAction(null)}
+          closeDisabled={actionCloseBlocked}
+          onClose={() => {
+            if (!actionCloseBlocked) setAction(null);
+          }}
         >
           <DemoAction
             action={action}
+            onCloseBlocked={setActionCloseBlocked}
             onSaved={(state) => {
               setConfirmed({ action, state });
+              setActionCloseBlocked(false);
               setAction(null);
               demo.refresh();
             }}

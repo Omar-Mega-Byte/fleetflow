@@ -2,7 +2,7 @@
 
 > Current Day 1 assessment: **PARTIAL — external prerequisites**. [Consolidation ledger](DAY-1-EVIDENCE-LEDGER.md) supersedes earlier execution snapshots. Full release-phase exit criteria below remain independent.
 
-**Status: IN_PROGRESS. Priority: P0.** The separate TLS ingress/production Compose overlay now passes rendered topology, private-port, secret-file, OIDC and proxy-policy validation; only edge TCP 80/443 are host published. The production overlay was not started during Day 2. Azure and external-network acceptance remain unexecuted; DNS, certificate, subscription/SKU/cost and production realm initialization are not available in this workspace.
+**Status: IN_PROGRESS, PUBLIC DEPLOYMENT BLOCKED. Priority: P0.** The separate TLS ingress/production Compose overlay passes rendered topology, private-port, secret-file, OIDC and proxy-policy validation; only edge TCP 80/443 are host published. The owner supplied an enabled Azure for Students subscription, UAE North, two DuckDNS names and a $10/month ceiling. A 2026-10-18 live SKU/quota and retail-price preflight found no unrestricted VM SKU with at least 8 GB RAM and enough family quota in the approved subscription/region; even the hypothetical lower-bound VM/IP/two-disk cost is tight against the cap. See the [current cost and quota record](../../PROJECT-COMPLETION-REMAINING.md#uae-north-cost-preflight-2026-10-18). Azure and external-network acceptance remain unexecuted; DNS, certificate, production realm and target recovery/qualification are still open.
 
 ## Objective
 
@@ -79,7 +79,7 @@ One real signed browser journey and the local release checks now pass. Exact-com
 
 - `ops/production/compose.production.yaml`, `web/Dockerfile.release`, `web/nginx/fleetflow.conf.template`, the custom production Keycloak runtime, `ops/production/fleetflow.sh`, and `ops/production/README.md` prepare a private-network-first topology.
 - `scripts/Validate-ProductionCompose.py` checks that only edge publishes 80/443, all other images are digest-pinned, database/broker/identity networks are internal, and management/admin paths are rejected by the proxy draft.
-- No TLS, DNS, Azure, forwarded-header spoof, firewall-bypass, live realm/client, public port or container-start test has been run. This remains a draft and no deployment was attempted.
+- No public TLS, Azure deployment, forwarded-header spoof, firewall-bypass, live production realm/client, public port or target container-start test has been run. The two supplied DNS names currently point outside the approved Azure deployment. This remains a draft and no paid resource was created.
 
 ## Deliverables
 

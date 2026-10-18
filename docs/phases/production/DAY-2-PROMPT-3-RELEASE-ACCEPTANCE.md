@@ -1,5 +1,7 @@
 # Day 2 Prompt 3 — release acceptance
 
+> Current Days 1-3 audit: [2026-10-17 full audit](DAYS-1-3-FULL-AUDIT-2026-10-17.md) supersedes stale current-state claims below. Historical commits, commands and results remain dated evidence. Day 3 remains PARTIAL / NOT COMPLETE; Phase 11 remains CLOSED_PARTIAL.
+
 **Date:** 2026-10-15; follow-up verification 2026-10-16 (Africa/Cairo)<br>
 **Status after follow-up merge:** PR #23 merged as `2678161754dddda570a8a0c50096341c3ea93d48`. Target CI run `38760552119` exposed a contrast failure during the page entrance animation. PR #37 merged the transform-only correction as `6be435b7c6306af89b4531399340415d9ca1f20b`; target run `38907630136` passed all seven jobs on that exact `main` commit. The later Day 2 consolidation audit is recorded separately.<br>
 **Deployment boundary:** private local rehearsals only. No public deployment was made.

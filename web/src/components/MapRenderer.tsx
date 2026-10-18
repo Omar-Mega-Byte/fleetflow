@@ -18,6 +18,7 @@ export default function MapRenderer({
   const layers = useRef<L.LayerGroup | null>(null);
   const point = useRef<L.CircleMarker | null>(null);
   const fitted = useRef(false);
+  const tileLayer = useRef<L.TileLayer | null>(null);
   const callbacks = useRef({ onPoint, onSelect });
   const [tileError, setTileError] = useState(false);
   const latitude = position?.latitude;
@@ -51,10 +52,18 @@ export default function MapRenderer({
           '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
       },
     ).addTo(view);
-    tiles.on("tileerror", () => setTileError(true));
-    tiles.on("load", () => {
-      /* Point and polygon overlays remain useful if tiles fail. */
+    tileLayer.current = tiles;
+    const failed = new Set<HTMLElement>();
+    tiles.on("tileerror", (event: L.TileErrorEvent) => {
+      failed.add(event.tile);
+      setTileError(true);
     });
+    const clearTile = (event: L.TileEvent) => {
+      failed.delete(event.tile);
+      setTileError(failed.size > 0);
+    };
+    tiles.on("tileload", clearTile);
+    tiles.on("tileunload", clearTile);
     view.on("click", (event: L.LeafletMouseEvent) =>
       callbacks.current.onPoint?.([
         Number(event.latlng.lng.toFixed(6)),
@@ -67,6 +76,7 @@ export default function MapRenderer({
       resize.disconnect();
       view.remove();
       map.current = null;
+      tileLayer.current = null;
       point.current = null;
       layers.current = null;
       fitted.current = false;
@@ -129,9 +139,14 @@ export default function MapRenderer({
           dashArray: zone.active ? undefined : "6 5",
         },
       });
-      shape.on("click", (event) => {
+      shape.on("click", (event: L.LeafletMouseEvent) => {
         L.DomEvent.stopPropagation(event);
-        callbacks.current.onSelect?.(zone.id);
+        if (callbacks.current.onPoint)
+          callbacks.current.onPoint([
+            Number(event.latlng.lng.toFixed(6)),
+            Number(event.latlng.lat.toFixed(6)),
+          ]);
+        else callbacks.current.onSelect?.(zone.id);
       });
       shape.addTo(group);
       bounds.extend(shape.getBounds());
@@ -167,6 +182,13 @@ export default function MapRenderer({
         <div className="map-failure" role="status">
           Map tiles are unavailable. Authorized position and boundary overlays
           are still shown.
+          <button
+            type="button"
+            className="button button-small"
+            onClick={() => tileLayer.current?.redraw()}
+          >
+            Retry map tiles
+          </button>
         </div>
       )}
     </div>

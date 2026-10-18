@@ -1,5 +1,7 @@
 # Day 2 consolidation audit
 
+> Current Days 1-3 audit: [2026-10-17 full audit](DAYS-1-3-FULL-AUDIT-2026-10-17.md) supersedes stale current-state claims below. Historical commits, commands and results remain dated evidence. Day 3 remains PARTIAL / NOT COMPLETE; Phase 11 remains CLOSED_PARTIAL.
+
 **Audit date:** 2026-10-16 (Africa/Cairo)
 
 **Baseline:** clean local `main` and `origin/main` at `6be435b7c6306af89b4531399340415d9ca1f20b`; code-bearing consolidation merged at `0e0a21e63db7c7e4a2099c251d51618391d56213`

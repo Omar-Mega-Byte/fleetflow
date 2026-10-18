@@ -659,6 +659,12 @@ textarea:focus {
   display: grid;
   gap: 16px;
 }
+.form-fieldset {
+  border: 0;
+  margin: 0;
+  padding: 0;
+  min-width: 0;
+}
 .toolbar {
   display: flex;
   align-items: flex-end;

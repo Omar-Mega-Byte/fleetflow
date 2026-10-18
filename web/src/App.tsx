@@ -73,20 +73,6 @@ function DefaultRoute() {
   return <Navigate to="/command-center" replace />;
 }
 
-function WorkspacePreview({ persona = "account" }: { persona?: string }) {
-  const label = persona.replace(/^./, (letter) => letter.toUpperCase());
-  return (
-    <div className="page-wrap">
-      <p className="eyebrow">{label.toUpperCase()} WORKSPACE</p>
-      <h1>{label} workspace</h1>
-      <section className="state-card empty-state">
-        <h2>Workspace unavailable in this preview</h2>
-        <p>Your account is signed in. This workspace is not available yet.</p>
-      </section>
-    </div>
-  );
-}
-
 function RouteFocus() {
   const { pathname } = useLocation();
   useEffect(() => {
@@ -165,7 +151,10 @@ export function App() {
               </ProtectedRoute>
             }
           />
-          <Route path="workspace" element={<WorkspacePreview />} />
+          <Route
+            path="workspace"
+            element={<Navigate to="/command-center" replace />}
+          />
           <Route
             path="workspace/merchant"
             element={

@@ -10,5 +10,6 @@ ENV KC_DB=postgres KC_HEALTH_ENABLED=true KC_METRICS_ENABLED=true
 COPY --from=builder /opt/keycloak/ /opt/keycloak/
 COPY --chown=1000:0 --chmod=0550 ops/production/keycloak-entrypoint.sh /opt/keycloak/bin/fleetflow-entrypoint.sh
 USER 1000:0
+HEALTHCHECK --interval=10s --timeout=5s --retries=18 --start-period=30s CMD ["bash", "-ec", "exec 3<>/dev/tcp/127.0.0.1/9000; printf 'GET /health/ready HTTP/1.0\\r\\n\\r\\n' >&3; IFS= read -r status <&3; [[ $status == *' 200 '* ]]"]
 ENTRYPOINT ["/opt/keycloak/bin/fleetflow-entrypoint.sh"]
 CMD ["start", "--optimized"]

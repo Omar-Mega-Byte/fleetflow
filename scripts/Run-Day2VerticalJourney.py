@@ -14,6 +14,7 @@ import sys
 import tempfile
 import time
 import urllib.error
+import urllib.parse
 import urllib.request
 import uuid
 from datetime import datetime, timezone
@@ -259,17 +260,51 @@ def main() -> int:
             "insert into actors(id, issuer, subject, active, created_at, updated_at) "
             f"values ('{bootstrap_actor_id}', '{issuer}', '{bootstrap_subject}', true, now(), now());\n"
             f"insert into actor_roles(actor_id, role) values ('{bootstrap_actor_id}', 'ADMIN');\n"
+            "insert into merchants(id, name, active, created_at, updated_at) values "
+            "('22222222-2222-4222-8222-222222222222', 'Foreign synthetic merchant', true, now(), now());\n"
+            "insert into merchant_branches(id, merchant_id, name, pickup_line1, pickup_city, "
+            "pickup_latitude, pickup_longitude, active, created_at, updated_at) values "
+            "('11111111-1111-4111-8111-111111111111', '22222222-2222-4222-8222-222222222222', "
+            "'Foreign synthetic branch', 'Fixture address', 'Cairo', 30.0444, 31.2357, true, now(), now());\n"
         )
         execute(["docker", "exec", "-i", postgres_id, "sh", "-ec",
                  'psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB"'],
                 data=bootstrap_sql, log=evidence / "bootstrap-actor.log",
                 secrets_to_redact=secrets_to_redact)
 
+        # Verify the signed application boundary before opening the browser. A
+        # health probe alone does not exercise cold issuer/JWKS initialization.
+        preflight_started = time.monotonic()
+        token_request = urllib.request.Request(
+            issuer + "/protocol/openid-connect/token",
+            data=urllib.parse.urlencode({
+                "grant_type": "password", "client_id": "fleetflow-cli",
+                "username": accounts["bootstrap"]["username"],
+                "password": accounts["bootstrap"]["password"],
+            }).encode(),
+        )
+        with urllib.request.urlopen(token_request, timeout=30) as response:
+            bootstrap_token = json.load(response)["access_token"]
+        session_request = urllib.request.Request(
+            f"http://127.0.0.1:{ports['APP_PORT']}/api/v1/session",
+            headers={"Authorization": "Bearer " + bootstrap_token},
+        )
+        with urllib.request.urlopen(session_request, timeout=30) as response:
+            session = json.load(response)
+        if "ADMIN" not in session.get("roles", []):
+            raise RuntimeError("Signed application preflight did not resolve the bootstrap administrator")
+        (evidence / "identity-preflight.json").write_text(json.dumps({
+            "status": 200, "roles": session["roles"],
+            "elapsedMs": round((time.monotonic() - preflight_started) * 1000),
+        }, indent=2), encoding="utf-8")
+        del bootstrap_token
+
         browser_env = os.environ.copy()
         browser_env.update({
             "FLEETFLOW_E2E_ACCOUNTS": json.dumps(accounts),
             "FLEETFLOW_E2E_BRANCH": stable_branch_id(),
             "FLEETFLOW_E2E_EVIDENCE_DIR": str(evidence),
+            "FLEETFLOW_E2E_PLAYWRIGHT_OUTPUT_DIR": str(evidence / "playwright-output"),
             "FLEETFLOW_E2E_BACKEND_URL": f"http://127.0.0.1:{ports['APP_PORT']}",
             "FLEETFLOW_E2E_OIDC_ISSUER": issuer,
             "VITE_LOCAL_ORDER_CREATION": "true",
@@ -283,7 +318,7 @@ def main() -> int:
         except RuntimeError:
             browser_exit = 1
         execute([sys.executable, str(ROOT / "scripts" / "scrub_playwright_trace.py"),
-                 "--root", str(ROOT / "web" / "test-results" / "day2-live")],
+                 "--root", browser_env["FLEETFLOW_E2E_PLAYWRIGHT_OUTPUT_DIR"]],
                 data=json.dumps(secrets_to_redact), log=evidence / "trace-scrub.log")
         if github_output := os.environ.get("GITHUB_OUTPUT"):
             with Path(github_output).open("a", encoding="utf-8") as output:
@@ -324,6 +359,28 @@ def main() -> int:
             "order": status_row,
             "lifecycle": observed_states,
             "source": "isolated ephemeral PostgreSQL after browser-driven API mutations",
+        }, indent=2) + "\n", encoding="utf-8")
+        recovery = json.loads((evidence / "recovery-result.json").read_text(encoding="utf-8"))
+        zone = json.loads((evidence / "zone-result.json").read_text(encoding="utf-8"))
+        identifiers = [recovery.get("orderId", ""), zone.get("zoneId", "")]
+        if any(not isinstance(value, str) or not re.fullmatch(
+                r"[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}", value, re.IGNORECASE)
+                for value in identifiers):
+            raise RuntimeError("Extended browser evidence has an invalid resource identifier")
+        recovery_order, zone_id = identifiers
+        extra_sql = (
+            f"select (select status from orders where id = '{recovery_order}') || '|' || "
+            f"(select version::text || ':' || ST_IsValid(boundary)::text from delivery_zones where id = '{zone_id}') || '|' || "
+            f"(select serviceability_mode from merchant_branches where id = '{stable_branch_id()}') || '|' || "
+            f"(select count(*)::text from delivery_zones where branch_id = '{stable_branch_id()}')"
+        )
+        extended = execute(["docker", "exec", postgres_id, "sh", "-ec",
+                            'psql -At -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c "$1"', "sh", extra_sql]).strip()
+        if extended != "CANCELLED|2:true|UNRESTRICTED|2":
+            raise RuntimeError("The database did not confirm cancellation, valid zone revision and a single created boundary")
+        (evidence / "extended-database-postcondition.json").write_text(json.dumps({
+            "recoveryOrderId": recovery_order, "zoneId": zone_id, "postcondition": extended,
+            "source": "isolated PostgreSQL after signed browser recovery and zone edits",
         }, indent=2) + "\n", encoding="utf-8")
         print("PASS: real PKCE, operator seed/reset, customer order creation, merchant, dispatcher, driver, SSE and persisted DELIVERED state.", flush=True)
         print(f"Evidence: {evidence}", flush=True)

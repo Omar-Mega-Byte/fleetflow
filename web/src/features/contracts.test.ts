@@ -5,6 +5,8 @@ import {
   decodeNotifications,
   decodeReplay,
   decodeZone,
+  decodeDemoDriverRoute,
+  decodeServiceability,
 } from "./contracts";
 const id = "10000000-0000-4000-8000-000000000001";
 describe("operational response boundaries", () => {
@@ -23,6 +25,9 @@ describe("operational response boundaries", () => {
     expect(() => decodeCandidate({ ...candidate, score: "0.9" })).toThrow();
   });
   it("rejects invalid geographic coordinates and unsupported geometries", () => {
+    expect(() =>
+      decodeGeometry({ type: "MultiPolygon", coordinates: [] }),
+    ).toThrow();
     expect(() =>
       decodeGeometry({
         type: "Polygon",
@@ -54,6 +59,43 @@ describe("operational response boundaries", () => {
     });
     expect(shape.type).toBe("MultiPolygon");
   });
+  it("accepts only bounded fixture positions and explicit branch coverage", () => {
+    const positions = Array.from({ length: 5 }, () => ({
+      latitude: 30,
+      longitude: 31,
+    }));
+    expect(
+      decodeDemoDriverRoute({ generation: 2, points: positions }).points,
+    ).toHaveLength(5);
+    expect(() =>
+      decodeDemoDriverRoute({
+        generation: 2,
+        points: [...positions, positions[0]],
+      }),
+    ).toThrow();
+    expect(() =>
+      decodeDemoDriverRoute({
+        generation: 2,
+        points: positions.map(() => ({ latitude: 91, longitude: 31 })),
+      }),
+    ).toThrow();
+    expect(
+      decodeServiceability({
+        supported: false,
+        mode: "ENFORCED",
+        policyVersion: 3,
+        zoneId: null,
+      }).supported,
+    ).toBe(false);
+    expect(() =>
+      decodeServiceability({
+        supported: "true",
+        mode: "ENFORCED",
+        policyVersion: 3,
+        zoneId: null,
+      }),
+    ).toThrow();
+  });
   it("rejects malformed zone versions and unbounded recipient activity", () => {
     expect(() =>
       decodeZone({
@@ -72,9 +114,12 @@ describe("operational response boundaries", () => {
     ).toThrow();
   });
   it("accepts only explicit operator replay outcomes", () => {
-    expect(decodeReplay({ eventId: id, outcome: "REPLAYED" }).outcome).toBe("REPLAYED");
-    expect(decodeReplay({ eventId: id, outcome: "REPLAY_LIMIT_REACHED" }).outcome)
-      .toBe("REPLAY_LIMIT_REACHED");
+    expect(decodeReplay({ eventId: id, outcome: "REPLAYED" }).outcome).toBe(
+      "REPLAYED",
+    );
+    expect(
+      decodeReplay({ eventId: id, outcome: "REPLAY_LIMIT_REACHED" }).outcome,
+    ).toBe("REPLAY_LIMIT_REACHED");
     expect(() => decodeReplay({ eventId: id, outcome: "QUEUED" })).toThrow();
   });
 });

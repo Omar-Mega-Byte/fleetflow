@@ -287,6 +287,21 @@ export async function productFixture(
       zone = { ...zone, ...body, version: zone.version + 1 };
       return reply(zone);
     }
+    if (path === "/api/v1/demo/driver-route")
+      return reply({
+        generation,
+        points: Array.from({ length: 5 }, (_, i) => ({
+          latitude: 30.0444 + i / 1000,
+          longitude: 31.2357 + i / 1000,
+        })),
+      });
+    if (path.endsWith("/serviceability"))
+      return reply({
+        supported: true,
+        mode: "UNRESTRICTED",
+        policyVersion: 2,
+        zoneId: null,
+      });
     if (path === "/api/v1/drivers/me")
       return reply({
         id: ids.driver,

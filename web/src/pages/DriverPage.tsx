@@ -6,10 +6,12 @@ import {
   decodeDeliveries,
   decodeDriver,
   decodeDriverOffers,
+  decodeDemoDriverRoute,
   decodeOfferReceipt,
 } from "../features/contracts";
 import { Expiry, useNow } from "../components/Expiry";
 import { ErrorState } from "../components/States";
+import { SyntheticMovement } from "../features/driver/SyntheticMovement";
 import {
   Icon,
   Notice,
@@ -38,6 +40,7 @@ function currentPosition(): Promise<GeolocationPosition> {
 }
 export function DriverPage() {
   const driver = useResource("/v1/drivers/me", decodeDriver);
+  const synthetic = useResource("/v1/demo/driver-route", decodeDemoDriverRoute);
   const offers = useResource(
     "/v1/drivers/me/offers",
     decodeDriverOffers,
@@ -56,8 +59,12 @@ export function DriverPage() {
     driver.refresh();
     offers.refresh();
     deliveries.refresh();
+    synthetic.refresh();
   };
   const state = driver.data?.operationalStatus;
+  const devicePositionAllowed =
+    synthetic.problem?.kind === "not-found" ||
+    synthetic.problem?.kind === "forbidden";
   const availability: Record<string, string[]> = {
     OFFLINE: ["online"],
     ONLINE: ["available", "pause", "offline"],
@@ -257,43 +264,48 @@ export function DriverPage() {
         <aside className="stack">
           <Panel title="Position and heartbeat">
             <p className="muted small">
-              Share one current device fix when you are ready. Position is never
-              collected automatically.
+              {synthetic.data
+                ? "Use the synthetic movement controls below. This demo account does not request your device position."
+                : devicePositionAllowed
+                  ? "Share one current device fix when you are ready. Position is never collected automatically."
+                  : "Position options are being checked. Refresh if they remain unavailable."}
             </p>
             <div className="form-stack">
-              <button
-                className="button"
-                disabled={
-                  command.pending ||
-                  !state ||
-                  ["OFFLINE", "PAUSED"].includes(state)
-                }
-                onClick={() =>
-                  void command.execute(
-                    async (signal) => {
-                      const fix = await currentPosition();
-                      if (signal.aborted) throw new Error("Cancelled");
-                      return apiClient.post(
-                        "/v1/drivers/me/location",
-                        {
-                          latitude: fix.coords.latitude,
-                          longitude: fix.coords.longitude,
-                          heading: fix.coords.heading,
-                          speed: fix.coords.speed,
-                          reportedAt: new Date(fix.timestamp).toISOString(),
-                        },
-                        decodeVoid,
-                        { signal },
-                      );
-                    },
-                    () => {},
-                    "Current position shared.",
-                  )
-                }
-              >
-                <Icon name="pin" />
-                Share current position
-              </button>
+              {devicePositionAllowed && (
+                <button
+                  className="button"
+                  disabled={
+                    command.pending ||
+                    !state ||
+                    ["OFFLINE", "PAUSED"].includes(state)
+                  }
+                  onClick={() =>
+                    void command.execute(
+                      async (signal) => {
+                        const fix = await currentPosition();
+                        if (signal.aborted) throw new Error("Cancelled");
+                        return apiClient.post(
+                          "/v1/drivers/me/location",
+                          {
+                            latitude: fix.coords.latitude,
+                            longitude: fix.coords.longitude,
+                            heading: fix.coords.heading,
+                            speed: fix.coords.speed,
+                            reportedAt: new Date(fix.timestamp).toISOString(),
+                          },
+                          decodeVoid,
+                          { signal },
+                        );
+                      },
+                      () => {},
+                      "Current position shared.",
+                    )
+                  }
+                >
+                  <Icon name="pin" />
+                  Share current position
+                </button>
+              )}
               <button
                 className="button"
                 disabled={
@@ -319,6 +331,32 @@ export function DriverPage() {
               </button>
             </div>
           </Panel>
+          {synthetic.data && (
+            <SyntheticMovement
+              key={synthetic.data.generation}
+              route={synthetic.data}
+              disabled={
+                command.pending ||
+                !driver.data?.active ||
+                driver.data.suspended ||
+                !state ||
+                ["OFFLINE", "PAUSED"].includes(state)
+              }
+              onSend={(position, confirmed) =>
+                void command.execute(
+                  (signal) =>
+                    apiClient.post(
+                      "/v1/drivers/me/location",
+                      { ...position, reportedAt: new Date().toISOString() },
+                      decodeVoid,
+                      { signal },
+                    ),
+                  confirmed,
+                  "Synthetic position shared.",
+                )
+              }
+            />
+          )}
         </aside>
       </div>
       {failure && (
