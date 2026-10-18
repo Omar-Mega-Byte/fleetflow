@@ -1,6 +1,6 @@
 # Phase 8 immutable promotion handoff — 2026-10-18
 
-**Do not publish yet.** The [exact-image security reconciliation](KEYCLOAK-SECURITY-RECONCILIATION-2026-10-18.md) has six `OPEN` CVEs. The following sequence is ready for use **after** all 28 rows have a defensible final decision and the release owner has reviewed that CSV. Publication, candidate approval and Azure deployment are separate gates.
+**Do not publish yet.** The [exact-image security reconciliation](KEYCLOAK-SECURITY-RECONCILIATION-2026-10-18.md) has seven `OPEN` CVEs. The following sequence is ready for use **after** all 28 rows have a defensible final decision and the release owner has reviewed that CSV. Publication, candidate approval and Azure deployment are separate gates.
 
 ## Registry choice
 
