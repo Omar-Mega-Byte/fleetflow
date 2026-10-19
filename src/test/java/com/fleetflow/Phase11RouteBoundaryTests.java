@@ -49,7 +49,8 @@ class Phase11RouteBoundaryTests extends ProfileTestDatabase {
             if (paths == null) { continue; }
             for (var pattern : paths.getPatterns()) {
                 String route = pattern.getPatternString();
-                if (!route.startsWith("/api/v1/")) { continue; }
+                // Public credential exchange and idempotent revocation are covered by FirstPartyLoginTests.
+                if (!route.startsWith("/api/v1/") || route.startsWith("/api/v1/auth/")) { continue; }
                 assertThat(entry.getKey().getMethodsCondition().getMethods())
                         .as("explicit HTTP method for %s", route).isNotEmpty();
                 String concrete = PARAMETER.matcher(route).replaceAll(UUID.randomUUID().toString());

@@ -1,6 +1,7 @@
 package com.fleetflow.identity;
 
 import java.util.Set;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -21,6 +22,16 @@ public class ActorResolver {
     public AuthenticatedActor resolve(String issuer, String subject) {
         ActorEntity actor = actors.findByIssuerAndSubject(issuer, subject)
                 .orElseThrow(ActorRejectedException::new);
+        return resolveActor(actor);
+    }
+
+    @Transactional(readOnly = true)
+    public AuthenticatedActor resolveById(UUID id) {
+        ActorEntity actor = actors.findById(id).orElseThrow(ActorRejectedException::new);
+        return resolveActor(actor);
+    }
+
+    private AuthenticatedActor resolveActor(ActorEntity actor) {
         if (!actor.active) {
             throw new ActorRejectedException();
         }

@@ -20,6 +20,7 @@ function Probe() {
   const auth = useAuth();
   return <><p data-testid="status">{auth.status}:{auth.roles.join(',')}</p>
     <button onClick={() => void auth.signOut()}>Sign out</button>
+    <button onClick={() => void auth.signInWithPassword('operator@fleetflow.demo', 'correct-password')}>Password login</button>
     <button onClick={() => void auth.completeSignIn().catch(() => undefined)}>Complete callback</button>
     <button onClick={() => void auth.reauthenticate()}>Reauthenticate</button></>;
 }
@@ -31,6 +32,21 @@ beforeEach(() => {
 });
 afterEach(() => { cleanup(); window.history.replaceState({}, '', '/'); });
 describe('authentication state lifecycle', () => {
+  it('uses the first-party session for API requests and revokes it on logout', async () => {
+    const token = 'a'.repeat(43);
+    mocks.fetcher.mockResolvedValueOnce(Response.json({ token, expiresAt: new Date(Date.now() + 90_000).toISOString() }))
+      .mockResolvedValueOnce(Response.json({ roles: ['ADMIN'] }))
+      .mockResolvedValueOnce(new Response(null, { status: 204 }));
+    render(<AuthProvider><Probe /></AuthProvider>);
+    await waitFor(() => expect(screen.getByTestId('status')).toHaveTextContent('unauthenticated:'));
+    fireEvent.click(screen.getByText('Password login'));
+    await waitFor(() => expect(screen.getByTestId('status')).toHaveTextContent('authenticated:ADMIN'));
+    expect(mocks.fetcher.mock.calls[1]?.[1]?.headers).toMatchObject({ 'X-FleetFlow-Session': token });
+    fireEvent.click(screen.getByText('Sign out'));
+    await waitFor(() => expect(screen.getByTestId('status')).toHaveTextContent('unauthenticated:'));
+    expect(mocks.fetcher.mock.calls[2]?.[1]?.headers).toMatchObject({ 'X-FleetFlow-Session': token });
+    await expect(apiClient.get('/v1/session', decodeSession)).rejects.toMatchObject({ kind: 'unauthenticated' });
+  });
   it('does not restore authentication from a late session read after logout', async () => {
     mocks.manager.getUser.mockResolvedValue(user('customer'));
     let respond!: (value: Response) => void;

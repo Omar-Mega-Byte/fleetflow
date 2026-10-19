@@ -62,7 +62,8 @@ class OpenApiDocsTests extends ProfileTestDatabase {
                                         operation.path("responses").path(success))
                                 .isNotBlank();
                     }
-                    if ((method.equals("post") && (!lifecycle || path.endsWith("/cancel")))
+                    if ((method.equals("post") && (!lifecycle || path.endsWith("/cancel"))
+                            && !path.equals("/api/v1/auth/logout"))
                             || method.equals("put")) {
                         assertThat(operation.path("requestBody").path("content")
                                 .path("application/json").path("schema").path("$ref").asText()).isNotBlank();
@@ -91,10 +92,12 @@ class OpenApiDocsTests extends ProfileTestDatabase {
                 }
             }
         });
-        assertThat(actual).hasSize(65).containsExactlyInAnyOrderElementsOf(registered);
+        assertThat(actual).hasSize(67).containsExactlyInAnyOrderElementsOf(registered);
         assertThat(document.path("paths").has("/actuator/health")).isFalse();
         assertThat(document.path("components").path("securitySchemes").path("bearerAuth")
                 .path("scheme").asText()).isEqualTo("bearer");
+        assertThat(document.path("components").path("securitySchemes").path("localSession")
+                .path("name").asText()).isEqualTo("X-FleetFlow-Session");
         assertThat(document.path("security").toString()).contains("bearerAuth");
         assertThat(document.path("paths").path("/api/v1/orders").path("post")
                 .path("responses").has("201")).isTrue();

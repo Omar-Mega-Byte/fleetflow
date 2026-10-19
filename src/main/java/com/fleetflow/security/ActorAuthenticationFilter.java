@@ -21,10 +21,12 @@ import org.springframework.web.filter.OncePerRequestFilter;
 public class ActorAuthenticationFilter extends OncePerRequestFilter {
     private final ActorResolver resolver;
     private final SecurityProblemWriter errors;
+    private final LocalLoginService localLogin;
 
-    public ActorAuthenticationFilter(ActorResolver resolver, SecurityProblemWriter errors) {
+    public ActorAuthenticationFilter(ActorResolver resolver, SecurityProblemWriter errors, LocalLoginService localLogin) {
         this.resolver = resolver;
         this.errors = errors;
+        this.localLogin = localLogin;
     }
 
     @Override
@@ -33,6 +35,7 @@ public class ActorAuthenticationFilter extends OncePerRequestFilter {
         if (path == null || path.isEmpty()) {
             path = request.getRequestURI().substring(request.getContextPath().length());
         }
+        if (path.equals("/api/v1/auth/logout")) return true;
         return !(path.startsWith("/api/v1/") || path.equals("/actuator/metrics")
                 || path.startsWith("/actuator/metrics/"));
     }
@@ -40,15 +43,31 @@ public class ActorAuthenticationFilter extends OncePerRequestFilter {
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response,
                                     FilterChain chain) throws ServletException, IOException {
-        if (SecurityContextHolder.getContext().getAuthentication() instanceof JwtAuthenticationToken jwt) {
+        String localToken = request.getHeader("X-FleetFlow-Session");
+        if (localToken != null && request.getHeader("Authorization") != null) {
+            errors.write(request, response, 400, "INVALID_AUTHENTICATION", "Choose one authentication method");
+            return;
+        }
+        if (localToken != null) {
+            try {
+                var session = localLogin.authenticate(localToken);
+                if (session == null) {
+                    errors.write(request, response, 401, "UNAUTHENTICATED", "Authentication required");
+                    return;
+                }
+                request.setAttribute("fleetflowTokenExpiresAt", session.expiresAt());
+                setActor(session.actor());
+            } catch (DataAccessException | PersistenceException | CannotCreateTransactionException unavailable) {
+                SecurityContextHolder.clearContext();
+                errors.write(request, response, 503, "DATABASE_UNAVAILABLE", "Database is unavailable");
+                return;
+            }
+        } else if (SecurityContextHolder.getContext().getAuthentication() instanceof JwtAuthenticationToken jwt) {
             try {
                 request.setAttribute("fleetflowTokenExpiresAt", jwt.getToken().getExpiresAt());
                 AuthenticatedActor actor = resolver.resolve(jwt.getToken().getIssuer().toString(),
                         jwt.getToken().getSubject());
-                var authorities = actor.roles().stream()
-                        .map(role -> new SimpleGrantedAuthority("ROLE_" + role.name())).toList();
-                SecurityContextHolder.getContext().setAuthentication(
-                        new UsernamePasswordAuthenticationToken(actor, null, authorities));
+                setActor(actor);
             } catch (ActorResolver.ActorRejectedException rejected) {
                 SecurityContextHolder.clearContext();
                 errors.write(request, response, 403, "FORBIDDEN", "Access denied");
@@ -60,5 +79,12 @@ public class ActorAuthenticationFilter extends OncePerRequestFilter {
             }
         }
         chain.doFilter(request, response);
+    }
+
+    private void setActor(AuthenticatedActor actor) {
+        var authorities = actor.roles().stream()
+                .map(role -> new SimpleGrantedAuthority("ROLE_" + role.name())).toList();
+        SecurityContextHolder.getContext().setAuthentication(
+                new UsernamePasswordAuthenticationToken(actor, null, authorities));
     }
 }

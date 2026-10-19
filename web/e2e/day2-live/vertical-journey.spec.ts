@@ -126,7 +126,7 @@ async function login(
 
   await page.goto(appOrigin + route);
   await expect(
-    page.getByRole("button", { name: "Continue to sign in" }),
+    page.getByRole("button", { name: "Continue with workspace SSO" }),
   ).toBeVisible();
   const authorization = page.waitForRequest((request) => {
     const url = new URL(request.url());
@@ -135,7 +135,7 @@ async function login(
       url.searchParams.get("client_id") === "fleetflow-web"
     );
   });
-  await page.getByRole("button", { name: "Continue to sign in" }).click();
+  await page.getByRole("button", { name: "Continue with workspace SSO" }).click();
   const authUrl = new URL((await authorization).url());
   expect(authUrl.searchParams.get("response_type")).toBe("code");
   expect(authUrl.searchParams.get("code_challenge_method")).toBe("S256");
@@ -1062,10 +1062,10 @@ test("signed failure states and dispatcher retry, driver rejection and cancellat
       .getByRole("button", { name: "Refresh", exact: true })
       .click();
     await expect(
-      customer.page.getByRole("button", { name: "Continue to sign in" }),
+      customer.page.getByRole("button", { name: "Continue with workspace SSO" }),
     ).toBeVisible();
     await customer.page
-      .getByRole("button", { name: "Continue to sign in" })
+      .getByRole("button", { name: "Continue with workspace SSO" })
       .click();
     await expect(
       customer.page.getByRole("heading", { name: "Your orders" }),

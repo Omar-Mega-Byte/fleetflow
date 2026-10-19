@@ -53,7 +53,7 @@ class MigrationUpgradeTests {
                       'Road', 'Cairo', 30.2, 31.2, 'EGP', 1.00, now(), now())
                     """, order, customer, branch);
             assertThat(Flyway.configure().dataSource(source).locations("classpath:db/migration")
-                    .load().migrate().migrationsExecuted).isEqualTo(3);
+                    .load().migrate().migrationsExecuted).isEqualTo(4);
             assertThat(jdbc.queryForObject("select serviceability_mode from merchant_branches where id = ?",
                     String.class, branch)).isEqualTo("UNRESTRICTED");
             assertThat(jdbc.queryForObject("select zone_policy_version from merchant_branches where id = ?",
@@ -133,7 +133,7 @@ class MigrationUpgradeTests {
                     """, order, customer, branch);
 
             Flyway upgraded = Flyway.configure().dataSource(source).locations("classpath:db/migration").load();
-            assertThat(upgraded.migrate().migrationsExecuted).isEqualTo(12);
+            assertThat(upgraded.migrate().migrationsExecuted).isEqualTo(13);
             assertThat(upgraded.migrate().migrationsExecuted).isZero();
             assertThat(jdbc.queryForObject("select version from orders where id = ?", Long.class, order)).isZero();
             assertThat(jdbc.queryForObject("select operational_status from drivers where id = ?", String.class, driver))
@@ -168,7 +168,7 @@ class MigrationUpgradeTests {
 
             Flyway upgraded = Flyway.configure().dataSource(db.getJdbcUrl(), db.getUsername(), db.getPassword())
                     .locations("classpath:db/migration").load();
-            assertThat(upgraded.migrate().migrationsExecuted).isEqualTo(13);
+            assertThat(upgraded.migrate().migrationsExecuted).isEqualTo(14);
             assertThat(upgraded.migrate().migrationsExecuted).isZero();
             assertThat(jdbc.queryForObject("select count(*) from actors where id = ?", Integer.class, actor))
                     .isEqualTo(1);

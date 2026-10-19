@@ -51,12 +51,13 @@ export function useTracking(id: string | null) {
     [id],
   );
   useEffect(() => {
-    if (!id || !auth.user?.access_token || !readyId || terminal) return;
+    const token = auth.localToken ? 'local:' + auth.localToken : auth.user?.access_token;
+    if (!id || !token || !readyId || terminal) return;
     const controller = new AbortController();
     void connectTrackingStream({
       url: `/api/v1/orders/${encodeURIComponent(id)}/tracking/stream`,
       orderId: id,
-      token: auth.user.access_token,
+      token,
       signal: controller.signal,
       refreshSnapshot,
       onUnauthenticated: auth.expireSession,
@@ -74,6 +75,7 @@ export function useTracking(id: string | null) {
     readyId,
     terminal,
     auth.user?.access_token,
+    auth.localToken,
     auth.expireSession,
     refreshSnapshot,
   ]);

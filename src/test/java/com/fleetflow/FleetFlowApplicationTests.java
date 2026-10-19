@@ -55,7 +55,7 @@ class FleetFlowApplicationTests {
         assertThat(new JdbcTemplate(dataSource).queryForObject("select 1", Integer.class)).isEqualTo(1);
         assertThat(new JdbcTemplate(dataSource).queryForObject("show statement_timeout", String.class)).isEqualTo("15s");
         assertThat(new JdbcTemplate(dataSource).queryForObject("show lock_timeout", String.class)).isEqualTo("3s");
-        assertThat(flyway.info().applied()).hasSize(14);
+        assertThat(flyway.info().applied()).hasSize(15);
         assertThat(flyway.info().applied()[0].getVersion().getVersion()).isEqualTo("1");
         assertThat(flyway.info().applied()[1].getVersion().getVersion()).isEqualTo("2");
         assertThat(flyway.info().applied()[2].getVersion().getVersion()).isEqualTo("3");

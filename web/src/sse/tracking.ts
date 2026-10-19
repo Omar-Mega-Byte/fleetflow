@@ -45,7 +45,9 @@ export async function connectTrackingStream(options: TrackingStreamOptions): Pro
     let backoff = delays[attempt];
     try {
       const response = await fetcher(options.url, {
-        headers: { Authorization: 'Bearer ' + options.token, Accept: 'text/event-stream' },
+        headers: { ...(options.token.startsWith('local:')
+          ? { 'X-FleetFlow-Session': options.token.slice(6) }
+          : { Authorization: 'Bearer ' + options.token }), Accept: 'text/event-stream' },
         cache: 'no-store', credentials: 'omit', redirect: 'error', signal: controller.signal,
       });
       if (options.signal.aborted) { await response.body?.cancel(); return; }

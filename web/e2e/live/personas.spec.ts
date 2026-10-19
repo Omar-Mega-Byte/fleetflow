@@ -17,7 +17,7 @@ test("real persona workspaces, driver actions, PostGIS map and guarded dispatch"
   const evidence = process.env.FLEETFLOW_E2E_EVIDENCE_DIR!;
   async function login(page: Page, persona: string, route: string) {
     await page.goto("https://demo.fleetflow.localhost" + route);
-    await page.getByRole("button", { name: "Continue to sign in" }).click();
+    await page.getByRole("button", { name: "Continue with workspace SSO" }).click();
     await page
       .getByRole("textbox", { name: /Username|Email/i })
       .fill(accounts[persona]!.username);

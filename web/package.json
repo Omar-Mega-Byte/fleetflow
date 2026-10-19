@@ -15,6 +15,7 @@
     "test:e2e": "playwright test",
     "test:e2e:live": "playwright test --config playwright.live.config.ts",
     "test:e2e:day2": "playwright test --config playwright.day2.config.ts",
+    "test:login:visual": "node capture-login.mjs",
     "test:performance": "playwright test --config playwright.performance.config.ts"
   },
   "dependencies": {

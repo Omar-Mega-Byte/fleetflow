@@ -15,6 +15,7 @@ import com.jayway.jsonpath.JsonPath;
 import com.fleetflow.api.SecurityProblemWriter;
 import com.fleetflow.identity.ActorResolver;
 import com.fleetflow.security.ActorAuthenticationFilter;
+import com.fleetflow.security.LocalLoginService;
 import jakarta.servlet.Filter;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -231,7 +232,7 @@ class Phase2SecurityTests extends ProfileTestDatabase {
             request.setAttribute("phase1CorrelationId", "outage-cid");
             MockHttpServletResponse response = new MockHttpServletResponse();
             new ActorAuthenticationFilter(unavailable,
-                    new SecurityProblemWriter(context.getBean(ObjectMapper.class)))
+                    new SecurityProblemWriter(context.getBean(ObjectMapper.class)), mock(LocalLoginService.class))
                     .doFilter(request, response, new MockFilterChain());
             assertThat(response.getStatus()).isEqualTo(503);
             assertThat(response.getContentAsString()).contains("DATABASE_UNAVAILABLE", "outage-cid")

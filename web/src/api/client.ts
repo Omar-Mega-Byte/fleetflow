@@ -104,7 +104,11 @@ export class ApiClient {
       try {
         const response = await this.fetcher(this.baseUrl + path, {
           ...init, signal: controller.signal, cache: 'no-store', credentials: 'omit', redirect: 'error',
-          headers: { ...init.headers, Authorization: 'Bearer ' + token, Accept: 'application/json' },
+          headers: { ...init.headers,
+            ...(token.startsWith('local:')
+              ? { 'X-FleetFlow-Session': token.slice(6) }
+              : { Authorization: 'Bearer ' + token }),
+            Accept: 'application/json' },
         });
         if (external?.aborted) throw new ApiProblem('cancelled');
         if (response.status === 401) this.unauthenticatedHandler?.();

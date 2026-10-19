@@ -17,9 +17,9 @@ test('real signed PKCE customer order, scoped API, lifecycle SSE, reload and log
     }
   });
   await page.goto(`/customer/orders/${order}`);
-  await expect(page.getByRole('button', { name: 'Continue to sign in' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Continue with workspace SSO' })).toBeVisible();
   const authorization = page.waitForRequest(request => request.url().includes('/protocol/openid-connect/auth?'));
-  await page.getByRole('button', { name: 'Continue to sign in' }).click();
+  await page.getByRole('button', { name: 'Continue with workspace SSO' }).click();
   const authUrl = new URL((await authorization).url());
   expect(authUrl.searchParams.get('code_challenge_method')).toBe('S256');
   expect(authUrl.searchParams.get('code_challenge')?.length).toBeGreaterThanOrEqual(43);
@@ -59,8 +59,8 @@ test('real signed PKCE customer order, scoped API, lifecycle SSE, reload and log
     await page.evaluate(() => { history.pushState({}, '', '/workspace/driver'); dispatchEvent(new PopStateEvent('popstate')); });
     await expect(page.getByRole('heading', { name: 'Access unavailable' })).toBeVisible();
     await page.goto(`/customer/orders/${order}`);
-    await expect(page.getByRole('button', { name: 'Continue to sign in' })).toBeVisible();
-    await page.getByRole('button', { name: 'Continue to sign in' }).click();
+    await expect(page.getByRole('button', { name: 'Continue with workspace SSO' })).toBeVisible();
+    await page.getByRole('button', { name: 'Continue with workspace SSO' }).click();
     await expect(page.getByRole('heading', { name: 'Downtown Branch' })).toBeVisible();
     await page.setViewportSize({ width: 390, height: 844 });
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
@@ -70,8 +70,8 @@ test('real signed PKCE customer order, scoped API, lifecycle SSE, reload and log
     const storage = await page.evaluate(() => [localStorage, sessionStorage].flatMap(store => Object.entries(store).flat()).join(''));
     expect(credentials.some(secret => storage.includes(secret))).toBe(false);
     await page.reload();
-    await expect(page.getByRole('button', { name: 'Continue to sign in' })).toBeVisible();
-    await page.getByRole('button', { name: 'Continue to sign in' }).click();
+    await expect(page.getByRole('button', { name: 'Continue with workspace SSO' })).toBeVisible();
+    await page.getByRole('button', { name: 'Continue with workspace SSO' }).click();
     await expect(page.getByRole('button', { name: 'Sign out', exact: true })).toBeVisible();
     await page.getByRole('button', { name: 'Sign out', exact: true }).click();
     await expect(page.getByRole('heading', { name: 'You’re signed out' })).toBeVisible();
