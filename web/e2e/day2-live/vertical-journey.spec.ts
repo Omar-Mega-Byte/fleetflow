@@ -146,11 +146,11 @@ async function login(
   expect(authUrl.searchParams.has("id_token")).toBe(false);
 
   const account = accountsFromEnvironment()[persona];
-  await page
-    .getByRole("textbox", { name: /Username|Email/i })
-    .fill(account.username);
+  const keycloakUsername = page.getByRole("textbox", { name: "Username or email", exact: true });
+  await expect(keycloakUsername).toBeVisible();
+  await keycloakUsername.fill(account.username);
   await page.getByLabel("Password", { exact: true }).fill(account.password);
-  await page.getByRole("button", { name: /Sign in/i }).click();
+  await page.getByRole("button", { name: "Sign In", exact: true }).click();
   await expect(
     page.getByRole("button", { name: "Sign out", exact: true }),
   ).toBeVisible({ timeout: 30_000 });

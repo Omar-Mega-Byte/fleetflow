@@ -18,13 +18,13 @@ test("real persona workspaces, driver actions, PostGIS map and guarded dispatch"
   async function login(page: Page, persona: string, route: string) {
     await page.goto("https://demo.fleetflow.localhost" + route);
     await page.getByRole("button", { name: "Continue with workspace SSO" }).click();
-    await page
-      .getByRole("textbox", { name: /Username|Email/i })
-      .fill(accounts[persona]!.username);
+    const keycloakUsername = page.getByRole("textbox", { name: "Username or email", exact: true });
+    await expect(keycloakUsername).toBeVisible();
+    await keycloakUsername.fill(accounts[persona]!.username);
     await page
       .getByLabel("Password", { exact: true })
       .fill(accounts[persona]!.password);
-    await page.getByRole("button", { name: /Sign in/i }).click();
+    await page.getByRole("button", { name: "Sign In", exact: true }).click();
   }
   for (const persona of ["merchant", "driver", "dispatcher", "bootstrap"]) {
     const context = await browser.newContext({

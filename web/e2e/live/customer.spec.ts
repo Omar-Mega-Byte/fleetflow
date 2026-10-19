@@ -23,9 +23,11 @@ test('real signed PKCE customer order, scoped API, lifecycle SSE, reload and log
   const authUrl = new URL((await authorization).url());
   expect(authUrl.searchParams.get('code_challenge_method')).toBe('S256');
   expect(authUrl.searchParams.get('code_challenge')?.length).toBeGreaterThanOrEqual(43);
-  await page.getByRole('textbox', { name: /Username|Email/i }).fill(accounts.customer!.username);
+  const keycloakUsername = page.getByRole('textbox', { name: 'Username or email', exact: true });
+  await expect(keycloakUsername).toBeVisible();
+  await keycloakUsername.fill(accounts.customer!.username);
   await page.getByLabel('Password', { exact: true }).fill(accounts.customer!.password);
-  await page.getByRole('button', { name: /Sign in/i }).click();
+  await page.getByRole('button', { name: 'Sign In', exact: true }).click();
   await expect(page).toHaveURL(new RegExp(`/customer/orders/${order}$`));
   await expect(page.getByRole('heading', { name: 'Downtown Branch' })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Order received' })).toBeVisible();
