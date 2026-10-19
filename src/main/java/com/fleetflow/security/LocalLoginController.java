@@ -21,8 +21,21 @@ import org.springframework.web.bind.annotation.RestController;
 @Tag(name = "Authentication", description = "First-party demo credentials and short-lived opaque sessions.")
 public class LocalLoginController {
     private final LocalLoginService service;
+    private final CustomerSignupService signup;
 
-    LocalLoginController(LocalLoginService service) { this.service = service; }
+    LocalLoginController(LocalLoginService service, CustomerSignupService signup) {
+        this.service = service;
+        this.signup = signup;
+    }
+
+    @PostMapping(value = "/signup", consumes = MediaType.APPLICATION_JSON_VALUE)
+    @Operation(summary = "Create a customer account with first-party credentials")
+    @ApiResponse(responseCode = "201", description = "Customer account created. Sign in to continue.")
+    ResponseEntity<SignupResult> signup(@Valid @RequestBody Signup body, HttpServletRequest request) {
+        signup.register(body.displayName(), body.email(), body.password(), request.getRemoteAddr());
+        return ResponseEntity.status(HttpStatus.CREATED).header(HttpHeaders.CACHE_CONTROL, "no-store")
+                .body(new SignupResult("Customer account created. Sign in to continue."));
+    }
 
     @PostMapping(value = "/login", consumes = MediaType.APPLICATION_JSON_VALUE)
     @Operation(summary = "Sign in with a provisioned FleetFlow demo email and password")
@@ -42,4 +55,6 @@ public class LocalLoginController {
     }
 
     record Credentials(@NotBlank String email, @NotBlank String password) { }
+    record Signup(@NotBlank String displayName, @NotBlank String email, @NotBlank String password) { }
+    record SignupResult(String message) { }
 }

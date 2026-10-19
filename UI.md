@@ -1,5 +1,12 @@
 # FleetFlow UI recovery checkpoint
 
+## Customer signup — 2026-10-20
+
+- Added `/signup` in the same evergreen/white split layout and Segoe UI Variable type as `/login`. Both pages have visible links to each other in the header and near the form. The signup form has name, email, password and confirmation fields, clear validation/error states, and a completion state that sends the customer to sign in.
+- `POST /api/v1/auth/signup` creates an active local actor, exactly one `CUSTOMER` role, a customer profile and a BCrypt credential in one database transaction. It normalizes email, rejects duplicates and weak/short passwords, and limits signup attempts in Redis; the production edge has a dedicated signup rate limit. No team role is client selectable. This demo flow does not verify email ownership or provide account recovery, so it is not a production identity enrollment claim.
+- Focused API integration tests proved customer-only role creation, duplicate rejection and password login. Frontend lint, typecheck, build and 70 unit tests passed. Browser captures at 1440 and 390 pixels showed no horizontal overflow; axe reported zero violations on both signup captures. Full backend suite and new exact-commit CI remain separate gates.
+- **Next:** finish the full backend suite, review and merge the change, then use the release procedure for a new exact CI-built image set. The prior deployment approval applies only to the previous source and image digests.
+
 ## First-party login — 2026-10-19
 
 - `/login` now contains usable email and password fields, a password reveal control, clear failure states, and a separate working SSO button. The chosen layout, Segoe UI Variable typography, route illustration, capability strip and responsive behavior were checked against the supplied reference at eight viewport sizes. The 1073×640 and 360×800 captures fit without page overflow; desktop and mobile axe checks report zero violations.

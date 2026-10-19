@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from "react";
-import { Navigate, useLocation } from "react-router-dom";
+import { Link, Navigate, useLocation } from "react-router-dom";
 import { ApiProblem } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
 
@@ -58,6 +58,7 @@ export function LoginPage() {
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [formError, setFormError] = useState("");
+  const registered = (location.state as { registered?: boolean } | null)?.registered === true;
   const candidate = (location.state as { from?: string } | null)?.from;
   const returnTo =
     candidate?.startsWith("/") &&
@@ -97,9 +98,9 @@ export function LoginPage() {
           <a href="#platform">Product</a>
           <a href="#capabilities">Capabilities</a>
         </nav>
-        <a className="login-header-action" href="#sign-in">
-          Workspace access <span aria-hidden="true">↗</span>
-        </a>
+        <Link className="login-header-action" to="/signup">
+          Create account <span aria-hidden="true">↗</span>
+        </Link>
       </header>
 
       <main className="login-layout">
@@ -134,6 +135,7 @@ export function LoginPage() {
           <div className="login-panel-content">
             <h2 id="sign-in-title">Welcome back</h2>
             <p className="login-panel-intro">Sign in to your FleetFlow workspace.</p>
+            {registered && <p className="login-success" role="status">Your customer account is ready. Sign in below.</p>}
             {(auth.status === "error" || auth.problem) && !formError && (
               <p className="inline-alert" role="alert">
                 Sign-in is temporarily unavailable or this account could not be
@@ -162,6 +164,7 @@ export function LoginPage() {
                 {pending ? "Signing in…" : "Continue to sign in"}
               </button>
             </form>
+            <p className="login-switch">New to FleetFlow? <Link to="/signup">Create a customer account <span aria-hidden="true">→</span></Link></p>
             <div className="login-alternate">
               <span>or</span>
               <button type="button" disabled={pending} onClick={() => void auth.signIn(returnTo)}>

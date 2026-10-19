@@ -12,6 +12,7 @@ import { CustomerOrdersPage } from "./pages/CustomerOrdersPage";
 import { CommandCenterPage } from "./pages/CommandCenterPage";
 import { TrackingPage } from "./pages/TrackingPage";
 import { LoginPage } from "./pages/LoginPage";
+import { SignupPage } from "./pages/SignupPage";
 const DispatchPage = lazy(() =>
   import("./pages/DispatchPage").then((m) => ({ default: m.DispatchPage })),
 );
@@ -115,6 +116,7 @@ export function App() {
       <RouteFocus />
       <Routes>
         <Route path="/login" element={<LoginPage />} />
+        <Route path="/signup" element={<SignupPage />} />
         <Route path="/auth/callback" element={<AuthCallbackPage />} />
         <Route path="/auth/signed-out" element={<SignedOutPage />} />
         <Route path="/forbidden" element={<ForbiddenPage />} />
