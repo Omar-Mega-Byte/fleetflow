@@ -27,5 +27,6 @@ describe("first-party login", () => {
     expect(passwordSignInMock).toHaveBeenCalledWith("operator@fleetflow.demo", "example-password");
     await user.click(screen.getByRole("button", { name: "Continue with workspace SSO" }));
     expect(signInMock).toHaveBeenCalledOnce();
+    expect(screen.getByRole("link", { name: /create a customer account/i })).toHaveAttribute("href", "/signup");
   });
 });

@@ -23,7 +23,7 @@ export const apiClient = new ApiClient({ token: async () => memoryLocalToken ? '
 
 export function safeReturnTo(value: unknown): string {
   return typeof value === 'string' && value.startsWith('/') && !value.startsWith('//')
-    && !value.includes('\\') && !/^\/(auth|login)(\/|\?|$)/.test(value) ? value : '/';
+    && !value.includes('\\') && !/^\/(auth|login|signup)(\/|\?|$)/.test(value) ? value : '/';
 }
 const signedOut: AuthState = { status: 'unauthenticated', roles: [], user: null, localToken: null, problem: null };
 

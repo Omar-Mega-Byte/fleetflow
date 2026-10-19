@@ -121,7 +121,7 @@ public class SecurityConfiguration {
                                 "/api/v1/drivers/*", "/api/v1/vehicles/*")
                                 .hasRole("ADMIN");
                     }
-                    auth.requestMatchers(HttpMethod.POST, "/api/v1/auth/login", "/api/v1/auth/logout")
+                    auth.requestMatchers(HttpMethod.POST, "/api/v1/auth/login", "/api/v1/auth/signup", "/api/v1/auth/logout")
                             .permitAll();
                     auth.anyRequest().denyAll();
                 })

@@ -103,4 +103,41 @@ class FirstPartyLoginTests {
         mvc.perform(get("/api/v1/session").header("X-FleetFlow-Session", token))
                 .andExpect(status().isUnauthorized());
     }
+
+    @Test
+    void publicSignupCreatesOnlyCustomerIdentityAndCanSignIn() throws Exception {
+        String email = UUID.randomUUID() + "@example.com";
+        String password = "a long customer passphrase";
+        String body = "{\"displayName\":\"Alex Morgan\",\"email\":\"" + email.toUpperCase()
+                + "\",\"password\":\"" + password + "\",\"role\":\"ADMIN\"}";
+        mvc.perform(post("/api/v1/auth/signup").contentType(MediaType.APPLICATION_JSON).content(body))
+                .andExpect(status().isCreated());
+        UUID actor = jdbc.queryForObject("select actor_id from local_login_credentials where email = ?",
+                UUID.class, email);
+        assertThat(jdbc.queryForList("select role from actor_roles where actor_id = ?", String.class, actor))
+                .containsExactly("CUSTOMER");
+        assertThat(jdbc.queryForObject("select display_name from customers where actor_id = ?", String.class, actor))
+                .isEqualTo("Alex Morgan");
+        mvc.perform(post("/api/v1/auth/signup").contentType(MediaType.APPLICATION_JSON).content(body))
+                .andExpect(status().isConflict());
+        var result = mvc.perform(post("/api/v1/auth/login").contentType(MediaType.APPLICATION_JSON)
+                .content("{\"email\":\"" + email + "\",\"password\":\"" + password + "\"}"))
+                .andExpect(status().isOk()).andReturn();
+        String token = JsonPath.read(result.getResponse().getContentAsString(), "$.token");
+        mvc.perform(get("/api/v1/session").header("X-FleetFlow-Session", token))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.roles[0]").value("CUSTOMER"));
+        mvc.perform(get("/api/v1/demo").header("X-FleetFlow-Session", token))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void signupRejectsShortOrCommonPasswordsWithoutCreatingAccount() throws Exception {
+        String email = UUID.randomUUID() + "@example.com";
+        mvc.perform(post("/api/v1/auth/signup").contentType(MediaType.APPLICATION_JSON)
+                .content("{\"displayName\":\"Alex Morgan\",\"email\":\"" + email
+                        + "\",\"password\":\"short\"}"))
+                .andExpect(status().isBadRequest());
+        assertThat(jdbc.queryForObject("select count(*) from local_login_credentials where email = ?",
+                Integer.class, email)).isZero();
+    }
 }

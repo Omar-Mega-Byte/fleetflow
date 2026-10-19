@@ -1344,6 +1344,85 @@ textarea:focus {
 .login-security svg {
   color: #168460;
 }
+.login-switch {
+  margin: 20px 0 0;
+  color: #5d7065;
+  font-size: 13px;
+  line-height: 1.5;
+}
+.login-switch a {
+  color: #087d59;
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.login-switch a:hover { color: #055e42; }
+.login-success {
+  margin: 19px 0 -11px;
+  padding: 11px 13px;
+  border-left: 3px solid #087d59;
+  background: #f1f8f4;
+  color: #175942;
+  font-size: 13px;
+}
+.signup-panel { padding-top: clamp(45px, 7vh, 78px); }
+.signup-eyebrow {
+  margin: 0 0 10px;
+  color: #087d59;
+  font-size: 11px;
+  font-weight: 750;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+.signup-form { margin-top: 24px; }
+.signup-form label:not(:first-child) { margin-top: 13px; }
+.signup-hint {
+  margin: 7px 0 0;
+  color: #667a6e;
+  font-size: 11px;
+  line-height: 1.4;
+}
+.signup-step {
+  color: #45dda3;
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: -0.06em;
+}
+.signup-scope {
+  margin: 19px 0 0;
+  padding-top: 18px;
+  border-top: 1px solid #e4eae6;
+  color: #607169;
+  font-size: 12px;
+  line-height: 1.5;
+}
+.signup-complete {
+  margin-top: 34px;
+}
+.signup-complete-mark {
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  background: #e5f5ec;
+  color: #087d59;
+  font-size: 22px;
+}
+.signup-complete h3 {
+  margin: 16px 0 4px;
+  color: #10231d;
+  font-size: 23px;
+  letter-spacing: -0.04em;
+}
+.signup-complete p { margin: 0; color: #5a6d64; line-height: 1.5; }
+.signup-done-link {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  text-decoration: none;
+}
 @media (max-width: 1100px) {
   .login-story {
     padding-inline: clamp(34px, 4vw, 52px);
@@ -1382,6 +1461,7 @@ textarea:focus {
     min-height: 425px;
     padding: 50px 48px 27px;
   }
+  .signup-panel { padding-top: 44px; }
   .login-panel-content {
     width: min(100%, 440px);
   }
@@ -1454,6 +1534,7 @@ textarea:focus {
     margin-top: 18px;
     padding-top: 17px;
   }
+  .signup-panel { padding-top: 29px; }
 }
 .map-panel {
   position: relative;
