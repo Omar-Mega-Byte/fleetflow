@@ -4,8 +4,8 @@
 
 - Added `/signup` in the same evergreen/white split layout and Segoe UI Variable type as `/login`. Both pages have visible links to each other in the header and near the form. The signup form has name, email, password and confirmation fields, clear validation/error states, and a completion state that sends the customer to sign in.
 - `POST /api/v1/auth/signup` creates an active local actor, exactly one `CUSTOMER` role, a customer profile and a BCrypt credential in one database transaction. It normalizes email, rejects duplicates and weak/short passwords, and limits signup attempts in Redis; the production edge has a dedicated signup rate limit. No team role is client selectable. This demo flow does not verify email ownership or provide account recovery, so it is not a production identity enrollment claim.
-- Focused API integration tests proved customer-only role creation, duplicate rejection and password login. Frontend lint, typecheck, build and 70 unit tests passed. Browser captures at 1440 and 390 pixels showed no horizontal overflow; axe reported zero violations on both signup captures. Full backend suite and new exact-commit CI remain separate gates.
-- **Next:** finish the full backend suite, review and merge the change, then use the release procedure for a new exact CI-built image set. The prior deployment approval applies only to the previous source and image digests.
+- Focused API integration tests proved customer-only role creation, duplicate rejection and password login. The full Maven suite passed 149/149 tests with zero failures or skips. Frontend lint, typecheck, build and 70 unit tests passed. Browser captures at 1440 and 390 pixels showed no horizontal overflow; axe reported zero violations on both signup captures. New exact-commit CI remains a separate gate.
+- **Next:** review and merge the change, then use the release procedure for a new exact CI-built image set. The prior deployment approval applies only to the previous source and image digests.
 
 ## First-party login — 2026-10-19
 
