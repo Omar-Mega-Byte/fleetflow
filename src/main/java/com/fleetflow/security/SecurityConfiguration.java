@@ -18,7 +18,7 @@ import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 @Configuration(proxyBeanMethods = false)
 public class SecurityConfiguration {
     @Bean
-    SecurityFilterChain securityFilterChain(HttpSecurity http, ActorResolver resolver,
+    SecurityFilterChain securityFilterChain(HttpSecurity http, ActorResolver resolver, LocalLoginService localLogin,
                                             SecurityProblemWriter errors, Environment environment, MeterRegistry metrics) throws Exception {
         Set<String> profiles = Set.of(environment.getActiveProfiles());
         boolean localFixtures = profiles.equals(Set.of("local")) || profiles.equals(Set.of("test"));
@@ -121,6 +121,8 @@ public class SecurityConfiguration {
                                 "/api/v1/drivers/*", "/api/v1/vehicles/*")
                                 .hasRole("ADMIN");
                     }
+                    auth.requestMatchers(HttpMethod.POST, "/api/v1/auth/login", "/api/v1/auth/logout")
+                            .permitAll();
                     auth.anyRequest().denyAll();
                 })
                 .oauth2ResourceServer(oauth -> oauth.jwt(Customizer.withDefaults())
@@ -135,7 +137,7 @@ public class SecurityConfiguration {
                                 errors.write(request, response, HttpServletResponse.SC_FORBIDDEN,
                                         "FORBIDDEN", "Access denied")))
                 .addFilterBefore(new IdentityAvailabilityFilter(errors, metrics), BearerTokenAuthenticationFilter.class)
-                .addFilterAfter(new ActorAuthenticationFilter(resolver, errors), BearerTokenAuthenticationFilter.class);
+                .addFilterAfter(new ActorAuthenticationFilter(resolver, errors, localLogin), BearerTokenAuthenticationFilter.class);
         return http.build();
     }
 }

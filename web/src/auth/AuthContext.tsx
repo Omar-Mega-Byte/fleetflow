@@ -6,9 +6,10 @@ import type { PersonaRole } from '../contracts';
 import { userManager } from './oidc';
 
 export type AuthStatus = 'loading' | 'authenticated' | 'unauthenticated' | 'error';
-interface AuthState { status: AuthStatus; roles: PersonaRole[]; user: User | null; problem: ApiProblem | null; }
+interface AuthState { status: AuthStatus; roles: PersonaRole[]; user: User | null; localToken: string | null; problem: ApiProblem | null; }
 interface AuthContextValue extends AuthState {
   signIn: (returnTo?: string) => Promise<void>;
+  signInWithPassword: (email: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
   completeSignIn: () => Promise<string>;
   reauthenticate: () => Promise<void>;
@@ -16,13 +17,15 @@ interface AuthContextValue extends AuthState {
 }
 const AuthContext = createContext<AuthContextValue | null>(null);
 let memoryUser: User | null = null;
-export const apiClient = new ApiClient({ token: async () => memoryUser && !memoryUser.expired ? memoryUser.access_token : null });
+let memoryLocalToken: string | null = null;
+export const apiClient = new ApiClient({ token: async () => memoryLocalToken ? 'local:' + memoryLocalToken
+  : memoryUser && !memoryUser.expired ? memoryUser.access_token : null });
 
 export function safeReturnTo(value: unknown): string {
   return typeof value === 'string' && value.startsWith('/') && !value.startsWith('//')
     && !value.includes('\\') && !/^\/(auth|login)(\/|\?|$)/.test(value) ? value : '/';
 }
-const signedOut: AuthState = { status: 'unauthenticated', roles: [], user: null, problem: null };
+const signedOut: AuthState = { status: 'unauthenticated', roles: [], user: null, localToken: null, problem: null };
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<AuthState>({ ...signedOut, status: 'loading' });
@@ -34,7 +37,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const clearSession = useCallback(() => {
     revision.current += 1; credentialEpoch.current += 1;
-    sessionRead.current?.abort(); memoryUser = null; callback.current = null;
+    sessionRead.current?.abort(); memoryUser = null; memoryLocalToken = null; callback.current = null;
     setState(signedOut);
   }, []);
   const expireSession = useCallback(() => {
@@ -42,20 +45,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     void userManager.removeUser().catch(() => setState(signedOut));
   }, [clearSession]);
 
-  const loadSession = useCallback(async (user: User | null): Promise<boolean> => {
-    if (!user || user.expired || !user.access_token) { expireSession(); return false; }
+  const loadSession = useCallback(async (user: User | null, localToken: string | null = null): Promise<boolean> => {
+    if ((!user && !localToken) || (user && (user.expired || !user.access_token))) { expireSession(); return false; }
     const current = ++revision.current;
     sessionRead.current?.abort();
     const controller = new AbortController(); sessionRead.current = controller;
-    memoryUser = user;
+    memoryUser = user; memoryLocalToken = localToken;
     try {
       const session = await apiClient.get('/v1/session', decodeSession, controller.signal);
       if (current !== revision.current || controller.signal.aborted) return false;
-      setState({ status: 'authenticated', roles: session.roles, user, problem: null });
+      setState({ status: 'authenticated', roles: session.roles, user, localToken, problem: null });
       return true;
     } catch (error) {
       if (current !== revision.current || controller.signal.aborted) return false;
-      memoryUser = null;
+      memoryUser = null; memoryLocalToken = null;
       const problem = error instanceof ApiProblem ? error : new ApiProblem('unexpected');
       setState({ ...signedOut, status: problem.kind === 'unauthenticated' ? 'unauthenticated' : 'error', problem });
       return false;
@@ -72,7 +75,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     userManager.events.addAccessTokenExpired(expireSession);
     apiClient.setUnauthenticatedHandler(expireSession);
     return () => {
-      mounted = false; live.current = false; revision.current += 1; sessionRead.current?.abort(); memoryUser = null;
+      mounted = false; live.current = false; revision.current += 1; sessionRead.current?.abort(); memoryUser = null; memoryLocalToken = null;
       userManager.events.removeAccessTokenExpired(expireSession);
       apiClient.setUnauthenticatedHandler(undefined);
     };
@@ -83,9 +86,36 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try { await userManager.signinRedirect({ state: { returnTo: safeReturnTo(returnTo) } }); }
     catch { setState({ ...signedOut, status: 'error', problem: new ApiProblem('unavailable') }); }
   }, [clearSession]);
+  const signInWithPassword = useCallback(async (email: string, password: string) => {
+    clearSession();
+    let response: Response;
+    try {
+      response = await fetch('/api/v1/auth/login', {
+        method: 'POST', headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        body: JSON.stringify({ email, password }), cache: 'no-store', credentials: 'omit', redirect: 'error',
+      });
+    } catch { throw new ApiProblem('network'); }
+    if (!response.ok) {
+      await response.body?.cancel();
+      throw new ApiProblem(response.status === 401 ? 'unauthenticated'
+        : response.status === 429 ? 'rate-limited' : 'unavailable', response.status);
+    }
+    const payload: unknown = await response.json();
+    if (!payload || typeof payload !== 'object' || !('token' in payload)
+      || typeof payload.token !== 'string' || !/^[A-Za-z0-9_-]{43}$/.test(payload.token))
+      throw new ApiProblem('unexpected');
+    if (!await loadSession(null, payload.token)) throw new ApiProblem('unauthenticated');
+  }, [clearSession, loadSession]);
   const signOut = useCallback(async () => {
     const user = memoryUser;
+    const localToken = memoryLocalToken;
     clearSession();
+    if (localToken) {
+      try { await fetch('/api/v1/auth/logout', { method: 'POST',
+        headers: { 'X-FleetFlow-Session': localToken }, cache: 'no-store', credentials: 'omit' }); }
+      catch { /* Local credentials have already been cleared from memory. */ }
+      return;
+    }
     try {
       await userManager.removeUser();
       await userManager.signoutRedirect({ id_token_hint: user?.id_token });
@@ -108,14 +138,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return promise;
   }, [loadSession]);
   const reauthenticate = useCallback(async () => {
+    if (memoryLocalToken) { clearSession(); return; }
     clearSession();
     try { await userManager.removeUser(); }
     catch { setState({ ...signedOut, problem: new ApiProblem('unavailable') }); }
     await signIn(window.location.pathname + window.location.search);
   }, [clearSession, signIn]);
 
-  const value = useMemo(() => ({ ...state, signIn, signOut, completeSignIn, reauthenticate, expireSession }),
-    [state, signIn, signOut, completeSignIn, reauthenticate, expireSession]);
+  const value = useMemo(() => ({ ...state, signIn, signInWithPassword, signOut, completeSignIn, reauthenticate, expireSession }),
+    [state, signIn, signInWithPassword, signOut, completeSignIn, reauthenticate, expireSession]);
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 export function useAuth(): AuthContextValue {

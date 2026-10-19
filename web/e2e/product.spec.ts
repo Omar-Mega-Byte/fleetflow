@@ -49,7 +49,7 @@ test("complete product navigation, real-contract actions, responsive layouts and
   await page.setViewportSize({ width: 1440, height: 960 });
   await page.goto("/login");
   await capture(page, "login-desktop");
-  await page.getByRole("button", { name: "Continue to sign in" }).click();
+  await page.getByRole("button", { name: "Continue with workspace SSO" }).click();
   await expect(
     page.getByRole("heading", { name: "Command Center" }),
   ).toBeVisible();
@@ -235,7 +235,7 @@ test("complete product navigation, real-contract actions, responsive layouts and
 test("customer role cannot open dispatcher workspace", async ({ page }) => {
   const fixture = await productFixture(page, ["CUSTOMER"]);
   await page.goto("/login");
-  await page.getByRole("button", { name: "Continue to sign in" }).click();
+  await page.getByRole("button", { name: "Continue with workspace SSO" }).click();
   await expect(
     page.getByRole("heading", { name: "Command Center" }),
   ).toBeVisible();

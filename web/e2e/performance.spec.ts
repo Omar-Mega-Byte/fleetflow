@@ -29,7 +29,7 @@ test("production frontend profile, lazy maps and reduced motion", async ({
   const devtools = await page.context().newCDPSession(page);
   await devtools.send("Performance.enable");
   await page.goto("/login");
-  await page.getByRole("button", { name: "Continue to sign in" }).click();
+  await page.getByRole("button", { name: "Continue with workspace SSO" }).click();
   await expect(
     page.getByRole("heading", { name: "Command Center" }),
   ).toBeVisible();
