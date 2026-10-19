@@ -1,6 +1,6 @@
 # Day 4 — Candidate and public-boundary plan
 
-> **Later 2026-10-18 checkpoint:** the [exact six-image GHCR publication](PHASE-8-GHCR-PUBLICATION-2026-10-18.md), [completed Keycloak reconciliation](KEYCLOAK-SECURITY-RECONCILIATION-2026-10-18.md) and [separate owner-approved private candidate](PHASE-8-CANDIDATE-APPROVAL-2026-10-18.md) supersede this day's earlier no-registry/open-finding baseline. Protected PR/main delivery and Azure Phase 9 remain open.
+> **Later 2026-10-18 checkpoint:** the [exact six-image GHCR publication](PHASE-8-GHCR-PUBLICATION-2026-10-18.md), [completed Keycloak reconciliation](KEYCLOAK-SECURITY-RECONCILIATION-2026-10-18.md) and [separate owner-approved private candidate](PHASE-8-CANDIDATE-APPROVAL-2026-10-18.md) supersede this day's earlier no-registry/open-finding baseline. [PR #40](https://github.com/Omar-Mega-Byte/fleetflow/pull/40) merged as `530c9ea` and its [main CI](https://github.com/Omar-Mega-Byte/fleetflow/actions/runs/39162750016) passed; final-main image promotion and Azure Phase 9 remain open. GitHub reported no `main` branch protection at merge time.
 
 **Status:** PARTIAL — local preflight is complete; candidate promotion and Azure deployment are blocked by external prerequisites.
 **Plan baseline:** 2026-10-17. **Execution started:** 2026-10-17 (Africa/Cairo).
